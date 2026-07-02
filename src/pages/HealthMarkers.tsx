@@ -5,6 +5,7 @@ import {
   TrendingUp, Plus, Ruler, ChevronDown,
 } from 'lucide-react';
 import { MEASUREMENT_KEYS, MEASUREMENT_LABELS, pruneMeasurements } from '../utils/measurements';
+import { computeProgressSummary } from '../utils/progressSummary';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
@@ -37,6 +38,17 @@ const CHART_LINES = [
 ] as const;
 
 type ChartKey = typeof CHART_LINES[number]['key'];
+
+const METRIC_UNITS: Record<ChartKey, string> = {
+  weight: 'kg', bodyFatPct: '%', restingHR: 'bpm', fastingGlucose: 'mg/dL',
+  mood: '/5', energy: '/5', sleepQuality: '/5',
+  waist: 'cm', chest: 'cm', hips: 'cm', shoulders: 'cm', neck: 'cm',
+  armL: 'cm', armR: 'cm', thighL: 'cm', thighR: 'cm', calfL: 'cm', calfR: 'cm',
+};
+
+const PROGRESS_METRICS = CHART_LINES.map(l => ({
+  key: l.key, label: l.label, unit: METRIC_UNITS[l.key],
+}));
 
 function EmojiScale({ value, onChange, emojis, label }: {
   value: number; onChange: (v: number) => void; emojis: string[]; label: string;
@@ -155,6 +167,7 @@ export function HealthMarkers() {
       sleepQuality: m.sleepQuality,
       ...m.measurements,
     }));
+  const progress = computeProgressSummary(markers, PROGRESS_METRICS, cutoff);
 
   if (loading) {
     return (
@@ -396,6 +409,29 @@ export function HealthMarkers() {
               </button>
             ))}
           </div>
+
+          {/* Progress summary */}
+          {progress.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {progress.map(p => {
+                const arrow = p.delta > 0 ? '↑' : p.delta < 0 ? '↓' : '→';
+                return (
+                  <div key={p.key} className="card-glass p-3">
+                    <p className="text-xs text-text-muted font-medium">{p.label}</p>
+                    <p className="text-sm font-mono mt-0.5">
+                      {p.count > 1 ? `${p.first} → ${p.last}` : p.last}
+                      <span className="text-text-muted"> {p.unit}</span>
+                    </p>
+                    {p.count > 1 && (
+                      <p className="text-xs font-mono text-text-secondary mt-0.5">
+                        {arrow} {p.delta > 0 ? '+' : ''}{p.delta} {p.unit} over {range}d
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Line toggles */}
           <div className="flex flex-wrap gap-2">
