@@ -20,6 +20,8 @@ import { DoseHistory } from './pages/DoseHistory';
 import { Onboarding } from './pages/Onboarding';
 import { InjectionMap } from './pages/InjectionMap';
 import { GoalPicker } from './pages/GoalPicker';
+import { ViewFilterProvider } from './context/ViewFilterContext';
+import { UserFilterChip } from './components/UserFilterChip';
 
 export default function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem('pepdose-onboarded') === 'true');
@@ -29,8 +31,12 @@ export default function App() {
   }
 
   return (
+    <ViewFilterProvider>
     <BrowserRouter basename="/pepdose">
       <div className="noise-bg flex flex-col min-h-dvh relative">
+        <header className="safe-top sticky top-0 z-40 flex justify-end px-5 py-2 bg-bg/80 backdrop-blur-xl">
+          <UserFilterChip />
+        </header>
         <main className="flex-1 pb-24 overflow-y-auto relative">
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -57,5 +63,6 @@ export default function App() {
         <BottomNav />
       </div>
     </BrowserRouter>
+    </ViewFilterProvider>
   );
 }
