@@ -6,6 +6,7 @@ import { getScheduledDosesForDate, getProtocols, getDoseLogsForDate, getSchedule
 import { getPeptideById } from '../data/peptides';
 import { scheduleDayNotifications, clearScheduledNotifications } from '../utils/notifications';
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
+import { DoseActionSheet } from '../components/DoseActionSheet';
 import type { ScheduledDose, UserProtocol } from '../db/schema';
 
 interface DashboardDose extends ScheduledDose {
@@ -30,6 +31,8 @@ export function Dashboard() {
   const [logged, setLogged] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<NextStep | null>(null);
+  const [activeDose, setActiveDose] = useState<DashboardDose | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const notifTimers = useRef<number[]>([]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -62,7 +65,7 @@ export function Dashboard() {
     }
     load();
     return () => clearScheduledNotifications(notifTimers.current);
-  }, [today]);
+  }, [today, reloadKey]);
 
   useEffect(() => {
     (async () => {
@@ -111,8 +114,9 @@ export function Dashboard() {
       </header>
 
       {nextDose ? (
-        <div
-          className="card-glass p-5 mb-5 stagger-item"
+        <button
+          onClick={() => setActiveDose(nextDose)}
+          className="card-glass p-5 mb-5 stagger-item w-full text-left tap-target block"
           style={{ animationDelay: '0.05s' }}
         >
           <div className="flex items-center gap-3 mb-3">
@@ -148,7 +152,7 @@ export function Dashboard() {
               Dose increase — titration step-up today
             </div>
           )}
-        </div>
+        </button>
       ) : totalCount > 0 ? (
         <div
           className="card-glass p-5 mb-5 stagger-item text-center"
@@ -212,6 +216,7 @@ export function Dashboard() {
               return (
                 <button
                   key={dose.id}
+                  onClick={() => setActiveDose(dose)}
                   className="card-glass w-full flex items-center gap-3 p-4 tap-target text-left stagger-item"
                   style={{ animationDelay: `${0.15 + i * 0.05}s` }}
                 >
@@ -282,6 +287,14 @@ export function Dashboard() {
             })}
           </div>
         </div>
+      )}
+
+      {activeDose && (
+        <DoseActionSheet
+          dose={{ ...activeDose, color: activeDose.categoryColor }}
+          onClose={() => setActiveDose(null)}
+          onUpdated={() => { setActiveDose(null); setReloadKey(k => k + 1); }}
+        />
       )}
     </div>
   );
