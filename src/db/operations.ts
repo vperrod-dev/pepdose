@@ -275,10 +275,13 @@ export async function importData(jsonString: string): Promise<void> {
   const db = await getDB();
 
   const stores = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
+  const ownedStores = new Set(['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers']);
   for (const storeName of stores) {
     if (data[storeName]) {
       const tx = db.transaction(storeName, 'readwrite');
       for (const item of data[storeName]) {
+        // Default owner for records from pre-two-user backups.
+        if (ownedStores.has(storeName) && !item.owner) item.owner = 'Victor';
         await tx.store.put(item);
       }
       await tx.done;

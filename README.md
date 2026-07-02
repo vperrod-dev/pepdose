@@ -46,6 +46,11 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
   **body measurements** (waist, chest, arms, thighs, etc. in cm) logged alongside weight/body-fat
   and plotted on the same trend chart to track physical progress
 - **Experience guides** — week-by-week timelines, side effects, and red flags (community + clinical sourced)
+- **Two users (Victor / Nadia)** — a shared-device model. Every protocol, dose, vial, and
+  health marker belongs to a user; creation forms carry a Victor/Nadia picker (remembering your
+  last choice). All screens show both users at once, each item badged with its owner, plus a
+  **Both / Victor / Nadia** filter chip in the header to narrow the view (charts respect it).
+  Onboarding and settings are shared.
 - **Export / import** — back up and restore all data
 - **Offline-first PWA** — installable, works without a connection
 
@@ -93,6 +98,20 @@ All data lives in IndexedDB in the browser — nothing is sent to a server.
   `/find` picker (only `synergy` stacks surface). Picks navigate to `NewProtocol` with
   `preselectPeptideIds` in router state.
 - The outcome overlay reuses the `HealthMarkers` recharts pattern with `getHealthMarkers(start, end)`.
+
+## How the two-user model works
+
+- `src/data/users.ts` — the two fixed users (`Victor`, `Nadia`), their badge colors, and the
+  `getLastOwner`/`setLastOwner` preference (localStorage `pepdose-last-owner`).
+- Every owned record (`UserProtocol`, `ScheduledDose`, `DoseLog`, `Vial`, `HealthMarker`) carries
+  an `owner`. A DB **v1→v2** migration in `src/db/schema.ts` backfills all pre-existing data to
+  `Victor`; `importData` defaults owner-less records from old backups the same way.
+- `saveScheduledDoses(doses, owner)` stamps owner at the save boundary, keeping `scheduleEngine`
+  owner-free (it returns `DraftDose` = owner-less doses). Logged doses inherit their scheduled
+  dose's owner.
+- `src/context/ViewFilterContext.tsx` holds the `Both / Victor / Nadia` view filter (persisted,
+  default *Both*); `useOwnerFilter()` / `filterByOwner()` filter any owned list. `UserFilterChip`
+  (header) sets it; `UserPicker` (forms) assigns owner; `UserBadge` labels each item.
 
 ## Develop
 
