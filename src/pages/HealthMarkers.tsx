@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, subDays } from 'date-fns';
 import {
   Heart, Weight, Activity, Brain, Moon, Zap, FileText,
-  TrendingUp, Plus,
+  TrendingUp, Plus, Ruler, ChevronDown,
 } from 'lucide-react';
+import { MEASUREMENT_KEYS, MEASUREMENT_LABELS, pruneMeasurements } from '../utils/measurements';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
@@ -22,6 +23,17 @@ const CHART_LINES = [
   { key: 'mood', color: '#22c55e', label: 'Mood' },
   { key: 'energy', color: '#8b5cf6', label: 'Energy' },
   { key: 'sleepQuality', color: '#3b82f6', label: 'Sleep' },
+  { key: 'waist', color: '#ec4899', label: 'Waist' },
+  { key: 'chest', color: '#14b8a6', label: 'Chest' },
+  { key: 'hips', color: '#a855f7', label: 'Hips' },
+  { key: 'shoulders', color: '#f97316', label: 'Shoulders' },
+  { key: 'neck', color: '#eab308', label: 'Neck' },
+  { key: 'armL', color: '#84cc16', label: 'Arm (L)' },
+  { key: 'armR', color: '#10b981', label: 'Arm (R)' },
+  { key: 'thighL', color: '#06b6d4', label: 'Thigh (L)' },
+  { key: 'thighR', color: '#0ea5e9', label: 'Thigh (R)' },
+  { key: 'calfL', color: '#f43f5e', label: 'Calf (L)' },
+  { key: 'calfR', color: '#d946ef', label: 'Calf (R)' },
 ] as const;
 
 type ChartKey = typeof CHART_LINES[number]['key'];
@@ -73,6 +85,8 @@ export function HealthMarkers() {
   const [sleep, setSleep] = useState(0);
   const [sideEffects, setSideEffects] = useState('');
   const [notes, setNotes] = useState('');
+  const [measurements, setMeasurements] = useState<Record<string, string>>({});
+  const [showMeasurements, setShowMeasurements] = useState(false);
 
   // Chart filter
   const [activeLines, setActiveLines] = useState<Set<ChartKey>>(
@@ -91,12 +105,13 @@ export function HealthMarkers() {
   function resetForm() {
     setWeight(''); setBodyFat(''); setBpSys(''); setBpDia('');
     setHr(''); setGlucose(''); setMood(0); setEnergy(0);
-    setSleep(0); setSideEffects(''); setNotes('');
+    setSleep(0); setSideEffects(''); setNotes(''); setMeasurements({});
     setDate(format(new Date(), 'yyyy-MM-dd'));
   }
 
   async function handleSave() {
     setSaving(true);
+    const prunedMeasurements = pruneMeasurements(measurements);
     const marker: Omit<HealthMarker, 'id' | 'createdAt'> = {
       date,
       ...(weight && { weight: parseFloat(weight) }),
@@ -110,6 +125,7 @@ export function HealthMarkers() {
       ...(sleep && { sleepQuality: sleep }),
       ...(sideEffects && { sideEffects }),
       ...(notes && { notes }),
+      ...(prunedMeasurements && { measurements: prunedMeasurements }),
     };
     await saveHealthMarker(marker);
     resetForm();
@@ -137,6 +153,7 @@ export function HealthMarkers() {
       mood: m.mood,
       energy: m.energy,
       sleepQuality: m.sleepQuality,
+      ...m.measurements,
     }));
 
   if (loading) {
@@ -275,6 +292,46 @@ export function HealthMarkers() {
                 className="w-full bg-bg-raised border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none font-mono"
               />
             </div>
+          </div>
+
+          {/* Body measurements */}
+          <div className="card-glass overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowMeasurements(v => !v)}
+              aria-expanded={showMeasurements}
+              className="w-full tap-target flex items-center justify-between px-4 py-3 text-sm font-medium"
+            >
+              <span className="flex items-center gap-1.5 text-text-secondary">
+                <Ruler className="w-3.5 h-3.5" /> Body Measurements (cm)
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-text-muted transition-transform ${showMeasurements ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showMeasurements && (
+              <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+                {MEASUREMENT_KEYS.map(key => (
+                  <div key={key}>
+                    <label
+                      htmlFor={`m-${key}`}
+                      className="text-xs text-text-muted font-medium mb-1.5 block"
+                    >
+                      {MEASUREMENT_LABELS[key]}
+                    </label>
+                    <input
+                      id={`m-${key}`}
+                      type="number"
+                      step="0.1"
+                      value={measurements[key] ?? ''}
+                      onChange={e => setMeasurements(prev => ({ ...prev, [key]: e.target.value }))}
+                      placeholder="cm"
+                      className="w-full bg-bg-raised border border-border rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/40 focus:outline-none font-mono"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Emoji scales */}
@@ -433,6 +490,13 @@ export function HealthMarkers() {
                     {m.restingHR != null && <span>{m.restingHR} bpm</span>}
                     {m.fastingGlucose != null && <span>{m.fastingGlucose} mg/dL</span>}
                   </div>
+                  {m.measurements && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-muted font-mono mt-1">
+                      {MEASUREMENT_KEYS.filter(k => m.measurements?.[k] != null).map(k => (
+                        <span key={k}>{MEASUREMENT_LABELS[k]} {m.measurements![k]}cm</span>
+                      ))}
+                    </div>
+                  )}
                   {m.sideEffects && (
                     <p className="text-xs text-amber-400/70 mt-1">{m.sideEffects}</p>
                   )}

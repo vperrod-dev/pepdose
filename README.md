@@ -42,7 +42,9 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
 - **Calculators** — reconstitution calculator (with **IU→mg** converter for IU-dosed compounds
   like HGH/HCG) and half-life decay charts
 - **Vial inventory** — track stock on hand, with a **run-out date forecast** from your dosing cadence
-- **Insights & health markers** — trends and self-reported markers over time
+- **Insights & health markers** — trends and self-reported markers over time, including
+  **body measurements** (waist, chest, arms, thighs, etc. in cm) logged alongside weight/body-fat
+  and plotted on the same trend chart to track physical progress
 - **Experience guides** — week-by-week timelines, side effects, and red flags (community + clinical sourced)
 - **Export / import** — back up and restore all data
 - **Offline-first PWA** — installable, works without a connection

@@ -77,6 +77,7 @@ export interface HealthMarker {
   sideEffects?: string;
   notes?: string;
   bloodwork?: Record<string, number>;
+  measurements?: Record<string, number>;
   createdAt: string;
 }
 
