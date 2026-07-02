@@ -64,6 +64,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
       });
     } else {
       await logDose({
+        owner: dose.owner,
         scheduledDoseId: dose.id,
         protocolId: dose.protocolId,
         peptideId: dose.peptideId,

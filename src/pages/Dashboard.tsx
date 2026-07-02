@@ -8,6 +8,8 @@ import { scheduleDayNotifications, clearScheduledNotifications } from '../utils/
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import type { ScheduledDose, UserProtocol } from '../db/schema';
+import { UserBadge } from '../components/UserBadge';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 interface DashboardDose extends ScheduledDose {
   peptideName: string;
@@ -75,9 +77,12 @@ export function Dashboard() {
     })();
   }, []);
 
-  const completedCount = todayDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
-  const totalCount = todayDoses.length;
-  const nextDose = todayDoses.find(d => d.status === 'upcoming' && !logged.has(d.id));
+  const applyOwnerFilter = useOwnerFilter();
+  const visibleDoses = applyOwnerFilter(todayDoses);
+  const visibleProtocols = applyOwnerFilter(protocols);
+  const completedCount = visibleDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
+  const totalCount = visibleDoses.length;
+  const nextDose = visibleDoses.find(d => d.status === 'upcoming' && !logged.has(d.id));
 
   function getTimeUntil(timeStr: string): string {
     const [h, m] = timeStr.split(':').map(Number);
@@ -211,7 +216,7 @@ export function Dashboard() {
           </div>
 
           <div className="space-y-2">
-            {todayDoses.map((dose, i) => {
+            {visibleDoses.map((dose, i) => {
               const isDone = dose.status === 'logged' || logged.has(dose.id);
               return (
                 <button
@@ -225,9 +230,12 @@ export function Dashboard() {
                     style={{ backgroundColor: isDone ? '#22c55e' : dose.categoryColor }}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm ${isDone ? 'line-through text-text-muted' : ''}`}>
-                      {dose.peptideName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={`font-medium text-sm ${isDone ? 'line-through text-text-muted' : ''}`}>
+                        {dose.peptideName}
+                      </p>
+                      <UserBadge owner={dose.owner} />
+                    </div>
                     <p className="text-xs text-text-muted font-mono">
                       {dose.dose} {dose.unit}
                     </p>
@@ -243,13 +251,13 @@ export function Dashboard() {
         </div>
       )}
 
-      {protocols.length > 0 && (
+      {visibleProtocols.length > 0 && (
         <div className="mb-5 stagger-item" style={{ animationDelay: '0.25s' }}>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted mb-3">
             Active protocols
           </h2>
           <div className="space-y-2">
-            {protocols.map((proto) => {
+            {visibleProtocols.map((proto) => {
               const mainPepId = proto.peptideIds[0];
               const pep = mainPepId ? getPeptideById(mainPepId) : undefined;
               const color = CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa';
@@ -271,6 +279,7 @@ export function Dashboard() {
                       <span className="font-medium text-sm">
                         {proto.name || pep?.name || mainPepId}
                       </span>
+                      <UserBadge owner={proto.owner} />
                     </div>
                     <span className="text-xs text-text-muted font-mono">
                       Week {Math.min(currentWeek, proto.durationWeeks)}/{proto.durationWeeks}

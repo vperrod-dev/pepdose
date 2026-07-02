@@ -4,6 +4,8 @@ import { Syringe, Check, MapPin, Clock, Plus } from 'lucide-react';
 import { getScheduledDosesForDate, getDoseLogsForDate, logDose } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import type { ScheduledDose } from '../db/schema';
+import { UserBadge } from '../components/UserBadge';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 interface QuickDose extends ScheduledDose {
   peptideName: string;
@@ -27,6 +29,7 @@ export function QuickLog() {
   const [loading, setLoading] = useState(true);
 
   const today = format(new Date(), 'yyyy-MM-dd');
+  const applyOwnerFilter = useOwnerFilter();
 
   useEffect(() => {
     async function load() {
@@ -56,6 +59,7 @@ export function QuickLog() {
 
     const now = format(new Date(), 'HH:mm');
     await logDose({
+      owner: dose.owner,
       scheduledDoseId: dose.id,
       protocolId: dose.protocolId,
       peptideId: dose.peptideId,
@@ -71,8 +75,9 @@ export function QuickLog() {
     setLogged(prev => new Set(prev).add(dose.id));
   }
 
-  const pending = doses.filter(d => !logged.has(d.id));
-  const done = doses.filter(d => logged.has(d.id));
+  const visible = applyOwnerFilter(doses);
+  const pending = visible.filter(d => !logged.has(d.id));
+  const done = visible.filter(d => logged.has(d.id));
 
   if (loading) {
     return (
@@ -119,7 +124,10 @@ export function QuickLog() {
                     <Syringe className="w-5 h-5" style={{ color: dose.categoryColor }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{dose.peptideName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold truncate">{dose.peptideName}</p>
+                      <UserBadge owner={dose.owner} />
+                    </div>
                     <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
