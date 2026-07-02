@@ -10,6 +10,8 @@ import { PROTOCOL_TEMPLATES, type ProtocolTemplate } from '../data/protocols';
 import { getStackWarnings } from '../data/stackingRules';
 import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/scheduleEngine';
 import { saveProtocol, saveScheduledDoses } from '../db/operations';
+import { UserPicker } from '../components/UserPicker';
+import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 
 type Step = 'select' | 'configure' | 'review';
 
@@ -59,6 +61,7 @@ export function NewProtocol() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('select');
   const [protocolName, setProtocolName] = useState('');
+  const [owner, setOwner] = useState<UserName>(getLastOwner());
   const [peptideConfigs, setPeptideConfigs] = useState<PeptideConfig[]>([]);
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [durationWeeks, setDurationWeeks] = useState(4);
@@ -184,6 +187,7 @@ export function NewProtocol() {
       startDate,
       durationWeeks,
       status: 'active',
+      owner,
     });
 
     const allDoses = peptideConfigs.flatMap(config =>
@@ -202,7 +206,8 @@ export function NewProtocol() {
       })
     );
 
-    await saveScheduledDoses(allDoses);
+    await saveScheduledDoses(allDoses, owner);
+    setLastOwner(owner);
     setSaving(false);
     navigate('/');
   }
@@ -368,6 +373,10 @@ export function NewProtocol() {
               onChange={e => setProtocolName(e.target.value)}
               className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
+          </div>
+
+          <div className="mb-5 stagger-item" style={{ animationDelay: '0.07s' }}>
+            <UserPicker value={owner} onChange={setOwner} />
           </div>
 
           {peptideConfigs.map((config, idx) => {
