@@ -6,16 +6,19 @@ import { zoneStats, daysSinceByLabel, type ZoneStat } from '../utils/injectionSt
 import { INJECTION_SITES } from '../data/injectionSites';
 import { BodyMapSVG } from '../components/BodyMapSVG';
 import type { DoseLog } from '../db/schema';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 const idByLabel = Object.fromEntries(INJECTION_SITES.map(s => [s.label, s.id]));
 
 export function InjectionMap() {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState<DoseLog[]>([]);
+  const [allLogs, setAllLogs] = useState<DoseLog[]>([]);
   const [windowDays, setWindowDays] = useState(90);
+  const applyOwnerFilter = useOwnerFilter();
 
-  useEffect(() => { getAllDoseLogs().then(setLogs); }, []);
+  useEffect(() => { getAllDoseLogs().then(setAllLogs); }, []);
 
+  const logs = applyOwnerFilter(allLogs);
   const today = new Date();
   const stats: ZoneStat[] = zoneStats(logs, windowDays, today);
   const daysMap = daysSinceByLabel(logs, today);

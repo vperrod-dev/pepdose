@@ -7,6 +7,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getScheduledDosesInRange } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { UserBadge } from '../components/UserBadge';
+import { useViewFilter } from '../context/ViewFilterContext';
+import { filterByOwner } from '../context/ownerFilter';
 import type { ScheduledDose } from '../db/schema';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -43,15 +46,17 @@ export function Calendar() {
     load();
   }, [currentMonth, reloadKey]);
 
+  const { filter } = useViewFilter();
+
   const dosesByDate = useMemo(() => {
     const map = new Map<string, ScheduledDose[]>();
-    for (const dose of monthDoses) {
+    for (const dose of filterByOwner(monthDoses, filter)) {
       const existing = map.get(dose.date) || [];
       existing.push(dose);
       map.set(dose.date, existing);
     }
     return map;
-  }, [monthDoses]);
+  }, [monthDoses, filter]);
 
   const selectedDoses = useMemo(() => {
     const key = format(selectedDate, 'yyyy-MM-dd');
@@ -176,9 +181,12 @@ export function Calendar() {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm ${isDone ? 'text-text-muted' : ''}`}>
-                      {dose.peptideName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={`font-medium text-sm ${isDone ? 'text-text-muted' : ''}`}>
+                        {dose.peptideName}
+                      </p>
+                      <UserBadge owner={dose.owner} />
+                    </div>
                     <p className="text-xs text-text-muted font-mono">
                       {dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
                     </p>

@@ -5,6 +5,9 @@ import { getAllDoseLogs } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import type { DoseLog } from '../db/schema';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths } from 'date-fns';
+import { UserBadge } from '../components/UserBadge';
+import { useViewFilter } from '../context/ViewFilterContext';
+import { filterByOwner } from '../context/ownerFilter';
 
 export function DoseHistory() {
   const navigate = useNavigate();
@@ -19,10 +22,14 @@ export function DoseHistory() {
 
   useEffect(() => { load(); }, [load]);
 
+  const { filter } = useViewFilter();
+
+  const ownedLogs = useMemo(() => filterByOwner(logs, filter), [logs, filter]);
+
   const filtered = useMemo(() => {
-    if (!filterPeptide) return logs;
-    return logs.filter(l => l.peptideId === filterPeptide);
-  }, [logs, filterPeptide]);
+    if (!filterPeptide) return ownedLogs;
+    return ownedLogs.filter(l => l.peptideId === filterPeptide);
+  }, [ownedLogs, filterPeptide]);
 
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {};
@@ -32,7 +39,7 @@ export function DoseHistory() {
     return map;
   }, [filtered]);
 
-  const peptideIds = useMemo(() => [...new Set(logs.map(l => l.peptideId))], [logs]);
+  const peptideIds = useMemo(() => [...new Set(ownedLogs.map(l => l.peptideId))], [ownedLogs]);
 
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
@@ -149,7 +156,10 @@ export function DoseHistory() {
               <div key={log.id} className="card-glass p-3 flex items-center gap-3" style={{ animationDelay: `${0.02 * i}s` }}>
                 <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{pep?.name || log.peptideId}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{pep?.name || log.peptideId}</p>
+                    <UserBadge owner={log.owner} />
+                  </div>
                   <p className="text-[10px] text-text-muted">
                     {log.dose}{log.unit} · {log.injectionSite || 'no site'} · {format(parseISO(log.createdAt), 'h:mm a')}
                   </p>

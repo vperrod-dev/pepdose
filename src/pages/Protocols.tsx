@@ -13,6 +13,8 @@ import { getCurrentWeekGuide } from '../data/experienceTimelines';
 import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/scheduleEngine';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
+import { UserBadge } from '../components/UserBadge';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -47,6 +49,7 @@ export function Protocols() {
   const navigate = useNavigate();
   const location = useLocation();
   const [protocols, setProtocols] = useState<UserProtocol[]>([]);
+  const applyOwnerFilter = useOwnerFilter();
   const [loading, setLoading] = useState(true);
   const [activeProto, setActiveProto] = useState<UserProtocol | null>(null);
   const [sheetMode, setSheetMode] = useState<SheetMode>('actions');
@@ -190,7 +193,7 @@ export function Protocols() {
     const regen = fullDoses.filter(d => d.date >= today && !preserved.has(`${d.peptideId}|${d.date}`));
 
     await deleteUpcomingDosesFrom(activeProto.id, today);
-    await saveScheduledDoses(regen);
+    await saveScheduledDoses(regen, activeProto.owner);
 
     await updateProtocol(activeProto.id, {
       name: editName,
@@ -242,7 +245,7 @@ export function Protocols() {
         </button>
       </div>
 
-      {protocols.length === 0 ? (
+      {applyOwnerFilter(protocols).length === 0 ? (
         <div className="card-glass p-8 text-center stagger-item" style={{ animationDelay: '0.05s' }}>
           <div className="w-14 h-14 rounded-2xl bg-primary-dim flex items-center justify-center mx-auto mb-4">
             <Beaker className="w-7 h-7 text-primary" />
@@ -254,7 +257,7 @@ export function Protocols() {
         </div>
       ) : (
         <div className="space-y-3">
-          {protocols.map((proto, i) => {
+          {applyOwnerFilter(protocols).map((proto, i) => {
             const mainPepId = proto.peptideIds[0];
             const pep = mainPepId ? getPeptideById(mainPepId) : undefined;
             const color = CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa';
@@ -277,7 +280,10 @@ export function Protocols() {
                     <Beaker className="w-5 h-5" style={{ color }} />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">{proto.name || pep?.name || mainPepId}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{proto.name || pep?.name || mainPepId}</p>
+                      <UserBadge owner={proto.owner} />
+                    </div>
                     {mainDose && (
                       <p className="text-xs text-text-muted font-mono">
                         {mainDose.dose} {mainDose.unit} · {mainDose.frequency}
