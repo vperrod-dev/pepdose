@@ -10,6 +10,10 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { saveHealthMarker, getHealthMarkers } from '../db/operations';
+import { UserPicker } from '../components/UserPicker';
+import { UserBadge } from '../components/UserBadge';
+import { useOwnerFilter } from '../context/ViewFilterContext';
+import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 import type { HealthMarker } from '../db/schema';
 
 const MOOD_EMOJI = ['', '\u{1F622}', '\u{1F615}', '\u{1F610}', '\u{1F642}', '\u{1F604}'];
@@ -85,6 +89,8 @@ export function HealthMarkers() {
   const [saving, setSaving] = useState(false);
 
   // Form state — flat, no form library needed
+  const [owner, setOwner] = useState<UserName>(getLastOwner());
+  const applyOwnerFilter = useOwnerFilter();
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
@@ -125,6 +131,7 @@ export function HealthMarkers() {
     setSaving(true);
     const prunedMeasurements = pruneMeasurements(measurements);
     const marker: Omit<HealthMarker, 'id' | 'createdAt'> = {
+      owner,
       date,
       ...(weight && { weight: parseFloat(weight) }),
       ...(bodyFat && { bodyFatPct: parseFloat(bodyFat) }),
@@ -140,6 +147,7 @@ export function HealthMarkers() {
       ...(prunedMeasurements && { measurements: prunedMeasurements }),
     };
     await saveHealthMarker(marker);
+    setLastOwner(owner);
     resetForm();
     await load();
     setSaving(false);
@@ -154,7 +162,8 @@ export function HealthMarkers() {
   }
 
   const cutoff = format(subDays(new Date(), range), 'yyyy-MM-dd');
-  const chartData = markers
+  const visibleMarkers = applyOwnerFilter(markers);
+  const chartData = visibleMarkers
     .filter(m => m.date >= cutoff)
     .map(m => ({
       date: format(new Date(m.date), 'MMM d'),
@@ -167,7 +176,7 @@ export function HealthMarkers() {
       sleepQuality: m.sleepQuality,
       ...m.measurements,
     }));
-  const progress = computeProgressSummary(markers, PROGRESS_METRICS, cutoff);
+  const progress = computeProgressSummary(visibleMarkers, PROGRESS_METRICS, cutoff);
 
   if (loading) {
     return (
@@ -214,6 +223,7 @@ export function HealthMarkers() {
 
       {view === 'form' ? (
         <div className="space-y-4 stagger-item">
+          <UserPicker value={owner} onChange={setOwner} />
           {/* Date */}
           <div>
             <label className="text-xs text-text-muted font-medium mb-1.5 block">Date</label>
@@ -502,16 +512,17 @@ export function HealthMarkers() {
           )}
 
           {/* Recent entries */}
-          {markers.length > 0 && (
+          {visibleMarkers.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
                 Recent Entries
               </h3>
-              {markers.slice(-5).reverse().map(m => (
+              {visibleMarkers.slice(-5).reverse().map(m => (
                 <div key={m.id} className="card-glass p-3 text-sm">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-text-secondary text-xs">
+                    <span className="flex items-center gap-2 font-mono text-text-secondary text-xs">
                       {format(new Date(m.date), 'MMM d, yyyy')}
+                      <UserBadge owner={m.owner} />
                     </span>
                     <div className="flex gap-1 text-base">
                       {m.mood ? MOOD_EMOJI[m.mood] : null}
