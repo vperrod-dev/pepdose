@@ -6,7 +6,7 @@ const today = new Date('2026-07-01T00:00:00Z');
 
 function dose(partial: Partial<ScheduledDose>): ScheduledDose {
   return {
-    id: 'x', protocolId: 'p', peptideId: 'reta', date: '2026-07-05', time: '09:00',
+    id: 'x', owner: 'Victor', protocolId: 'p', peptideId: 'reta', date: '2026-07-05', time: '09:00',
     dose: 4, unit: 'mg', route: 'subq', status: 'upcoming', weekNumber: 4,
     isTitrationStepUp: true, ...partial,
   };

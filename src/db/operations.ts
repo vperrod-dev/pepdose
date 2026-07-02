@@ -1,4 +1,5 @@
 import { getDB, type UserProtocol, type ScheduledDose, type DoseLog, type Vial, type HealthMarker, type EditHistory } from './schema';
+import type { UserName } from '../data/users';
 import { format } from 'date-fns';
 
 function genId(): string {
@@ -50,11 +51,11 @@ export async function deleteProtocol(id: string): Promise<void> {
 
 // --- Scheduled Doses ---
 
-export async function saveScheduledDoses(doses: ScheduledDose[]): Promise<void> {
+export async function saveScheduledDoses(doses: Omit<ScheduledDose, 'owner'>[], owner: UserName): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('scheduledDoses', 'readwrite');
   for (const dose of doses) {
-    await tx.store.put(dose);
+    await tx.store.put({ ...dose, owner });
   }
   await tx.done;
 }

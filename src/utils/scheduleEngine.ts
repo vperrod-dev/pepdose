@@ -3,6 +3,9 @@ import { type Peptide, type SchedulePhase, getPeptideById } from '../data/peptid
 import type { ScheduledDose } from '../db/schema';
 import { SITE_LABELS } from '../data/injectionSites';
 
+/** A scheduled dose before an owner is assigned. Owner is stamped at the save boundary. */
+export type DraftDose = Omit<ScheduledDose, 'owner'>;
+
 interface ScheduleConfig {
   peptideId: string;
   dose: number;
@@ -36,9 +39,9 @@ function suggestSite(index: number): string {
   return SITE_LABELS[index % SITE_LABELS.length];
 }
 
-export function generateSchedule(config: ScheduleConfig): ScheduledDose[] {
+export function generateSchedule(config: ScheduleConfig): DraftDose[] {
   const peptide = getPeptideById(config.peptideId);
-  const doses: ScheduledDose[] = [];
+  const doses: DraftDose[] = [];
   const startDate = parseISO(config.startDate);
   const endDate = addWeeks(startDate, config.durationWeeks);
   const timeStr = getTimeString(config.timeOfDay);
@@ -191,14 +194,14 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Generate doses for a tapered protocol: walk day by day, and for each day emit a
 // dose only if the active phase's cadence lands on it. Weeks with no phase are off.
-function generatePhasedSchedule(config: ScheduleConfig, peptide: Peptide | undefined, timeStr: string): ScheduledDose[] {
+function generatePhasedSchedule(config: ScheduleConfig, peptide: Peptide | undefined, timeStr: string): DraftDose[] {
   const phases = config.schedulePhases!;
   const startDate = parseISO(config.startDate);
   const totalWeeks = phasesTotalWeeks(phases);
   const days = eachDayOfInterval({ start: startDate, end: addDays(addWeeks(startDate, totalWeeks), -1) });
   const hasTitration = !!peptide?.dosing.titration && peptide.dosing.titration.length > 0;
 
-  const doses: ScheduledDose[] = [];
+  const doses: DraftDose[] = [];
   let doseIndex = 0;
 
   for (const day of days) {
@@ -269,7 +272,7 @@ export function extendSchedule(
   existingDoses: ScheduledDose[],
   additionalWeeks: number,
   config: ScheduleConfig,
-): ScheduledDose[] {
+): DraftDose[] {
   const lastDose = existingDoses
     .filter(d => d.peptideId === config.peptideId)
     .sort((a, b) => a.date.localeCompare(b.date))

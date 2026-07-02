@@ -3,7 +3,7 @@ import { computeProgressSummary } from './progressSummary';
 import type { HealthMarker } from '../db/schema';
 
 function marker(date: string, extra: Partial<HealthMarker>): HealthMarker {
-  return { id: date, date, createdAt: date, ...extra };
+  return { id: date, owner: 'Victor', date, createdAt: date, ...extra };
 }
 
 const METRICS = [

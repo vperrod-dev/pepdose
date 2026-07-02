@@ -1,8 +1,10 @@
 import { type DBSchema, openDB, type IDBPDatabase } from 'idb';
 import type { SchedulePhase } from '../data/peptides';
+import type { UserName } from '../data/users';
 
 export interface UserProtocol {
   id: string;
+  owner: UserName;
   name: string;
   peptideIds: string[];
   doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; schedulePhases?: SchedulePhase[]; variantId?: string }[];
@@ -16,6 +18,7 @@ export interface UserProtocol {
 
 export interface ScheduledDose {
   id: string;
+  owner: UserName;
   protocolId: string;
   peptideId: string;
   date: string;
@@ -32,6 +35,7 @@ export interface ScheduledDose {
 
 export interface DoseLog {
   id: string;
+  owner: UserName;
   scheduledDoseId?: string;
   protocolId: string;
   peptideId: string;
@@ -48,6 +52,7 @@ export interface DoseLog {
 
 export interface Vial {
   id: string;
+  owner: UserName;
   peptideId: string;
   amountMg: number;
   bacWaterMl: number;
@@ -64,6 +69,7 @@ export interface Vial {
 
 export interface HealthMarker {
   id: string;
+  owner: UserName;
   date: string;
   weight?: number;
   bodyFatPct?: number;
@@ -141,31 +147,47 @@ let dbInstance: IDBPDatabase<PepDoseDB> | null = null;
 export async function getDB(): Promise<IDBPDatabase<PepDoseDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<PepDoseDB>('pepdose', 1, {
-    upgrade(db) {
-      const protocolStore = db.createObjectStore('protocols', { keyPath: 'id' });
-      protocolStore.createIndex('by-status', 'status');
+  dbInstance = await openDB<PepDoseDB>('pepdose', 2, {
+    async upgrade(db, oldVersion, _newVersion, tx) {
+      if (oldVersion < 1) {
+        const protocolStore = db.createObjectStore('protocols', { keyPath: 'id' });
+        protocolStore.createIndex('by-status', 'status');
 
-      const doseStore = db.createObjectStore('scheduledDoses', { keyPath: 'id' });
-      doseStore.createIndex('by-date', 'date');
-      doseStore.createIndex('by-protocol', 'protocolId');
-      doseStore.createIndex('by-status', 'status');
-      doseStore.createIndex('by-peptide-date', ['peptideId', 'date']);
+        const doseStore = db.createObjectStore('scheduledDoses', { keyPath: 'id' });
+        doseStore.createIndex('by-date', 'date');
+        doseStore.createIndex('by-protocol', 'protocolId');
+        doseStore.createIndex('by-status', 'status');
+        doseStore.createIndex('by-peptide-date', ['peptideId', 'date']);
 
-      const logStore = db.createObjectStore('doseLogs', { keyPath: 'id' });
-      logStore.createIndex('by-date', 'date');
-      logStore.createIndex('by-protocol', 'protocolId');
-      logStore.createIndex('by-peptide', 'peptideId');
+        const logStore = db.createObjectStore('doseLogs', { keyPath: 'id' });
+        logStore.createIndex('by-date', 'date');
+        logStore.createIndex('by-protocol', 'protocolId');
+        logStore.createIndex('by-peptide', 'peptideId');
 
-      const vialStore = db.createObjectStore('vials', { keyPath: 'id' });
-      vialStore.createIndex('by-peptide', 'peptideId');
-      vialStore.createIndex('by-status', 'status');
+        const vialStore = db.createObjectStore('vials', { keyPath: 'id' });
+        vialStore.createIndex('by-peptide', 'peptideId');
+        vialStore.createIndex('by-status', 'status');
 
-      const healthStore = db.createObjectStore('healthMarkers', { keyPath: 'id' });
-      healthStore.createIndex('by-date', 'date');
+        const healthStore = db.createObjectStore('healthMarkers', { keyPath: 'id' });
+        healthStore.createIndex('by-date', 'date');
 
-      const editStore = db.createObjectStore('editHistory', { keyPath: 'id' });
-      editStore.createIndex('by-protocol', 'protocolId');
+        const editStore = db.createObjectStore('editHistory', { keyPath: 'id' });
+        editStore.createIndex('by-protocol', 'protocolId');
+      }
+
+      if (oldVersion < 2) {
+        // Backfill existing single-user data to Victor.
+        const owned = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers'] as const;
+        for (const storeName of owned) {
+          let cursor = await tx.objectStore(storeName).openCursor();
+          while (cursor) {
+            if (!(cursor.value as { owner?: UserName }).owner) {
+              await cursor.update({ ...cursor.value, owner: 'Victor' });
+            }
+            cursor = await cursor.continue();
+          }
+        }
+      }
     },
   });
 
