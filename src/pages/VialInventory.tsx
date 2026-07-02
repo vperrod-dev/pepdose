@@ -6,6 +6,10 @@ import { PEPTIDES, getPeptideById } from '../data/peptides';
 import type { Vial } from '../db/schema';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { predictEmptyDate } from '../utils/vialForecast';
+import { UserPicker } from '../components/UserPicker';
+import { UserBadge } from '../components/UserBadge';
+import { useOwnerFilter } from '../context/ViewFilterContext';
+import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 
 export function VialInventory() {
   const navigate = useNavigate();
@@ -17,6 +21,8 @@ export function VialInventory() {
   const [bacWater, setBacWater] = useState('');
   const [dosesRemaining, setDosesRemaining] = useState('');
   const [storageLocation, setStorageLocation] = useState('');
+  const [owner, setOwner] = useState<UserName>(getLastOwner());
+  const applyOwnerFilter = useOwnerFilter();
 
   const load = useCallback(async () => {
     const list = await getVials();
@@ -44,7 +50,9 @@ export function VialInventory() {
       totalDoses,
       status: 'active',
       storageLocation: storageLocation || undefined,
+      owner,
     });
+    setLastOwner(owner);
     setPeptideId(''); setAmountMg(''); setBacWater(''); setDosesRemaining(''); setStorageLocation('');
     setShowForm(false);
     load();
@@ -55,8 +63,9 @@ export function VialInventory() {
     load();
   };
 
-  const active = vials.filter(v => v.status === 'active');
-  const empty = vials.filter(v => v.status === 'empty');
+  const visible = applyOwnerFilter(vials);
+  const active = visible.filter(v => v.status === 'active');
+  const empty = visible.filter(v => v.status === 'empty');
 
   return (
     <div className="safe-top px-5 pt-4">
@@ -76,6 +85,7 @@ export function VialInventory() {
             <p className="font-semibold text-sm">Add Vial</p>
             <button onClick={() => setShowForm(false)} className="p-1"><X className="w-4 h-4 text-text-muted" /></button>
           </div>
+          <UserPicker value={owner} onChange={setOwner} />
           <select value={peptideId} onChange={e => setPeptideId(e.target.value)} className="w-full bg-bg border border-border rounded-xl px-3 py-2.5 text-sm">
             <option value="">Select peptide...</option>
             {PEPTIDES.filter(p => p.route !== 'oral' && p.route !== 'intranasal').map(p => (
@@ -115,7 +125,10 @@ export function VialInventory() {
               <div key={v.id} className="card-glass p-4 stagger-item" style={{ animationDelay: `${0.05 + i * 0.04}s` }}>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-sm">{pep?.name || v.peptideId}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">{pep?.name || v.peptideId}</p>
+                      <UserBadge owner={v.owner} />
+                    </div>
                     <p className="text-xs text-text-muted">{v.amountMg}mg · {v.bacWaterMl ? `${v.bacWaterMl}ml BAC` : 'unreconstituted'}</p>
                   </div>
                   <button onClick={() => handleDiscard(v.id)} className="p-1.5 text-text-muted hover:text-danger">
