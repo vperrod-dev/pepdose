@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { differenceInWeeks, parseISO } from 'date-fns';
-import { Shield, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, BookOpen, OctagonAlert } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, BookOpen, OctagonAlert, Syringe, Lightbulb, XCircle, Layers, FlaskConical } from 'lucide-react';
 import { getProtocols } from '../db/operations';
-import { getExperienceForPeptide, EXPERIENCE_DATA, type PeptideExperience, type Severity } from '../data/experienceTimelines';
+import { getExperienceForPeptide, EXPERIENCE_DATA, type PeptideExperience, type Severity, type EvidenceLevel } from '../data/experienceTimelines';
 import { getPeptideById, PEPTIDES } from '../data/peptides';
 import type { UserProtocol } from '../db/schema';
 
@@ -145,6 +145,74 @@ function SideEffectsSection({ experience }: { experience: PeptideExperience }) {
   );
 }
 
+const EVIDENCE_META: Record<EvidenceLevel, { label: string; color: string; note: string }> = {
+  clinical: { label: 'Clinical evidence', color: '#22c55e', note: 'Backed by human trials.' },
+  mixed: { label: 'Mixed evidence', color: '#f59e0b', note: 'Some human data plus heavy community anecdote.' },
+  anecdotal: { label: 'Anecdotal', color: '#ef4444', note: 'Mostly preclinical/community reports — no human efficacy trials.' },
+};
+
+function EvidenceBanner({ level, note }: { level: EvidenceLevel; note?: string }) {
+  const meta = EVIDENCE_META[level];
+  return (
+    <div className="flex items-start gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: meta.color + '14' }}>
+      <FlaskConical className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: meta.color }} />
+      <p className="text-[11px] leading-relaxed">
+        <span className="font-semibold" style={{ color: meta.color }}>{meta.label}.</span>{' '}
+        <span className="text-text-muted">{note ?? meta.note}</span>
+      </p>
+    </div>
+  );
+}
+
+function DosingSection({ dosing }: { dosing: NonNullable<PeptideExperience['dosing']> }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Syringe className="w-4 h-4 text-text-muted" />
+        Dosing & reconstitution
+      </h3>
+      <div className="card-glass p-3 space-y-1.5">
+        {dosing.protocol.map((p, i) => (
+          <div key={i} className="flex items-start gap-2 text-xs text-text-muted">
+            <span className="text-primary mt-0.5">•</span>
+            <span>{p}</span>
+          </div>
+        ))}
+        {dosing.reconstitution && dosing.reconstitution.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-border space-y-1.5">
+            {dosing.reconstitution.map((r, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs text-text-muted">
+                <FlaskConical className="w-3.5 h-3.5 text-text-muted shrink-0 mt-0.5" />
+                <span>{r}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TipsSection({ title, items, icon, color }: { title: string; items: string[]; icon: 'tip' | 'mistake' | 'stack'; color: string }) {
+  const Icon = icon === 'tip' ? Lightbulb : icon === 'mistake' ? XCircle : Layers;
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold flex items-center gap-2">
+        <Icon className="w-4 h-4" style={{ color }} />
+        {title}
+      </h3>
+      <ul className="space-y-1.5">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-2 text-xs text-text-muted">
+            <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color }} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function RedFlagsSection({ redFlags }: { redFlags: string[] }) {
   if (redFlags.length === 0) return null;
 
@@ -191,8 +259,21 @@ function PeptideGuideCard({ peptideId, currentWeek }: { peptideId: string; curre
 
       {open && (
         <div className="space-y-5 pl-1">
+          {experience.evidenceLevel && (
+            <EvidenceBanner level={experience.evidenceLevel} note={experience.evidenceNote} />
+          )}
+          {experience.dosing && <DosingSection dosing={experience.dosing} />}
           <WeekTimeline experience={experience} currentWeek={currentWeek} />
           <SideEffectsSection experience={experience} />
+          {experience.communityTips && experience.communityTips.length > 0 && (
+            <TipsSection title="Community tips" items={experience.communityTips} icon="tip" color="#22c55e" />
+          )}
+          {experience.commonMistakes && experience.commonMistakes.length > 0 && (
+            <TipsSection title="Common mistakes" items={experience.commonMistakes} icon="mistake" color="#f59e0b" />
+          )}
+          {experience.stacking && experience.stacking.length > 0 && (
+            <TipsSection title="Stacking & synergy" items={experience.stacking} icon="stack" color="#6366f1" />
+          )}
           <RedFlagsSection redFlags={experience.redFlags} />
           {experience.postCycleNotes && (
             <div className="card-glass p-3">

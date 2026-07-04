@@ -17,12 +17,33 @@ export interface SideEffect {
   notes: string;
 }
 
+export type EvidenceLevel = 'clinical' | 'mixed' | 'anecdotal';
+
+export interface DosingGuide {
+  /** Practical dosing / titration bullets. */
+  protocol: string[];
+  /** Reconstitution + syringe-unit mapping bullets. */
+  reconstitution?: string[];
+}
+
 export interface PeptideExperience {
   peptideId: string;
   weeklyGuide: WeekGuide[];
   sideEffects: SideEffect[];
   redFlags: string[];
   postCycleNotes: string;
+  /** Evidence tier for the compound (clinical / mixed / anecdotal). Optional. */
+  evidenceLevel?: EvidenceLevel;
+  /** One-line honesty note about the strength of evidence. Optional. */
+  evidenceNote?: string;
+  /** Deep dosing + reconstitution guidance surfaced in the guide. Optional. */
+  dosing?: DosingGuide;
+  /** Community tips & tricks from Reddit/forums. Optional. */
+  communityTips?: string[];
+  /** Common mistakes to avoid. Optional. */
+  commonMistakes?: string[];
+  /** Stacking / synergy notes. Optional. */
+  stacking?: string[];
 }
 
 export const EXPERIENCE_DATA: PeptideExperience[] = [
@@ -473,7 +494,47 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
       '"Stomach paralysis" feeling that persists after stopping (gastroparesis)',
       'Severe fatigue with yellow skin/eyes (liver — get bloodwork)',
     ],
-    postCycleNotes: 'Not FDA-approved (TRIUMPH Phase 3 ongoing). Reddit consensus: appetite and weight return after stopping, similar to other GLP-1s. Community advice: build exercise habits and protein-focused diet during treatment so you keep those after. Some users cycle on/off. Discuss long-term plan with provider.',
+    postCycleNotes: 'Not FDA-approved (TRIUMPH Phase 3 ongoing; topline readouts 2025-26 showed up to ~28% loss at 68 weeks). There is NO long-term human maintenance/discontinuation data — expectations are extrapolated from semaglutide/tirzepatide, where stopping regains roughly two-thirds of lost weight within a year. Community approach: taper to a maintenance dose (~40-60% of peak, often 4-6mg; Phase 3 formally tests a 4mg maintenance arm) rather than stopping cold, and lock in protein + training + sleep habits during treatment. Discuss any long-term plan with a provider.',
+    evidenceLevel: 'mixed',
+    evidenceNote: 'Strong Phase 2 (NEJM 2023) and Phase 3 TRIUMPH efficacy/adverse-event data exist, but retatrutide is investigational and NOT approved. Every practical detail — real-world dosing, reconstitution, titration, microdosing, maintenance — is gray-market community knowledge, and vial purity/sterility is unverifiable per-vial.',
+    dosing: {
+      protocol: [
+        'Once-weekly subcutaneous injection. Trial ladder: 2mg (wk1-4) → 4 → 6 → 9 → 12mg, stepping every 4 weeks (Lilly\'s smoother Phase 3 ladder; the earlier 4→8mg doubling roughly doubled GI side effects).',
+        'Community titrates slower: start 0.5-2mg, hold each step 6-8 weeks (not 4), and many settle at 4-8mg indefinitely rather than pushing to 12mg — "8 is enough" is the common refrain.',
+        'Max studied dose is 12mg/week. Phase 3 also tests 9mg and a 4mg maintenance dose.',
+        'Evening dosing is favored on Reddit so peak nausea lands during sleep.',
+        'Microdosing (sub-2mg) is used by some as a gentler entry or for maintenance — but efficacy is dose-dependent and unproven below trial doses.',
+      ],
+      reconstitution: [
+        'Sold as lyophilized powder (5/10/15/20/30mg vials). Reconstitute with bacteriostatic water (0.9% benzyl alcohol) — not plain sterile water. Swirl gently, never shake.',
+        'Popular setup: 10mg vial + 2mL BAC = 5mg/mL. On a U-100 insulin syringe: 2mg = 0.4mL = 40 units; 4mg = 80 units; 6mg = 0.6mL (redraw). Formula: units = (dose mg ÷ mg-per-mL) × 100.',
+        'Smaller-volume alternative: 10mg + 1mL = 10mg/mL → 2mg = 20 units.',
+        'Store reconstituted vial refrigerated (2-8°C); use within ~28 days. Double-check the mg/mL math with a calculator — reconstitution/unit errors are the #1 cause of accidental overdose.',
+      ],
+    },
+    communityTips: [
+      '"Start low, go slow" — emphasized more than for tirzepatide because of the potency and the glucagon component. Start 0.5-2mg and hold steps 6-8 weeks.',
+      'Dose in the evening to sleep through the worst of the nausea.',
+      'Hydrate aggressively and use electrolytes — helps GI effects and the extra urination (glucagon effect).',
+      'Track resting heart rate (many use a smartwatch). If it climbs, HOLD the dose instead of escalating.',
+      'Some use taurine + magnesium to try to blunt the glucagon-driven heart-rate rise (anecdotal, no trial evidence).',
+      'Protein (1.2-1.6 g/kg) and resistance training from day one to preserve lean mass — matters more than the exact dose.',
+      'Settle at the lowest effective dose (often 4-8mg) rather than chasing 12mg.',
+    ],
+    commonMistakes: [
+      'Reconstitution math errors — confusing mg with syringe units or the wrong mg/mL → accidental overdose.',
+      'Titrating too fast or too high (e.g. a 0.5→4mg jump) → severe nausea, vomiting, dehydration.',
+      'Trusting a vendor COA as proof of YOUR vial\'s purity/sterility — batches have failed independent sterility testing despite clean COAs.',
+      'Ignoring a rising heart rate and pushing the dose anyway.',
+      'Under-eating protein → excess muscle loss during rapid weight loss.',
+      'Chasing 12mg for faster loss and getting crushed by fatigue and heart-rate effects when 6-8mg would have worked.',
+    ],
+    stacking: [
+      'Not combined with other incretins (semaglutide/tirzepatide) — redundant, and pure gray-market experimentation with no clinical data.',
+      'Protein + resistance training is the only evidence-supported "stack" for preserving lean mass.',
+      'Taurine / magnesium / electrolytes are used anecdotally for heart rate and GI comfort — no trial evidence.',
+      'Some co-use BPC-157 (gut) or TB-500 (tissue) — no efficacy or safety data with reta; stacking just multiplies dosing-error and side-effect risk.',
+    ],
   },
   {
     peptideId: 'glow-blend',
@@ -510,7 +571,44 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
       'Severe nausea or abdominal pain',
       'Yellow skin or eyes (liver — get bloodwork)',
     ],
-    postCycleNotes: 'Collagen remodeling is structural — benefits persist well after stopping. Community protocol: 4-8 weeks off, then 2-3x/week maintenance. Monitor copper levels with bloodwork if running multiple cycles back-to-back. Users report skin quality holds for months post-cycle.',
+    postCycleNotes: 'Collagen remodeling is structural — benefits persist well after stopping. Community protocol: 4-8 weeks off, then 2-3x/week maintenance. Monitor copper levels with bloodwork (serum copper, ceruloplasmin) if running multiple cycles back-to-back. Users report skin quality holds for months post-cycle. Copper accumulation is the reason it is cycled, not run continuously.',
+    evidenceLevel: 'anecdotal',
+    evidenceNote: 'GHK-Cu has solid human data — for TOPICAL cosmetic use. The injectable GLOW blend and its 50/10/10 ratio are entirely anecdotal (no human trials of the blend), and BPC-157/TB-500 human efficacy data is essentially zero. Treat all dosing as community-derived.',
+    dosing: {
+      protocol: [
+        'Standard vial is 70mg: GHK-Cu 50mg + TB-500 10mg + BPC-157 10mg at a fixed 50/10/10 ratio.',
+        'Typical dose ~2.33mg of blend/day ≈ 1.67mg GHK-Cu + 0.33mg TB-500 + 0.33mg BPC-157. Range roughly 1.4-3.5mg.',
+        'Common cycle: daily loading weeks 1-4 → 5-on/2-off weeks 5-8 → optional every-other-day maintenance. Then 4-8 weeks off.',
+        'Copper load is the limiting factor — never run continuously. The weekend off-days on a 5-on/2-off schedule cut cumulative GHK-Cu exposure.',
+        'Best fits: skin laxity during GLP-1 weight loss (to blunt "Ozempic face"), post-surgical recovery, general anti-aging, and injury recovery.',
+      ],
+      reconstitution: [
+        'Reconstitute a 70mg vial with 3mL bacteriostatic water = 23.3mg/mL. On a U-100 insulin syringe: 2.33mg = 0.1mL = 10 units; 1.4mg ≈ 6 units; 3.5mg = 15 units.',
+        'A blue-green tint when mixed is normal — that is the copper (GHK-Cu). Swirl gently down the vial wall; never shake (shaking denatures the peptides).',
+        'Refrigerate 2-8°C, protect from light, and use within ~28 days. Do NOT freeze — the copper-peptide chelate is the most fragile component.',
+      ],
+    },
+    communityTips: [
+      'Rotate injection sites (abdomen/thigh) — daily same-site dosing builds nodules within weeks.',
+      'Take close-up progress photos in consistent lighting from week 1 — changes are gradual and easy to miss day to day.',
+      'Pair with a GLP-1 (retatrutide/semaglutide/tirzepatide) so skin tightening keeps pace with fat loss — the main reason people run GLOW during a weight-loss phase.',
+      'Vitamin C supports collagen, but NEVER layer topical GHK-Cu with L-ascorbic acid — the low pH breaks the copper bond. Separate them (copper AM, vitamin C PM).',
+      'Inject slowly (5-10s), let the alcohol swab dry, and bring the vial to room temperature to reduce the copper sting.',
+      'Deeper sleep is commonly reported during a cycle.',
+    ],
+    commonMistakes: [
+      'Running it continuously without a break → copper accumulation (metallic taste, GI upset, toxicity).',
+      'Shaking the vial instead of a gentle swirl — degrades the peptides.',
+      'Adding other separate-vial peptides into the GLOW syringe — it is already a pre-blend; use a separate syringe for anything else.',
+      'Expecting overnight results — this is cellular work; visible skin changes cluster around weeks 5-8.',
+      'Skipping copper / ceruloplasmin bloodwork on aggressive (3.5mg 5x/week) or back-to-back cycles.',
+    ],
+    stacking: [
+      'GLOW + GLP-1 (reta/sema/tirz) — the flagship pairing; skin tightening tracks fat loss and helps prevent "Ozempic face".',
+      'KLOW = GLOW + KPV — adds the anti-inflammatory KPV tripeptide for a stronger gut/skin/healing stack.',
+      'Topical GHK-Cu serum as a targeted adjunct for skin/hair (kept separate from vitamin C).',
+      'If adding any other injectable, use a separate syringe — do not co-mix into the GLOW vial (differing pH/stability, and copper is fragile).',
+    ],
   },
   {
     peptideId: 'kpv',
