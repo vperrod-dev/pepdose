@@ -237,7 +237,7 @@ export const PEPTIDES: Peptide[] = [
     aliases: ['LY3437943', 'Reta'],
     category: 'glp1',
     halfLifeHours: 144,
-    mechanismShort: 'Triple agonist: GIP + GLP-1 + glucagon receptors. Phase 2 trial (NEJM 2023, n=338) showed up to -24.2% body weight at 48 weeks (12mg group). Glucagon component adds energy expenditure and hepatic fat reduction beyond pure GLP-1 agonists.',
+    mechanismShort: 'Triple agonist: GIP + GLP-1 + glucagon receptors. Phase 2 (NEJM 2023) showed up to -24.2% body weight at 48 weeks; Phase 3 TRIUMPH-1 (2026, 80 weeks) reported -28.3% at 12mg / -25.9% at 9mg — the largest Phase 3 obesity weight loss to date. The glucagon component adds energy expenditure and hepatic fat reduction beyond pure GLP-1 agonists (and drives its signature heart-rate rise and dysesthesia). Investigational, not FDA-approved.',
     route: 'subq',
     needleGauge: '30-31G insulin',
     dosing: {
