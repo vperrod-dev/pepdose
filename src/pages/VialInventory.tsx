@@ -173,7 +173,10 @@ export function VialInventory() {
           {active.map((v, i) => {
             const pep = getPeptideById(v.peptideId);
             const daysSinceRecon = v.reconstitutionDate ? differenceInDays(new Date(), parseISO(v.reconstitutionDate)) : null;
-            const expiring = daysSinceRecon !== null && daysSinceRecon >= 21;
+            const shelfLife = pep?.reconstitution.shelfLifeDays ?? 28;
+            const budDaysLeft = daysSinceRecon !== null ? shelfLife - daysSinceRecon : null;
+            const budWarn = budDaysLeft !== null && budDaysLeft <= 5;
+            const budExpired = budDaysLeft !== null && budDaysLeft < 0;
             const lowStock = v.dosesRemaining <= 3 && v.dosesRemaining > 0;
 
             return (
@@ -204,16 +207,17 @@ export function VialInventory() {
                   <span className="text-xs font-mono text-text-muted">{v.dosesRemaining}/{v.totalDoses}</span>
                 </div>
 
-                {(expiring || lowStock) && (
-                  <div className="mt-2 flex gap-2">
+                {(budWarn || lowStock) && (
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {lowStock && (
                       <span className="text-[10px] text-warning flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" /> Low stock
+                        <AlertTriangle className="w-3 h-3" /> Low stock · {v.dosesRemaining} left
                       </span>
                     )}
-                    {expiring && daysSinceRecon !== null && (
-                      <span className="text-[10px] text-danger flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" /> Recon {daysSinceRecon}d ago
+                    {budWarn && budDaysLeft !== null && (
+                      <span className={`text-[10px] flex items-center gap-1 ${budExpired ? 'text-danger' : 'text-warning'}`}>
+                        <AlertTriangle className="w-3 h-3" />
+                        {budExpired ? `Expired ${-budDaysLeft}d ago` : budDaysLeft === 0 ? 'Expires today' : `Expires in ${budDaysLeft}d`}
                       </span>
                     )}
                   </div>
@@ -222,6 +226,7 @@ export function VialInventory() {
                 {v.reconstitutionDate && (
                   <p className="text-[10px] text-text-muted mt-1">
                     Reconstituted {format(parseISO(v.reconstitutionDate), 'MMM d')}
+                    {budDaysLeft !== null && budDaysLeft >= 0 && ` · use by ${format(new Date(parseISO(v.reconstitutionDate).getTime() + shelfLife * 86400000), 'MMM d')}`}
                     {v.storageLocation && ` · ${v.storageLocation}`}
                   </p>
                 )}

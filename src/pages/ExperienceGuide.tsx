@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { differenceInWeeks, parseISO } from 'date-fns';
 import { Shield, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, BookOpen, OctagonAlert, Syringe, Lightbulb, XCircle, Layers, FlaskConical } from 'lucide-react';
 import { getProtocols } from '../db/operations';
@@ -164,13 +165,25 @@ function EvidenceBanner({ level, note }: { level: EvidenceLevel; note?: string }
   );
 }
 
-function DosingSection({ dosing }: { dosing: NonNullable<PeptideExperience['dosing']> }) {
+function DosingSection({ dosing, peptideId }: { dosing: NonNullable<PeptideExperience['dosing']>; peptideId: string }) {
+  const navigate = useNavigate();
+  const canReconstitute = (getPeptideById(peptideId)?.reconstitution.typicalVialMg ?? 0) > 0;
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold flex items-center gap-2">
-        <Syringe className="w-4 h-4 text-text-muted" />
-        Dosing & reconstitution
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Syringe className="w-4 h-4 text-text-muted" />
+          Dosing & reconstitution
+        </h3>
+        {canReconstitute && (
+          <button
+            onClick={() => navigate(`/calculator?peptide=${peptideId}`)}
+            className="text-xs font-semibold text-primary tap-target flex items-center gap-1"
+          >
+            <FlaskConical className="w-3.5 h-3.5" /> Reconstitute
+          </button>
+        )}
+      </div>
       <div className="card-glass p-3 space-y-1.5">
         {dosing.protocol.map((p, i) => (
           <div key={i} className="flex items-start gap-2 text-xs text-text-muted">
@@ -262,7 +275,7 @@ function PeptideGuideCard({ peptideId, currentWeek }: { peptideId: string; curre
           {experience.evidenceLevel && (
             <EvidenceBanner level={experience.evidenceLevel} note={experience.evidenceNote} />
           )}
-          {experience.dosing && <DosingSection dosing={experience.dosing} />}
+          {experience.dosing && <DosingSection dosing={experience.dosing} peptideId={peptideId} />}
           <WeekTimeline experience={experience} currentWeek={currentWeek} />
           <SideEffectsSection experience={experience} />
           {experience.communityTips && experience.communityTips.length > 0 && (

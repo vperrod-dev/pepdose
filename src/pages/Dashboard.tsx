@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInMinutes, differenceInHours, differenceInWeeks, parseISO } from 'date-fns';
-import { Syringe, TrendingUp, ChevronRight, Zap } from 'lucide-react';
+import { Syringe, TrendingUp, ChevronRight, Zap, Flame } from 'lucide-react';
 import { getScheduledDosesForDate, getProtocols, getDoseLogsForDate, getScheduledDosesForProtocol } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { scheduleReminders } from '../utils/notifications';
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
+import { adherenceStats } from '../utils/adherence';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import type { ScheduledDose, UserProtocol } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
@@ -33,6 +34,7 @@ export function Dashboard() {
   const [logged, setLogged] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<NextStep | null>(null);
+  const [allScheduled, setAllScheduled] = useState<ScheduledDose[]>([]);
   const [activeDose, setActiveDose] = useState<DashboardDose | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -72,10 +74,12 @@ export function Dashboard() {
       const active = await getProtocols('active');
       const allDoses = (await Promise.all(active.map(p => getScheduledDosesForProtocol(p.id)))).flat();
       setCoach(nextTitrationStep(allDoses, new Date()));
+      setAllScheduled(allDoses);
     })();
   }, [reloadKey]);
 
   const applyOwnerFilter = useOwnerFilter();
+  const adherence = adherenceStats(applyOwnerFilter(allScheduled));
   const visibleDoses = applyOwnerFilter(todayDoses);
   const visibleProtocols = applyOwnerFilter(protocols);
   const completedCount = visibleDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
@@ -115,6 +119,27 @@ export function Dashboard() {
           PepDose
         </h1>
       </header>
+
+      {(adherence.streak > 0 || adherence.due7 > 0) && (
+        <div className="card-glass p-3 mb-4 flex items-center gap-3 stagger-item">
+          <div className="w-9 h-9 rounded-xl bg-warning/15 flex items-center justify-center shrink-0">
+            <Flame className={`w-5 h-5 ${adherence.streak > 0 ? 'text-warning' : 'text-text-muted'}`} />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-sm">
+              {adherence.streak > 0 ? `${adherence.streak}-day streak` : 'Start a streak'}
+            </p>
+            <p className="text-xs text-text-muted">
+              {adherence.logged7}/{adherence.due7} logged this week
+            </p>
+          </div>
+          {adherence.due7 > 0 && (
+            <span className="font-mono text-sm font-bold text-primary">
+              {Math.round((adherence.logged7 / adherence.due7) * 100)}%
+            </span>
+          )}
+        </div>
+      )}
 
       {nextDose ? (
         <button

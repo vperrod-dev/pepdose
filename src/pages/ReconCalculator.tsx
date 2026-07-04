@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calculator, Droplets, ChevronDown } from 'lucide-react';
 import { PEPTIDES } from '../data/peptides';
 import { mgToIu } from '../utils/iuConvert';
@@ -9,7 +10,18 @@ const RECON_PEPTIDES = PEPTIDES.filter(p => p.reconstitution.typicalVialMg > 0);
 type Mode = 'forward' | 'reverse';
 const UNIT_PRESETS = [10, 20, 50];
 
+// Units per mL depends on the syringe: U-100 = 100 units/mL, U-40 = 40 (Settings).
+function unitsPerMl(): number {
+  try {
+    const raw = localStorage.getItem('pepdose-settings');
+    return raw && JSON.parse(raw).syringeType === 'u40' ? 40 : 100;
+  } catch { return 100; }
+}
+
 export function ReconCalculator() {
+  const uPerMl = unitsPerMl();
+  const syringeLabel = uPerMl === 40 ? 'U-40' : 'U-100';
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<Mode>('forward');
   const [vialMg, setVialMg] = useState('');
   const [bacWaterMl, setBacWaterMl] = useState('');
@@ -30,11 +42,18 @@ export function ReconCalculator() {
     if (!p) return;
     setVialMg(String(p.reconstitution.typicalVialMg));
     setBacWaterMl(String(p.reconstitution.bacWaterMl));
-    // pre-fill standard dose in mg for blends (dosed in mg), else mcg
     const inMg = p.dosing.unit === 'mg';
-    setDesiredDose(String(inMg ? p.dosing.standard : p.dosing.standard));
+    setDesiredDose(String(p.dosing.standard));
     setDoseUnit(inMg ? 'mg' : 'mcg');
   }
+
+  // Deep-link target: /calculator?peptide=<id> preselects the peptide (used by the
+  // "Reconstitute this" shortcut in the experience guide).
+  useEffect(() => {
+    const pid = searchParams.get('peptide');
+    if (pid && RECON_PEPTIDES.some(p => p.id === pid)) handlePeptideSelect(pid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // shared math
   const vial = parseFloat(vialMg);
@@ -43,9 +62,9 @@ export function ReconCalculator() {
   const targetU = parseFloat(targetUnits);
 
   // In reverse mode we back-solve the BAC water so the dose lands exactly on the
-  // target unit mark: water = targetUnits * vial / (100 * doseMg).
+  // target unit mark: water = targetUnits * vial / (unitsPerMl * doseMg).
   const solvedWater = vial > 0 && doseMg > 0 && targetU > 0
-    ? (targetU * vial) / (100 * doseMg)
+    ? (targetU * vial) / (uPerMl * doseMg)
     : 0;
   const water = mode === 'forward' ? parseFloat(bacWaterMl) : solvedWater;
 
@@ -55,7 +74,7 @@ export function ReconCalculator() {
 
   const concentration = valid && water > 0 ? vial / water : 0; // mg/ml
   const volumeMl = valid && concentration > 0 ? doseMg / concentration : 0;
-  const iu = volumeMl * 100; // U-100 syringe: 1ml = 100 units
+  const iu = volumeMl * uPerMl; // syringe units: 1ml = uPerMl units
   const dosesPerVial = valid && doseMg > 0 ? Math.floor(vial / doseMg) : 0;
 
   // per-component breakdown for blends (ratio is fixed regardless of vial size)
@@ -64,9 +83,9 @@ export function ReconCalculator() {
     ? components.map(c => ({ name: c.name, mg: (c.mg / componentTotal) * doseMg }))
     : [];
 
-  // syringe visual: max 100 IU = 1ml, clamp for display
-  const syringeFill = valid ? Math.min(iu / 100, 1) : 0;
-  const syringeWarning = iu > 100;
+  // syringe visual: max = uPerMl (1ml)
+  const syringeFill = valid ? Math.min(iu / uPerMl, 1) : 0;
+  const syringeWarning = iu > uPerMl;
   const waterImpractical = mode === 'reverse' && valid && (solvedWater < 0.3 || solvedWater > 8);
 
   const iuResult = parseFloat(iuMg) > 0 && parseFloat(mgPerIu) > 0 ? mgToIu(parseFloat(iuMg), parseFloat(mgPerIu)) : 0;
@@ -224,7 +243,7 @@ export function ReconCalculator() {
           <p className="text-xs text-text-muted uppercase tracking-wider font-medium mb-2">Add this much water</p>
           <p className="font-mono text-3xl font-bold text-primary">{solvedWater.toFixed(2)} <span className="text-lg text-text-muted">mL</span></p>
           <p className="text-xs text-text-secondary mt-1">
-            Then your {doseUnit === 'mcg' ? `${dose}mcg` : `${dose}mg`} dose = <span className="font-mono text-text">{targetU} units</span> on a U-100 syringe.
+            Then your {doseUnit === 'mcg' ? `${dose}mcg` : `${dose}mg`} dose = <span className="font-mono text-text">{targetU} units</span> on a {syringeLabel} syringe.
           </p>
           {waterImpractical && (
             <p className="text-xs text-yellow-400 mt-2">
@@ -246,7 +265,7 @@ export function ReconCalculator() {
             </div>
             <div className="bg-bg-raised rounded-xl p-3 text-center">
               <p className="font-mono text-xl font-bold text-secondary">{iu.toFixed(1)}</p>
-              <p className="text-xs text-text-muted mt-1">units (U-100)</p>
+              <p className="text-xs text-text-muted mt-1">units ({syringeLabel})</p>
             </div>
             <div className="bg-bg-raised rounded-xl p-3 text-center">
               <p className="font-mono text-xl font-bold text-text">{dosesPerVial}</p>
@@ -288,7 +307,7 @@ export function ReconCalculator() {
           <div className="flex items-center gap-3 mb-3">
             <Droplets className="w-4 h-4 text-primary" />
             <p className="text-xs text-text-muted uppercase tracking-wider font-medium">
-              U-100 Insulin Syringe
+              {syringeLabel} Insulin Syringe
             </p>
           </div>
 
@@ -297,10 +316,10 @@ export function ReconCalculator() {
             {/* Tick marks */}
             <div className="flex justify-between text-[10px] font-mono text-text-muted px-1 mb-1">
               <span>0</span>
-              <span>25</span>
-              <span>50</span>
-              <span>75</span>
-              <span>100 u</span>
+              <span>{uPerMl / 4}</span>
+              <span>{uPerMl / 2}</span>
+              <span>{(uPerMl * 3) / 4}</span>
+              <span>{uPerMl} u</span>
             </div>
             {/* Barrel */}
             <div className="relative h-8 bg-bg-raised border border-border rounded-full overflow-hidden">
