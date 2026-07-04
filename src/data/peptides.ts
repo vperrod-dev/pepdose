@@ -68,6 +68,9 @@ export interface Peptide {
     bacWaterMl: number;
     shelfLifeDays: number;
     storageTemp: string;
+    // For blends (e.g. GLOW/KLOW): the per-component masses in the vial. The
+    // reconstitution calculator uses the ratios to break a drawn dose down.
+    components?: { name: string; mg: number }[];
   };
   cyclingReason: string;
   isCustom?: boolean;
@@ -692,6 +695,11 @@ export const PEPTIDES: Peptide[] = [
       bacWaterMl: 3,
       shelfLifeDays: 28,
       storageTemp: '2-8°C refrigerated',
+      components: [
+        { name: 'GHK-Cu', mg: 50 },
+        { name: 'TB-500', mg: 10 },
+        { name: 'BPC-157', mg: 10 },
+      ],
     },
     cyclingReason: 'Reconstitute 70mg in 3mL BAC water (23.3mg/mL): a 2.33mg dose = 10 units on a U-100 syringe. Cycle: daily weeks 1-4, 5x/week weeks 5-8, then 4-8 weeks off (or step down to 2-3x/week maintenance). Breaks let newly built collagen organize AND clear copper — GHK-Cu accumulation is the limiting factor, so never run continuously. Stop early if you get a metallic taste or GI issues.',
   },
