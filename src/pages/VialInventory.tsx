@@ -19,10 +19,36 @@ export function VialInventory() {
   const [peptideId, setPeptideId] = useState('');
   const [amountMg, setAmountMg] = useState('');
   const [bacWater, setBacWater] = useState('');
+  const [perDose, setPerDose] = useState('');
+  const [perDoseUnit, setPerDoseUnit] = useState<'mcg' | 'mg'>('mg');
   const [dosesRemaining, setDosesRemaining] = useState('');
   const [storageLocation, setStorageLocation] = useState('');
   const [owner, setOwner] = useState<UserName>(getLastOwner());
   const applyOwnerFilter = useOwnerFilter();
+
+  function selectPeptide(id: string) {
+    setPeptideId(id);
+    const p = getPeptideById(id);
+    if (!p) return;
+    setAmountMg(String(p.reconstitution.typicalVialMg || ''));
+    setBacWater(String(p.reconstitution.bacWaterMl || ''));
+    setPerDose(String(p.dosing.standard));
+    setPerDoseUnit(p.dosing.unit);
+    // Prefill total doses from the vial's own reconstitution defaults.
+    const stdMg = p.dosing.unit === 'mcg' ? p.dosing.standard / 1000 : p.dosing.standard;
+    const doses = p.reconstitution.typicalVialMg > 0 && stdMg > 0
+      ? Math.floor(p.reconstitution.typicalVialMg / stdMg)
+      : 0;
+    setDosesRemaining(doses > 0 ? String(doses) : '');
+  }
+
+  // Reconstitution math for the add-vial form: derive doses-per-vial + concentration.
+  const vialMgNum = parseFloat(amountMg);
+  const waterNum = parseFloat(bacWater);
+  const perDoseMg = parseFloat(perDose) > 0 ? (perDoseUnit === 'mcg' ? parseFloat(perDose) / 1000 : parseFloat(perDose)) : 0;
+  const computedDoses = vialMgNum > 0 && perDoseMg > 0 ? Math.floor(vialMgNum / perDoseMg) : 0;
+  const concentration = vialMgNum > 0 && waterNum > 0 ? vialMgNum / waterNum : 0;
+  const unitsPerDose = concentration > 0 && perDoseMg > 0 ? (perDoseMg / concentration) * 100 : 0;
 
   const load = useCallback(async () => {
     const list = await getVials();
@@ -53,7 +79,7 @@ export function VialInventory() {
       owner,
     });
     setLastOwner(owner);
-    setPeptideId(''); setAmountMg(''); setBacWater(''); setDosesRemaining(''); setStorageLocation('');
+    setPeptideId(''); setAmountMg(''); setBacWater(''); setPerDose(''); setDosesRemaining(''); setStorageLocation('');
     setShowForm(false);
     load();
   };
@@ -88,18 +114,45 @@ export function VialInventory() {
             <button onClick={() => setShowForm(false)} className="p-1"><X className="w-4 h-4 text-text-muted" /></button>
           </div>
           <UserPicker value={owner} onChange={setOwner} />
-          <select value={peptideId} onChange={e => setPeptideId(e.target.value)} className="w-full bg-bg border border-border rounded-xl px-3 py-2.5 text-sm">
+          <select value={peptideId} onChange={e => selectPeptide(e.target.value)} className="w-full bg-bg border border-border rounded-xl px-3 py-2.5 text-sm">
             <option value="">Select peptide...</option>
             {PEPTIDES.filter(p => p.route !== 'oral' && p.route !== 'intranasal').map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
           <div className="grid grid-cols-2 gap-2">
-            <input type="number" placeholder="Amount (mg)" value={amountMg} onChange={e => setAmountMg(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
-            <input type="number" placeholder="BAC water (ml)" value={bacWater} onChange={e => setBacWater(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
+            <input type="number" inputMode="decimal" placeholder="Amount (mg)" value={amountMg} onChange={e => setAmountMg(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
+            <input type="number" inputMode="decimal" placeholder="BAC water (ml)" value={bacWater} onChange={e => setBacWater(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
           </div>
+
+          {/* Dose per injection → auto-computes doses/vial for an accurate run-out forecast */}
+          <div className="flex gap-2">
+            <input type="number" inputMode="decimal" placeholder="Dose per injection" value={perDose} onChange={e => setPerDose(e.target.value)} className="flex-1 bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
+            <button
+              onClick={() => setPerDoseUnit(perDoseUnit === 'mcg' ? 'mg' : 'mcg')}
+              className="bg-bg border border-border rounded-xl px-4 py-2.5 text-sm font-semibold text-primary min-w-[56px]"
+            >
+              {perDoseUnit}
+            </button>
+          </div>
+          {computedDoses > 0 && (
+            <div className="flex items-center justify-between rounded-xl bg-primary/10 px-3 py-2">
+              <p className="text-xs text-text-secondary">
+                ≈ <span className="font-mono text-text">{computedDoses}</span> doses/vial
+                {concentration > 0 && <> · <span className="font-mono text-text">{concentration.toFixed(1)}</span> mg/ml</>}
+                {unitsPerDose > 0 && <> · <span className="font-mono text-text">{unitsPerDose.toFixed(0)}</span>u/dose</>}
+              </p>
+              <button
+                onClick={() => setDosesRemaining(String(computedDoses))}
+                className="text-xs font-semibold text-primary tap-target px-2 py-1"
+              >
+                Use
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
-            <input type="number" placeholder="Total doses" value={dosesRemaining} onChange={e => setDosesRemaining(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
+            <input type="number" inputMode="numeric" placeholder="Total doses" value={dosesRemaining} onChange={e => setDosesRemaining(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
             <input type="text" placeholder="Location" value={storageLocation} onChange={e => setStorageLocation(e.target.value)} className="bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
           </div>
           <button onClick={handleAdd} className="w-full bg-primary text-bg font-semibold py-2.5 rounded-xl text-sm">Add Vial</button>
