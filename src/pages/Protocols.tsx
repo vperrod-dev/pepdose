@@ -12,6 +12,7 @@ import { getPeptideById, type Peptide } from '../data/peptides';
 import { getCurrentWeekGuide } from '../data/experienceTimelines';
 import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/scheduleEngine';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { DecimalInput } from '../components/DecimalInput';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
@@ -621,12 +622,11 @@ export function Protocols() {
                           <div>
                             <label className="text-xs text-text-muted block mb-1">Dose</label>
                             <div className="flex">
-                              <input
-                                type="number"
-                                step="any"
-                                value={parseFloat(dose.dose.toPrecision(10))}
-                                onChange={e => updateEditDose(idx, { dose: parseFloat(e.target.value) || 0 })}
+                              <DecimalInput
+                                value={dose.dose}
+                                onChange={v => updateEditDose(idx, { dose: v })}
                                 className="flex-1 bg-bg-raised border border-border rounded-l-lg px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary outline-none"
+                                min={0}
                               />
                               <select
                                 value={dose.unit}

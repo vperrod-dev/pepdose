@@ -152,6 +152,10 @@ export async function logDose(log: Omit<DoseLog, 'id' | 'createdAt'>): Promise<D
     await updateScheduledDose(log.scheduledDoseId, { status: 'logged' });
   }
 
+  // Draw down inventory for the peptide's active vial so "doses remaining"
+  // and the run-out forecast actually track logged injections.
+  await decrementVialDose(log.peptideId, log.owner);
+
   return full;
 }
 
@@ -189,6 +193,8 @@ export async function deleteDoseLog(id: string): Promise<void> {
     await updateScheduledDose(log.scheduledDoseId, { status: 'upcoming' });
   }
   await db.delete('doseLogs', id);
+  // Return the drawn-down dose to inventory so deleting a log is fully reversible.
+  if (log) await incrementVialDose(log.peptideId, log.owner);
 }
 
 // --- Vials ---
@@ -213,10 +219,12 @@ export async function updateVial(id: string, updates: Partial<Vial>): Promise<vo
   await db.put('vials', { ...existing, ...updates });
 }
 
-export async function decrementVialDose(peptideId: string): Promise<void> {
+export async function decrementVialDose(peptideId: string, owner?: UserName): Promise<void> {
   const db = await getDB();
   const vials = await db.getAllFromIndex('vials', 'by-peptide', peptideId);
-  const active = vials.find(v => v.status === 'active' && v.dosesRemaining > 0);
+  const active = vials.find(
+    v => v.status === 'active' && v.dosesRemaining > 0 && (!owner || v.owner === owner),
+  );
   if (!active) return;
 
   const remaining = active.dosesRemaining - 1;
@@ -224,6 +232,25 @@ export async function decrementVialDose(peptideId: string): Promise<void> {
     ...active,
     dosesRemaining: remaining,
     status: remaining <= 0 ? 'empty' : 'active',
+  });
+}
+
+export async function incrementVialDose(peptideId: string, owner?: UserName): Promise<void> {
+  const db = await getDB();
+  const vials = await db.getAllFromIndex('vials', 'by-peptide', peptideId);
+  // Prefer an active vial with headroom; fall back to the most recent one that
+  // was emptied (so undoing a log that emptied a vial restores it).
+  const candidates = vials
+    .filter(v => (!owner || v.owner === owner) && v.status !== 'expired')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const target = candidates.find(v => v.status === 'active' && v.dosesRemaining < v.totalDoses)
+    ?? candidates.find(v => v.status === 'empty');
+  if (!target) return;
+
+  await db.put('vials', {
+    ...target,
+    dosesRemaining: target.dosesRemaining + 1,
+    status: 'active',
   });
 }
 

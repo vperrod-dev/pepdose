@@ -11,6 +11,7 @@ import { getStackWarnings } from '../data/stackingRules';
 import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/scheduleEngine';
 import { saveProtocol, saveScheduledDoses } from '../db/operations';
 import { UserPicker } from '../components/UserPicker';
+import { DecimalInput } from '../components/DecimalInput';
 import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 
 type Step = 'select' | 'configure' | 'review';
@@ -448,12 +449,12 @@ export function NewProtocol() {
                   <div>
                     <label className="text-xs text-text-muted block mb-1">Dose</label>
                     <div className="flex">
-                      <input
-                        type="number"
-                        value={parseFloat(config.dose.toPrecision(10))}
-                        onChange={e => updateConfig(idx, { dose: parseFloat(e.target.value) || 0 })}
+                      <DecimalInput
+                        value={config.dose}
+                        onChange={v => updateConfig(idx, { dose: v })}
                         className="flex-1 bg-bg-raised border border-border rounded-l-lg px-3 py-2 text-sm font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
                         step={config.unit === 'mg' ? 0.1 : 10}
+                        min={0}
                       />
                       <select
                         value={config.unit}
@@ -511,6 +512,24 @@ export function NewProtocol() {
                         <option value={2}>2x</option>
                         <option value={3}>3x</option>
                       </select>
+                    </div>
+                  )}
+
+                  {config.frequency === 'custom' && !isPhased && (
+                    <div>
+                      <label className="text-xs text-text-muted block mb-1">Every N days</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        value={config.customFrequencyDays ?? ''}
+                        placeholder="e.g. 3"
+                        onChange={e => {
+                          const n = parseInt(e.target.value);
+                          updateConfig(idx, { customFrequencyDays: Number.isFinite(n) && n > 0 ? n : undefined });
+                        }}
+                        className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      />
                     </div>
                   )}
                 </div>
@@ -582,9 +601,17 @@ export function NewProtocol() {
             </div>
           )}
 
+          {peptideConfigs.some(c => c.frequency === 'custom' && !c.customFrequencyDays) && (
+            <p className="text-xs text-warning text-center mb-2">
+              Set "Every N days" for each custom-interval peptide to continue.
+            </p>
+          )}
           <button
             onClick={() => setStep('review')}
-            disabled={peptideConfigs.length === 0}
+            disabled={
+              peptideConfigs.length === 0 ||
+              peptideConfigs.some(c => c.frequency === 'custom' && !c.customFrequencyDays)
+            }
             className="w-full bg-primary text-bg font-semibold py-3.5 rounded-xl tap-target flex items-center justify-center gap-2 disabled:opacity-40 stagger-item"
             style={{ animationDelay: '0.35s' }}
           >

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './pages/Dashboard';
@@ -19,12 +19,19 @@ import { Settings } from './pages/Settings';
 import { DoseHistory } from './pages/DoseHistory';
 import { Onboarding } from './pages/Onboarding';
 import { InjectionMap } from './pages/InjectionMap';
+import { Symptoms } from './pages/Symptoms';
 import { GoalPicker } from './pages/GoalPicker';
 import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
+import { initReminders } from './utils/notifications';
 
 export default function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem('pepdose-onboarded') === 'true');
+
+  useEffect(() => {
+    if (!onboarded) return;
+    return initReminders();
+  }, [onboarded]);
 
   if (!onboarded) {
     return <Onboarding onComplete={() => setOnboarded(true)} />;
@@ -56,6 +63,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/history" element={<DoseHistory />} />
             <Route path="/injection-map" element={<InjectionMap />} />
+            <Route path="/symptoms" element={<Symptoms />} />
             <Route path="/find" element={<GoalPicker />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, Moon, Ruler, Clock } from 'lucide-react';
+import { requestNotificationPermission, scheduleReminders, showTestNotification, notificationsSupported } from '../utils/notifications';
 
 interface AppSettings {
   notificationsEnabled: boolean;
@@ -41,14 +42,22 @@ export function Settings() {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const [permDenied, setPermDenied] = useState(false);
+
   const handleNotificationToggle = async () => {
     if (!settings.notificationsEnabled) {
-      if ('Notification' in window) {
-        const perm = await Notification.requestPermission();
-        if (perm === 'granted') update('notificationsEnabled', true);
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        setPermDenied(false);
+        update('notificationsEnabled', true);
+        // Settings persist via the effect; arm reminders on the next tick.
+        setTimeout(() => { void scheduleReminders(); }, 0);
+      } else {
+        setPermDenied(true);
       }
     } else {
       update('notificationsEnabled', false);
+      void scheduleReminders();
     }
   };
 
@@ -72,25 +81,50 @@ export function Settings() {
             </div>
             <button
               onClick={handleNotificationToggle}
-              className={`w-11 h-6 rounded-full transition-colors relative ${settings.notificationsEnabled ? 'bg-primary' : 'bg-border'}`}
+              disabled={!notificationsSupported()}
+              role="switch"
+              aria-checked={settings.notificationsEnabled}
+              aria-label="Toggle injection reminders"
+              className={`w-11 h-6 rounded-full transition-colors relative disabled:opacity-40 ${settings.notificationsEnabled ? 'bg-primary' : 'bg-border'}`}
             >
-              <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${settings.notificationsEnabled ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
+              <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${settings.notificationsEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
             </button>
           </div>
+          {!notificationsSupported() && (
+            <p className="mt-2 text-[11px] text-text-muted">This browser doesn't support notifications.</p>
+          )}
+          {permDenied && (
+            <p className="mt-2 text-[11px] text-warning">
+              Notifications are blocked. Enable them for this site in your browser settings, then try again.
+            </p>
+          )}
           {settings.notificationsEnabled && (
-            <div className="mt-3 pt-3 border-t border-border">
-              <label className="text-xs text-text-muted">Remind before (minutes)</label>
-              <select
-                value={settings.reminderMinutesBefore}
-                onChange={e => update('reminderMinutesBefore', parseInt(e.target.value))}
-                className="mt-1 w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+            <div className="mt-3 pt-3 border-t border-border space-y-3">
+              <div>
+                <label className="text-xs text-text-muted">Remind before (minutes)</label>
+                <select
+                  value={settings.reminderMinutesBefore}
+                  onChange={e => { update('reminderMinutesBefore', parseInt(e.target.value)); setTimeout(() => { void scheduleReminders(); }, 0); }}
+                  className="mt-1 w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value={0}>At dose time</option>
+                  <option value={5}>5 min</option>
+                  <option value={10}>10 min</option>
+                  <option value={15}>15 min</option>
+                  <option value={30}>30 min</option>
+                  <option value={60}>1 hour</option>
+                </select>
+              </div>
+              <button
+                onClick={() => { void showTestNotification(); }}
+                className="w-full text-xs font-medium text-primary border border-primary/30 rounded-lg py-2 tap-target"
               >
-                <option value={5}>5 min</option>
-                <option value={10}>10 min</option>
-                <option value={15}>15 min</option>
-                <option value={30}>30 min</option>
-                <option value={60}>1 hour</option>
-              </select>
+                Send a test notification
+              </button>
+              <p className="text-[11px] text-text-muted leading-relaxed">
+                Reminders fire while pepdose is open or in the background. For alerts when the app is fully
+                closed, keep it installed to your home screen and open daily.
+              </p>
             </div>
           )}
         </div>

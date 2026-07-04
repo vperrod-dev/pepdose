@@ -161,7 +161,7 @@ export function DoseHistory() {
                     <UserBadge owner={log.owner} />
                   </div>
                   <p className="text-[10px] text-text-muted">
-                    {log.dose}{log.unit} · {log.injectionSite || 'no site'} · {format(parseISO(log.createdAt), 'h:mm a')}
+                    {log.dose}{log.unit} · {log.injectionSite || 'no site'} · {log.time || format(parseISO(log.createdAt), 'HH:mm')}
                   </p>
                 </div>
                 <span className="text-xs text-text-muted flex-shrink-0">{format(parseISO(log.date), 'MMM d')}</span>

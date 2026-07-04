@@ -47,6 +47,9 @@ export interface DoseLog {
   injectionSite?: string;
   notes?: string;
   siteReaction?: 'redness' | 'lump' | 'pain' | 'bruise';
+  // Systemic symptoms felt around this dose, each rated 1-10. Optional; older
+  // logs simply omit it (no migration needed).
+  symptoms?: { name: string; severity: number }[];
   createdAt: string;
 }
 

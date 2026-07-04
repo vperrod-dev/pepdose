@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calculator, Droplets, ChevronDown } from 'lucide-react';
 import { PEPTIDES } from '../data/peptides';
 import { mgToIu } from '../utils/iuConvert';
@@ -6,14 +7,33 @@ import { mgToIu } from '../utils/iuConvert';
 // ponytail: only injectable peptides with reconstitution data make sense here
 const RECON_PEPTIDES = PEPTIDES.filter(p => p.reconstitution.typicalVialMg > 0);
 
+type Mode = 'forward' | 'reverse';
+const UNIT_PRESETS = [10, 20, 50];
+
+// Units per mL depends on the syringe: U-100 = 100 units/mL, U-40 = 40 (Settings).
+function unitsPerMl(): number {
+  try {
+    const raw = localStorage.getItem('pepdose-settings');
+    return raw && JSON.parse(raw).syringeType === 'u40' ? 40 : 100;
+  } catch { return 100; }
+}
+
 export function ReconCalculator() {
+  const uPerMl = unitsPerMl();
+  const syringeLabel = uPerMl === 40 ? 'U-40' : 'U-100';
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<Mode>('forward');
   const [vialMg, setVialMg] = useState('');
   const [bacWaterMl, setBacWaterMl] = useState('');
   const [desiredDose, setDesiredDose] = useState('');
   const [doseUnit, setDoseUnit] = useState<'mcg' | 'mg'>('mcg');
+  const [targetUnits, setTargetUnits] = useState('10'); // reverse mode: units mark to hit
   const [selectedPeptide, setSelectedPeptide] = useState('');
   const [iuMg, setIuMg] = useState('');       // mg to convert
   const [mgPerIu, setMgPerIu] = useState('0.333'); // HGH default 1mg≈3IU
+
+  const selectedPep = RECON_PEPTIDES.find(p => p.id === selectedPeptide);
+  const components = selectedPep?.reconstitution.components;
 
   function handlePeptideSelect(id: string) {
     setSelectedPeptide(id);
@@ -22,26 +42,51 @@ export function ReconCalculator() {
     if (!p) return;
     setVialMg(String(p.reconstitution.typicalVialMg));
     setBacWaterMl(String(p.reconstitution.bacWaterMl));
-    // pre-fill standard dose
-    setDesiredDose(String(p.dosing.unit === 'mg' ? p.dosing.standard * 1000 : p.dosing.standard));
-    setDoseUnit('mcg');
+    const inMg = p.dosing.unit === 'mg';
+    setDesiredDose(String(p.dosing.standard));
+    setDoseUnit(inMg ? 'mg' : 'mcg');
   }
 
-  // math
+  // Deep-link target: /calculator?peptide=<id> preselects the peptide (used by the
+  // "Reconstitute this" shortcut in the experience guide).
+  useEffect(() => {
+    const pid = searchParams.get('peptide');
+    if (pid && RECON_PEPTIDES.some(p => p.id === pid)) handlePeptideSelect(pid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // shared math
   const vial = parseFloat(vialMg);
-  const water = parseFloat(bacWaterMl);
   const dose = parseFloat(desiredDose);
-  const valid = vial > 0 && water > 0 && dose > 0;
+  const doseMg = dose > 0 ? (doseUnit === 'mcg' ? dose / 1000 : dose) : 0;
+  const targetU = parseFloat(targetUnits);
 
-  const doseMg = valid ? (doseUnit === 'mcg' ? dose / 1000 : dose) : 0;
-  const concentration = valid ? vial / water : 0; // mg/ml
-  const volumeMl = valid ? doseMg / concentration : 0;
-  const iu = volumeMl * 100; // U-100 syringe
-  const dosesPerVial = doseMg > 0 ? Math.floor(vial / doseMg) : 0;
+  // In reverse mode we back-solve the BAC water so the dose lands exactly on the
+  // target unit mark: water = targetUnits * vial / (unitsPerMl * doseMg).
+  const solvedWater = vial > 0 && doseMg > 0 && targetU > 0
+    ? (targetU * vial) / (uPerMl * doseMg)
+    : 0;
+  const water = mode === 'forward' ? parseFloat(bacWaterMl) : solvedWater;
 
-  // syringe visual: max 100 IU = 1ml, clamp for display
-  const syringeFill = valid ? Math.min(iu / 100, 1) : 0;
-  const syringeWarning = iu > 100;
+  const valid = mode === 'forward'
+    ? vial > 0 && water > 0 && dose > 0
+    : vial > 0 && dose > 0 && targetU > 0;
+
+  const concentration = valid && water > 0 ? vial / water : 0; // mg/ml
+  const volumeMl = valid && concentration > 0 ? doseMg / concentration : 0;
+  const iu = volumeMl * uPerMl; // syringe units: 1ml = uPerMl units
+  const dosesPerVial = valid && doseMg > 0 ? Math.floor(vial / doseMg) : 0;
+
+  // per-component breakdown for blends (ratio is fixed regardless of vial size)
+  const componentTotal = components?.reduce((s, c) => s + c.mg, 0) ?? 0;
+  const componentDoses = valid && components && componentTotal > 0
+    ? components.map(c => ({ name: c.name, mg: (c.mg / componentTotal) * doseMg }))
+    : [];
+
+  // syringe visual: max = uPerMl (1ml)
+  const syringeFill = valid ? Math.min(iu / uPerMl, 1) : 0;
+  const syringeWarning = iu > uPerMl;
+  const waterImpractical = mode === 'reverse' && valid && (solvedWater < 0.3 || solvedWater > 8);
 
   const iuResult = parseFloat(iuMg) > 0 && parseFloat(mgPerIu) > 0 ? mgToIu(parseFloat(iuMg), parseFloat(mgPerIu)) : 0;
 
@@ -81,6 +126,22 @@ export function ReconCalculator() {
         </div>
       </div>
 
+      {/* Mode toggle */}
+      <div className="flex bg-bg-raised rounded-xl border border-border overflow-hidden mb-4 stagger-item" style={{ animationDelay: '0.08s' }}>
+        <button
+          onClick={() => setMode('forward')}
+          className={`flex-1 px-3 py-2.5 text-xs font-semibold tap-target transition-colors ${mode === 'forward' ? 'bg-primary text-bg' : 'text-text-muted'}`}
+        >
+          I know my water → find units
+        </button>
+        <button
+          onClick={() => setMode('reverse')}
+          className={`flex-1 px-3 py-2.5 text-xs font-semibold tap-target transition-colors ${mode === 'reverse' ? 'bg-primary text-bg' : 'text-text-muted'}`}
+        >
+          Clean draw → find water
+        </button>
+      </div>
+
       {/* Inputs */}
       <div className="card-glass p-4 mb-4 stagger-item" style={{ animationDelay: '0.1s' }}>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -100,23 +161,58 @@ export function ReconCalculator() {
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">mg</span>
             </div>
           </div>
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wider font-medium block mb-1.5">
-              BAC water
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={bacWaterMl}
-                onChange={e => setBacWaterMl(e.target.value)}
-                placeholder="2"
-                className="w-full bg-bg-raised text-text border border-border rounded-xl px-4 py-3 font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 tap-target"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">ml</span>
+          {mode === 'forward' ? (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider font-medium block mb-1.5">
+                BAC water
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={bacWaterMl}
+                  onChange={e => setBacWaterMl(e.target.value)}
+                  placeholder="2"
+                  className="w-full bg-bg-raised text-text border border-border rounded-xl px-4 py-3 font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 tap-target"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">ml</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider font-medium block mb-1.5">
+                Draw to
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={targetUnits}
+                  onChange={e => setTargetUnits(e.target.value)}
+                  placeholder="10"
+                  className="w-full bg-bg-raised text-text border border-border rounded-xl px-4 py-3 font-mono focus:outline-none focus:ring-2 focus:ring-primary/50 tap-target"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">units</span>
+              </div>
+            </div>
+          )}
         </div>
+
+        {mode === 'reverse' && (
+          <div className="flex gap-2 mb-3">
+            {UNIT_PRESETS.map(u => (
+              <button
+                key={u}
+                onClick={() => setTargetUnits(String(u))}
+                className={`flex-1 py-2 rounded-lg text-xs font-mono font-semibold tap-target border transition-colors ${
+                  targetU === u ? 'bg-primary/20 text-primary border-primary/40' : 'bg-bg-raised text-text-muted border-border'
+                }`}
+              >
+                {u}u
+              </button>
+            ))}
+          </div>
+        )}
 
         <label className="text-xs text-text-muted uppercase tracking-wider font-medium block mb-1.5">
           Desired dose
@@ -141,6 +237,22 @@ export function ReconCalculator() {
         </div>
       </div>
 
+      {/* Reverse-mode headline: how much water to add */}
+      {mode === 'reverse' && valid && (
+        <div className="card-glass p-4 mb-4 stagger-item" style={{ animationDelay: '0.12s' }}>
+          <p className="text-xs text-text-muted uppercase tracking-wider font-medium mb-2">Add this much water</p>
+          <p className="font-mono text-3xl font-bold text-primary">{solvedWater.toFixed(2)} <span className="text-lg text-text-muted">mL</span></p>
+          <p className="text-xs text-text-secondary mt-1">
+            Then your {doseUnit === 'mcg' ? `${dose}mcg` : `${dose}mg`} dose = <span className="font-mono text-text">{targetU} units</span> on a {syringeLabel} syringe.
+          </p>
+          {waterImpractical && (
+            <p className="text-xs text-yellow-400 mt-2">
+              {solvedWater < 0.3 ? 'Very little water — hard to measure. Try a smaller unit mark.' : 'A lot of water — big injection volume. Try a larger unit mark.'}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Results */}
       {valid && (
         <div className="card-glass p-4 mb-4 stagger-item" style={{ animationDelay: '0.15s' }}>
@@ -153,7 +265,7 @@ export function ReconCalculator() {
             </div>
             <div className="bg-bg-raised rounded-xl p-3 text-center">
               <p className="font-mono text-xl font-bold text-secondary">{iu.toFixed(1)}</p>
-              <p className="text-xs text-text-muted mt-1">IU (U-100)</p>
+              <p className="text-xs text-text-muted mt-1">units ({syringeLabel})</p>
             </div>
             <div className="bg-bg-raised rounded-xl p-3 text-center">
               <p className="font-mono text-xl font-bold text-text">{dosesPerVial}</p>
@@ -167,6 +279,25 @@ export function ReconCalculator() {
               <p className="text-yellow-400">Dose very small — verify units are correct</p>
             )}
           </div>
+
+          {/* Blend per-component breakdown */}
+          {componentDoses.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border">
+              <p className="text-xs text-text-muted uppercase tracking-wider font-medium mb-2">
+                Per injection ({selectedPep?.name.split(' ')[0]} blend)
+              </p>
+              <div className="space-y-1.5">
+                {componentDoses.map(c => (
+                  <div key={c.name} className="flex items-center justify-between text-sm">
+                    <span className="text-text-secondary">{c.name}</span>
+                    <span className="font-mono text-text">
+                      {c.mg >= 1 ? `${c.mg.toFixed(2)} mg` : `${(c.mg * 1000).toFixed(0)} mcg`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -176,7 +307,7 @@ export function ReconCalculator() {
           <div className="flex items-center gap-3 mb-3">
             <Droplets className="w-4 h-4 text-primary" />
             <p className="text-xs text-text-muted uppercase tracking-wider font-medium">
-              U-100 Insulin Syringe
+              {syringeLabel} Insulin Syringe
             </p>
           </div>
 
@@ -185,10 +316,10 @@ export function ReconCalculator() {
             {/* Tick marks */}
             <div className="flex justify-between text-[10px] font-mono text-text-muted px-1 mb-1">
               <span>0</span>
-              <span>25</span>
-              <span>50</span>
-              <span>75</span>
-              <span>100 IU</span>
+              <span>{uPerMl / 4}</span>
+              <span>{uPerMl / 2}</span>
+              <span>{(uPerMl * 3) / 4}</span>
+              <span>{uPerMl} u</span>
             </div>
             {/* Barrel */}
             <div className="relative h-8 bg-bg-raised border border-border rounded-full overflow-hidden">
@@ -211,7 +342,7 @@ export function ReconCalculator() {
             {/* Reading */}
             <p className="text-center mt-2 font-mono text-sm">
               <span className={syringeWarning ? 'text-red-400' : 'text-primary'}>
-                Draw to {iu.toFixed(1)} IU mark
+                Draw to {iu.toFixed(1)} unit mark
               </span>
               {syringeWarning && (
                 <span className="block text-red-400 text-xs mt-1">
