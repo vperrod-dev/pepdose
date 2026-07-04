@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './pages/Dashboard';
@@ -22,9 +22,15 @@ import { InjectionMap } from './pages/InjectionMap';
 import { GoalPicker } from './pages/GoalPicker';
 import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
+import { initReminders } from './utils/notifications';
 
 export default function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem('pepdose-onboarded') === 'true');
+
+  useEffect(() => {
+    if (!onboarded) return;
+    return initReminders();
+  }, [onboarded]);
 
   if (!onboarded) {
     return <Onboarding onComplete={() => setOnboarded(true)} />;

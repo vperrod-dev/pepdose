@@ -36,7 +36,9 @@ export function ExportImport() {
         const parsed = JSON.parse(text);
         if (!parsed.version || !parsed.protocols) throw new Error('Invalid backup');
         await importData(text);
-        setStatus({ type: 'success', msg: `Imported ${parsed.protocols.length} protocols` });
+        setStatus({ type: 'success', msg: `Imported ${parsed.protocols.length} protocols. Reloading…` });
+        // Reload so every screen re-reads the restored data instead of showing stale in-memory state.
+        setTimeout(() => window.location.reload(), 800);
       } catch {
         setStatus({ type: 'error', msg: 'Invalid backup file' });
       }
@@ -47,7 +49,8 @@ export function ExportImport() {
   const handleClear = async () => {
     await clearAllData();
     setShowClearConfirm(false);
-    setStatus({ type: 'success', msg: 'All data cleared' });
+    setStatus({ type: 'success', msg: 'All data cleared. Reloading…' });
+    setTimeout(() => window.location.reload(), 800);
   };
 
   return (

@@ -59,6 +59,8 @@ export function VialInventory() {
   };
 
   const handleDiscard = async (id: string) => {
+    const pep = getPeptideById(vials.find(v => v.id === id)?.peptideId ?? '');
+    if (!window.confirm(`Discard this ${pep?.name ?? ''} vial? It will be moved to Empty / Discarded.`)) return;
     await updateVial(id, { status: 'empty' });
     load();
   };
@@ -131,7 +133,7 @@ export function VialInventory() {
                     </div>
                     <p className="text-xs text-text-muted">{v.amountMg}mg · {v.bacWaterMl ? `${v.bacWaterMl}ml BAC` : 'unreconstituted'}</p>
                   </div>
-                  <button onClick={() => handleDiscard(v.id)} className="p-1.5 text-text-muted hover:text-danger">
+                  <button onClick={() => handleDiscard(v.id)} aria-label={`Discard ${pep?.name || 'vial'}`} className="p-1.5 text-text-muted hover:text-danger">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

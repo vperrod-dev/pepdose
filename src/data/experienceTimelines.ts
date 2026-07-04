@@ -512,6 +512,231 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
     ],
     postCycleNotes: 'Collagen remodeling is structural — benefits persist well after stopping. Community protocol: 4-8 weeks off, then 2-3x/week maintenance. Monitor copper levels with bloodwork if running multiple cycles back-to-back. Users report skin quality holds for months post-cycle.',
   },
+  {
+    peptideId: 'kpv',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 2,
+        title: 'Settling In — Anti-Inflammatory Priming',
+        description: 'KPV is the C-terminal tripeptide of α-MSH and works by calming NF-κB inflammation and stabilizing mast cells. Evidence is preclinical (animal colitis models) plus heavy gut/histamine-community anecdote — no human trials. Most users report little in the first days; some notice reduced bloating or calmer histamine/allergy symptoms early.',
+        tips: ['For gut issues use oral/enteric-coated — the PepT1 transporter delivers it to inflamed intestinal tissue', 'Take oral doses on an empty stomach to limit enzyme breakdown', 'Keep a food + symptom diary from day one', 'SubQ (200–500 mcg/day) is the route for systemic or skin inflammation'],
+      },
+      {
+        weekStart: 3, weekEnd: 6,
+        title: 'Peak Anti-Inflammatory Window',
+        description: 'This is where most users report the clearest benefit: reduced gut inflammation and food reactivity, calmer skin (eczema, acne, urticaria), and lower mast-cell/histamine reactivity. KPV is notably clean — it is often kept on hand to calm injection-site or histamine flares from other peptides like BPC-157/TB-500.',
+        tips: ['Pair with diet changes — KPV supports, it doesn\'t override a triggering diet', 'Topical 0.1–1% works well for localized skin flares', 'Commonly stacked with BPC-157 as a gut/skin duo', 'If symptoms return fast on a 2-day break, look for an underlying driver'],
+      },
+      {
+        weekStart: 7, weekEnd: 8,
+        title: 'Consolidation / Reassess',
+        description: 'Effects plateau. Users either taper off to reassess baseline or continue through an active flare. Because KPV is not strongly angiogenic, cycling pressure is lower than for BPC/TB, but breaks are still used to test whether the underlying issue has resolved.',
+        tips: ['Cycle off to see what holds without it', 'Note which symptoms rebound — that tells you what it was actually doing', 'Reconstituted vials last ~28 days refrigerated; never freeze'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Injection-site irritation', severity: 'normal', likelihood: 'uncommon', onset: 'Immediate', duration: '1-2 days', notes: 'Mild; rotate sites and use a fresh needle.' },
+      { name: 'Mild nausea', severity: 'normal', likelihood: 'rare', onset: 'Early', duration: 'Brief', notes: 'Uncommon; take oral with a tiny bit of food if it bothers you (non-gut targeting).' },
+      { name: 'Headache', severity: 'normal', likelihood: 'rare', onset: 'Early', duration: 'Hours', notes: 'Hydrate; lower dose if persistent.' },
+    ],
+    redFlags: [
+      'Allergic reaction — hives, swelling, difficulty breathing (it is an MSH fragment)',
+      'Worsening rather than improving GI symptoms',
+      'Fever or signs of injection-site infection',
+    ],
+    postCycleNotes: 'No hormonal suppression, so no PCT. Users simply stop and reassess, then re-run during flares. Evidence is entirely preclinical/anecdotal — treat dosing as provisional and verify independently.',
+  },
+  {
+    peptideId: 'cjc-1295-dac',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 2,
+        title: 'Loading Toward Steady State',
+        description: 'The DAC (Drug Affinity Complex) binds albumin and stretches the half-life to ~6–8 days, so CJC-1295 with DAC creates a sustained GH/IGF-1 "bleed" rather than the sharp pulses of the no-DAC version. Dosed in MILLIGRAMS 1–2×/week (not daily). Onset is gradual — expect improved sleep and well-being to build over the first couple of weeks as levels accumulate. Human data at community doses is limited/anecdotal.',
+        tips: ['Dose 1–2 mg once weekly, or split 1 mg twice weekly for steadier levels', 'Do NOT dose daily like no-DAC — that just stacks side effects', 'Steady state takes ~3–4 weeks; don\'t over-dose while waiting', 'Get a baseline IGF-1 before starting'],
+      },
+      {
+        weekStart: 3, weekEnd: 8,
+        title: 'Sustained Elevation',
+        description: 'IGF-1 climbs to a plateau (the Teichman 2006 study showed IGF-1 elevated for days after a single dose, accumulating with weekly dosing). Users report better recovery, skin, and gradual body-comp changes. Because GH is elevated continuously, water retention, tingling, and lethargy tend to be more pronounced and longer-lasting than with the pulsatile no-DAC version.',
+        tips: ['Split the weekly dose into 2× to smooth the "bleed" and reduce side-effect spikes', 'Watch for carpal-tunnel-like tingling — reduce dose 30–50% if it appears', 'Track fasting glucose — sustained GH can nudge insulin resistance', 'Many practitioners prefer no-DAC + Ipamorelin for a more physiologic profile'],
+      },
+      {
+        weekStart: 9, weekEnd: 12,
+        title: 'Peak & Plan Off-Cycle',
+        description: 'Body-composition and recovery benefits accumulate. Of the GH-releasing options, DAC carries the highest receptor-desensitization risk from constant stimulation, so cycling off matters more here. Plan a break of at least 4 weeks (arguably longer than no-DAC).',
+        tips: ['Cycle 8–12 weeks on, then 4+ weeks off', 'Don\'t stack with exogenous HGH — compounds downregulation', 'Recheck IGF-1 before re-cycling', 'Refrigerate reconstituted vials; use bacteriostatic water'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Sustained water retention / bloating', severity: 'normal', likelihood: 'common', onset: 'First weeks', duration: 'Can persist through cycle', notes: 'More than no-DAC. Lower to 1 mg/week, hydrate, reduce sodium.' },
+      { name: 'Lethargy / fatigue', severity: 'monitor', likelihood: 'common', onset: 'After injection, ongoing', duration: 'Sustained', notes: 'Notably associated with the DAC version. Dose reduction helps.' },
+      { name: 'Flushing / head rush', severity: 'normal', likelihood: 'common', onset: 'Minutes post-injection', duration: '5-30 minutes', notes: 'Vasodilation. Lower dose if bothersome.' },
+      { name: 'Tingling / numbness (carpal tunnel-like)', severity: 'monitor', likelihood: 'uncommon', onset: 'First weeks', duration: 'Can persist', notes: 'Constant fluid retention. Cut dose 30–50%; wrist splints at night; reversible.' },
+      { name: 'Elevated fasting glucose', severity: 'monitor', likelihood: 'uncommon', onset: 'Over weeks', duration: 'While dosing', notes: 'Sustained GH is the bigger metabolic risk vs pulsatile. Check labs.' },
+    ],
+    redFlags: [
+      'Persistent numbness/tingling that doesn\'t resolve on dose reduction',
+      'Signs of high blood sugar (excess thirst, frequent urination)',
+      'Severe or worsening headache or vision changes',
+      'Acromegaly signs with long/high use — enlarging hands, feet, facial features, joint pain',
+      'Avoid entirely with active cancer (GH/IGF-1 axis)',
+    ],
+    postCycleNotes: 'No HPG suppression, so no traditional PCT. But the sustained stimulation means the GH axis and receptors need recovery — take at least 4 weeks off (longer than no-DAC). Long DAC runs carry the highest desensitization risk of the GH-releasing peptides; cycling on/off is more important here.',
+  },
+  {
+    peptideId: 'sermorelin',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 4,
+        title: 'Onset — Sleep First',
+        description: 'Sermorelin is the original GHRH(1-29) analog with the shortest half-life (~10–20 min), producing a brief, physiologic GH pulse. It has more clinical history than most peptides here (formerly FDA-approved as Geref). Gradual by design — the first and most consistent report is deeper, more restorative sleep. Not a fast or dramatic compound.',
+        tips: ['Dose 200–300 mcg nightly, before bed, on an empty stomach', 'Avoid carbs/fat for ~2 hr before and ~30 min after — insulin blunts the GH pulse', '5 nights on / 2 off is common to keep the pituitary responsive', 'Overweight/insulin-resistant users start lower (100–150 mcg) to limit water retention'],
+      },
+      {
+        weekStart: 5, weekEnd: 12,
+        title: 'Building — Recovery & Body Comp',
+        description: 'IGF-1 rises (check baseline and again at 6–8 weeks; expect a 50–100% rise, dosing to mid-normal). Users report better recovery, energy, firmer skin, and gradual fat loss — especially visceral — once the axis is up-regulated. It is not a weight-loss drug: fat loss shows up alongside a caloric deficit and training.',
+        tips: ['Dose to your IGF-1 target, not to max', 'Recheck IGF-1 at 4–8 weeks and adjust 50–100 mcg', 'Pair with Ipamorelin (GHRH + GHRP) for a bigger, cleaner pulse', 'Store refrigerated — heat above 8°C irreversibly denatures it'],
+      },
+      {
+        weekStart: 13, weekEnd: 24,
+        title: 'Cumulative Effects',
+        description: 'The most significant physique and anti-aging effects appear over months (3–6+) as the GH axis is fully engaged. Many clinics run sermorelin long-term with monitoring rather than strict cycling — there is genuine debate over whether cycling is needed since it just augments natural physiology.',
+        tips: ['Long-game compound — judge it over months, not weeks', 'Weekly rest days largely handle receptor desensitization', 'Periodic IGF-1 and fasting-glucose labs if running long-term'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Injection-site reaction', severity: 'normal', likelihood: 'common', onset: 'Immediate', duration: 'Self-resolves', notes: 'Redness/swelling/itch — the most common effect. Rotate sites.' },
+      { name: 'Facial/neck flushing', severity: 'normal', likelihood: 'common', onset: 'Immediately post-injection', duration: 'Minutes', notes: 'Harmless vasodilation.' },
+      { name: 'Headache', severity: 'normal', likelihood: 'uncommon', onset: 'First 1-2 weeks', duration: 'Transient', notes: 'Hydrate; lower dose if needed.' },
+      { name: 'Mild water retention', severity: 'normal', likelihood: 'common', onset: 'First ~2 weeks', duration: 'Self-limiting', notes: 'GH-driven. Lower start dose in at-risk users.' },
+      { name: 'Trouble sleeping if dosed too early', severity: 'monitor', likelihood: 'uncommon', onset: 'Same night', duration: 'Hours', notes: 'Dose right before bed.' },
+    ],
+    redFlags: [
+      'Severe allergic reaction (facial swelling, difficulty breathing, severe rash) — seek care immediately',
+      'Chest pain',
+      'Worsening or severe headaches or vision changes',
+      'Persistent edema or numbness',
+      'Avoid with active cancer (GH/IGF-1 axis)',
+    ],
+    postCycleNotes: 'No HPG suppression, no PCT. GHRH-receptor desensitization is the only concern with continuous daily use, and weekly rest days (5-on/2-off) largely address it. The short half-life means the natural axis recovers quickly. Lowest systemic burden of the GH-releasing options.',
+  },
+  {
+    peptideId: 'tesamorelin',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 4,
+        title: 'Biochemical Phase — Nothing in the Mirror Yet',
+        description: 'Tesamorelin is an FDA-approved GHRH analog (Egrifta) with the strongest evidence base here — approved for reducing visceral abdominal fat. IGF-1 rises but visible changes lag. This early window is where water retention/peripheral edema and mild carpal-tunnel-like tingling are most common (GH raises muscle glycogen, ~3 kg water per 1 kg glycogen).',
+        tips: ['Studied dose is 2 mg/day SubQ; many titrate from 1 mg the first week to ease edema', 'Inject in the evening, fasted — carbs/fat blunt the GH pulse', 'Rotate abdominal sites (≥2 in / 5 cm from navel) to avoid lipohypertrophy', 'Track baseline waist circumference and IGF-1, not just the scale'],
+      },
+      {
+        weekStart: 5, weekEnd: 8,
+        title: 'Stabilizing',
+        description: 'Edema and tingling usually settle as the dose stabilizes. Users report better sleep and recovery. Visceral fat has not visibly moved yet — the effect is biochemical first.',
+        tips: ['If tingling/edema persists, hold at a lower dose', 'Reduce carbs near the injection to preserve GH release', 'Monitor fasting glucose/HbA1c — tesamorelin raised diabetes incidence in trials (5% vs 1%)'],
+      },
+      {
+        weekStart: 9, weekEnd: 12,
+        title: 'First Visible Waistline Changes',
+        description: 'Community and clinical reports converge around week 8+ for the first visible visceral/waistline changes. Judge progress by waist measurement, not weight — this is a visceral-fat tool, not general weight loss.',
+        tips: ['Measure waist monthly', 'Pair with diet and training for meaningful change', 'Keep IGF-1 in the upper-normal range, not supraphysiologic'],
+      },
+      {
+        weekStart: 13, weekEnd: 26,
+        title: 'Peak Visceral Fat Loss',
+        description: 'Clinical data shows visceral adipose tissue reduced ~15–18% by 26 weeks, with IGF-1 plateauing around week 26 and holding through 52. Also reduces liver fat. Trials showed no tachyphylaxis over 52 weeks of continuous daily use, so on/off cycling is a cost/community choice rather than an efficacy one.',
+        tips: ['Watch for joint pain (arthralgia) — common and GH-mediated; usually eases with time or a dose drop', 'Continue waist + IGF-1 + glucose monitoring', 'Visceral fat re-accumulates after stopping — benefit is maintenance-dependent'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Injection-site reactions', severity: 'normal', likelihood: 'common', onset: 'Immediate', duration: 'Transient', notes: '~24.5% in trials (erythema, pruritus, pain). Rotate sites; room-temp the solution; let alcohol dry.' },
+      { name: 'Arthralgia (joint pain)', severity: 'monitor', likelihood: 'common', onset: 'First weeks', duration: 'Often eases with time', notes: 'GH-mediated. Usually mild; dose reduction helps.' },
+      { name: 'Peripheral edema / swelling', severity: 'monitor', likelihood: 'common', onset: 'First 4-6 weeks', duration: 'Usually stabilizes', notes: 'Part of the GH-effect cluster (25.6% vs 13.7% placebo). Hold at lower dose if pronounced.' },
+      { name: 'Carpal-tunnel-like numbness/tingling', severity: 'monitor', likelihood: 'uncommon', onset: 'First weeks', duration: 'Reversible', notes: 'Fluid pressing on nerves. Dose-adjust.' },
+      { name: 'Raised fasting glucose / new diabetes risk', severity: 'monitor', likelihood: 'uncommon', onset: 'Over months', duration: 'While dosing', notes: 'Diabetes incidence 5% vs 1% in trials (HR 3.3). Monitor HbA1c.' },
+    ],
+    redFlags: [
+      'Persistent or worsening swelling, especially with shortness of breath',
+      'Persistent numbness/tingling or carpal tunnel symptoms',
+      'Rising fasting glucose / HbA1c ≥6.5% or new diabetes symptoms',
+      'Hypersensitivity — widespread rash, hives, swelling',
+      'Contraindicated with active malignancy, pregnancy, or pituitary tumor',
+    ],
+    postCycleNotes: 'No HPTA suppression, so no PCT needed. The key clinical finding: visceral fat re-accumulates after dosing stops and IGF-1 returns toward baseline — the benefit is maintenance-dependent. Build diet and training habits during treatment so results hold.',
+  },
+  {
+    peptideId: 'semax',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 1,
+        title: 'Acute Effects — Same-Day Focus',
+        description: 'Semax is a synthetic ACTH(4–7) analog registered as a drug in Russia (stroke, TBI, cognition) but not FDA-approved; Western use is anecdotal. It upregulates BDNF/NGF and boosts dopaminergic tone. The draw is acute: within 15–30 minutes users report calm focus, reduced mental fog, verbal fluency, and motivation, lasting ~4–8 hours.',
+        tips: ['Dose in the morning — it is stimulating and late dosing wrecks sleep', 'Start low (one spray of 0.1% ≈ 100 mcg) to gauge response', 'Proper nasal technique: head slightly forward, spray toward the outer nasal wall, don\'t sniff hard down the throat', 'Distinguish plain Semax from the far more potent N-Acetyl Semax Amidate — dose accordingly'],
+      },
+      {
+        weekStart: 2, weekEnd: 4,
+        title: 'Peak Subjective Effects',
+        description: 'Effects are cumulative more than acute — meaningful cognitive gains (memory recall, sustained attention, mental energy) typically emerge in weeks 2–3. BDNF changes underpin this. This is where most users judge whether it works for them.',
+        tips: ['Give it 2–3 weeks before judging — treat it as cumulative, not a one-off stimulant', 'Take weekends off to limit tolerance', 'Pair with Selank to offset any overstimulation (the "Russian stack")', 'Reduce dose if you feel jittery, irritable, or flat'],
+      },
+      {
+        weekStart: 5, weekEnd: 8,
+        title: 'Diminishing Returns — Cycle Off',
+        description: 'Beyond ~8 weeks of continuous use, effects tend to diminish (receptor adaptation). Standard courses run 10–30 days with a 2–4 week washout between them.',
+        tips: ['Cycle 10–30 days on, 2–4 weeks off', 'No dependence or withdrawal is reported', 'Some neuroplastic benefit persists after stopping, then fades', 'Refrigerate; degradation from heat/light is a common mistake'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Nasal irritation / burning', severity: 'normal', likelihood: 'common', onset: 'On administration', duration: 'Brief', notes: 'Alternate nostrils; proper technique; dilute if needed.' },
+      { name: 'Headache', severity: 'normal', likelihood: 'uncommon', onset: 'Same day', duration: 'Hours', notes: 'Hydrate; lower dose.' },
+      { name: 'Overstimulation (restlessness, insomnia)', severity: 'monitor', likelihood: 'uncommon', onset: 'Same day', duration: 'Hours', notes: 'Dose-dependent. Reduce dose; dose earlier in the day.' },
+      { name: 'Irritability / mental flattening', severity: 'monitor', likelihood: 'rare', onset: 'During cycle', duration: 'While dosing', notes: 'Lower dose or shorten the cycle.' },
+    ],
+    redFlags: [
+      'Persistent insomnia',
+      'Marked irritability or agitation',
+      'Persistent headache or significant blood-pressure elevation',
+      'Allergic reaction',
+    ],
+    postCycleNotes: 'No hormonal suppression; used in short courses or situationally. Cycle (10–30 days on, 2–4 weeks off) to keep receptors responsive. Not FDA-approved — Western evidence is anecdotal on top of older Russian clinical data.',
+  },
+  {
+    peptideId: 'selank',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 1,
+        title: 'Acute Calm — Without Sedation',
+        description: 'Selank is a synthetic analog of the immune peptide tuftsin, approved in Russia for generalized anxiety but not FDA-approved. It enhances GABA function (not at the benzodiazepine site, so no sedation or dependence), stabilizes enkephalins, and modulates serotonin/BDNF. Within 15–60 minutes users report reduced anxiety and mental tension with a clear head — "calm clarity," each dose lasting ~12–24 hours.',
+        tips: ['Start low (250–300 mcg) to establish your baseline', 'Non-sedating, so it is daytime-friendly and timing is flexible', 'Use before anxiety-provoking situations', 'Good nasal technique matters — poor technique wastes the peptide'],
+      },
+      {
+        weekStart: 2, weekEnd: 4,
+        title: 'Clearer Anxiolytic & Cognitive Effects',
+        description: 'The anxiolytic effect becomes clearer, especially in normally stressful situations, and cognitive benefits (focus, verbal fluency) emerge more fully. Russian trials rate its anxiolytic efficacy comparable to medazepam/phenazepam but without sedation, cognitive dulling, or addiction. Community advice: commit to a full 4-week trial before judging.',
+        tips: ['Give it the full 4 weeks — it is subtle and cumulative, not a benzo-like knockout', 'Pair with Semax for "calm focus" — run Selank alone 5–7 days first, then add Semax', 'Don\'t over-dose expecting sedation; that is not its mechanism', 'It is not a substitute for treating a genuine anxiety disorder'],
+      },
+      {
+        weekStart: 5, weekEnd: 8,
+        title: 'Maintenance or Cycle Off',
+        description: 'Used situationally or in blocks. No tolerance, dependence, or withdrawal was seen in Russian studies, so cycling (classic 10 days on / 5 off, or longer blocks) is precautionary to preserve receptor sensitivity.',
+        tips: ['Cycle 10 on / 5 off, or in 8-week blocks', 'Effects taper after stopping; some BDNF-linked benefit lingers', 'Refrigerate; heat/light degrade it'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Nasal irritation', severity: 'normal', likelihood: 'common', onset: 'On administration', duration: 'Brief', notes: 'Alternate nostrils; proper technique.' },
+      { name: 'Headache', severity: 'normal', likelihood: 'uncommon', onset: 'Same day', duration: 'Hours', notes: 'Hydrate; lower dose.' },
+      { name: 'Mild drowsiness / fatigue', severity: 'normal', likelihood: 'uncommon', onset: 'Same day', duration: 'Hours', notes: 'Uncommon; adjust timing or lower dose.' },
+      { name: 'Paradoxical anxiety / restlessness', severity: 'monitor', likelihood: 'rare', onset: 'Same day', duration: 'Hours', notes: 'Reduce dose.' },
+    ],
+    redFlags: [
+      'Persistent paradoxical anxiety or restlessness',
+      'Relying on it in place of treating a genuine anxiety disorder',
+      'Allergic reaction',
+    ],
+    postCycleNotes: 'No dependence, withdrawal, or PCT. Effects taper after stopping. Cycling is precautionary. Not FDA-approved — Western evidence is anecdotal on top of older Russian clinical data.',
+  },
 ];
 
 export function getExperienceForPeptide(peptideId: string): PeptideExperience | undefined {

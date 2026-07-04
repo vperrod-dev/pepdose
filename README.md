@@ -51,7 +51,12 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
   last choice). All screens show both users at once, each item badged with its owner, plus a
   **Both / Victor / Nadia** filter chip in the header to narrow the view (charts respect it).
   Onboarding and settings are shared.
-- **Export / import** — back up and restore all data
+- **Dose reminders** — opt-in local notifications nudge you before each scheduled dose (lead time
+  configurable in Settings). Fired via the service worker while the app is open or backgrounded;
+  deduped per day, re-armed on focus. No backend/push server, so it can't wake a fully-closed app.
+- **Ad-hoc logging** — log an unscheduled injection (peptide, owner, dose, time) straight from the
+  Log tab, no protocol required.
+- **Export / import** — back up and restore all data (reloads the app after restore/clear)
 - **Offline-first PWA** — installable, works without a connection
 
 ## Stack

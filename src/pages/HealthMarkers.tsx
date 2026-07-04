@@ -127,7 +127,14 @@ export function HealthMarkers() {
     setDate(format(new Date(), 'yyyy-MM-dd'));
   }
 
+  const hasEntry = !!(
+    weight || bodyFat || bpSys || bpDia || hr || glucose ||
+    mood || energy || sleep || sideEffects.trim() || notes.trim() ||
+    pruneMeasurements(measurements)
+  );
+
   async function handleSave() {
+    if (!hasEntry) return;
     setSaving(true);
     const prunedMeasurements = pruneMeasurements(measurements);
     const marker: Omit<HealthMarker, 'id' | 'createdAt'> = {
@@ -395,10 +402,10 @@ export function HealthMarkers() {
           {/* Save */}
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !hasEntry}
             className="w-full tap-target bg-primary text-white font-semibold rounded-xl py-3.5 transition-all active:scale-[0.98] disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save Entry'}
+            {saving ? 'Saving...' : hasEntry ? 'Save Entry' : 'Enter a value to save'}
           </button>
         </div>
       ) : (

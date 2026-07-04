@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInMinutes, differenceInHours, differenceInWeeks, parseISO } from 'date-fns';
 import { Syringe, TrendingUp, ChevronRight, Zap } from 'lucide-react';
 import { getScheduledDosesForDate, getProtocols, getDoseLogsForDate, getScheduledDosesForProtocol } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
-import { scheduleDayNotifications, clearScheduledNotifications } from '../utils/notifications';
+import { scheduleReminders } from '../utils/notifications';
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import type { ScheduledDose, UserProtocol } from '../db/schema';
@@ -35,7 +35,6 @@ export function Dashboard() {
   const [coach, setCoach] = useState<NextStep | null>(null);
   const [activeDose, setActiveDose] = useState<DashboardDose | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const notifTimers = useRef<number[]>([]);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const now = new Date();
@@ -62,11 +61,10 @@ export function Dashboard() {
       setLogged(new Set(logs.map(l => l.scheduledDoseId).filter(Boolean) as string[]));
       setLoading(false);
 
-      clearScheduledNotifications(notifTimers.current);
-      notifTimers.current = scheduleDayNotifications(doses);
+      // Re-arm reminders whenever today's doses change (new log, edit, reload).
+      void scheduleReminders();
     }
     load();
-    return () => clearScheduledNotifications(notifTimers.current);
   }, [today, reloadKey]);
 
   useEffect(() => {
@@ -75,7 +73,7 @@ export function Dashboard() {
       const allDoses = (await Promise.all(active.map(p => getScheduledDosesForProtocol(p.id)))).flat();
       setCoach(nextTitrationStep(allDoses, new Date()));
     })();
-  }, []);
+  }, [reloadKey]);
 
   const applyOwnerFilter = useOwnerFilter();
   const visibleDoses = applyOwnerFilter(todayDoses);

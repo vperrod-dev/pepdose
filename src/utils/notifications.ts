@@ -1,76 +1,176 @@
+import { format } from 'date-fns';
+import { getScheduledDosesForDate, getDoseLogsForDate } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
-import type { ScheduledDose } from '../db/schema';
+
+/**
+ * Local-first dose reminders.
+ *
+ * pepdose has no backend, so there is no server push. Reminders are scheduled
+ * with in-page timers and fired through the service worker registration
+ * (`showNotification`) so they render as real OS notifications. This works
+ * whenever the app (or its tab) is alive; it cannot wake a fully-closed app the
+ * way a push server would. On app open / tab focus we re-evaluate and fire any
+ * reminder whose window opened while we were away (deduped per day).
+ */
+
+interface AppSettings {
+  notificationsEnabled: boolean;
+  reminderMinutesBefore: number;
+}
+
+const SETTINGS_KEY = 'pepdose-settings';
+const FIRED_KEY = 'pepdose-fired-reminders';
+
+function readSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      notificationsEnabled: !!parsed.notificationsEnabled,
+      reminderMinutesBefore: Number.isFinite(parsed.reminderMinutesBefore) ? parsed.reminderMinutesBefore : 15,
+    };
+  } catch {
+    return { notificationsEnabled: false, reminderMinutesBefore: 15 };
+  }
+}
+
+export function notificationsSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator;
+}
 
 export async function requestNotificationPermission(): Promise<boolean> {
-  if (!('Notification' in window)) return false;
+  if (!notificationsSupported()) return false;
   if (Notification.permission === 'granted') return true;
   const result = await Notification.requestPermission();
   return result === 'granted';
 }
 
 export function canNotify(): boolean {
-  return 'Notification' in window && Notification.permission === 'granted';
+  return notificationsSupported() && Notification.permission === 'granted';
 }
 
-export function scheduleNotification(dose: ScheduledDose, minutesBefore = 0): number | null {
-  if (!canNotify()) return null;
+// --- per-day dedupe of fired reminders -------------------------------------
 
-  const [hours, minutes] = (dose.time || '08:00').split(':').map(Number);
-  const target = new Date(dose.date);
-  target.setHours(hours, minutes - minutesBefore, 0, 0);
-
-  const delay = target.getTime() - Date.now();
-  if (delay <= 0) return null;
-
-  const pep = getPeptideById(dose.peptideId);
-  const name = pep?.name || dose.peptideId;
-
-  const timerId = window.setTimeout(() => {
-    new Notification(`Time for ${name}`, {
-      body: `${dose.dose}${dose.unit} — ${dose.route || 'SubQ'}`,
-      icon: '/icons/icon-192.svg',
-      tag: dose.id,
-      requireInteraction: true,
-    });
-  }, delay);
-
-  return timerId;
+function todayStr(): string {
+  return format(new Date(), 'yyyy-MM-dd');
 }
 
-export function scheduleDayNotifications(doses: ScheduledDose[]): number[] {
-  const settings = loadNotificationSettings();
-  if (!settings.enabled) return [];
-
-  const timerIds: number[] = [];
-  for (const dose of doses) {
-    if (dose.status !== 'upcoming') continue;
-    const id = scheduleNotification(dose, settings.minutesBefore);
-    if (id !== null) timerIds.push(id);
-  }
-  return timerIds;
-}
-
-export function clearScheduledNotifications(timerIds: number[]) {
-  for (const id of timerIds) {
-    window.clearTimeout(id);
-  }
-}
-
-interface NotificationSettings {
-  enabled: boolean;
-  minutesBefore: number;
-}
-
-function loadNotificationSettings(): NotificationSettings {
+function firedSet(): Set<string> {
   try {
-    const raw = localStorage.getItem('pepdose-settings');
-    if (!raw) return { enabled: false, minutesBefore: 15 };
-    const parsed = JSON.parse(raw);
-    return {
-      enabled: parsed.notificationsEnabled ?? false,
-      minutesBefore: parsed.reminderMinutesBefore ?? 15,
-    };
+    const raw = localStorage.getItem(FIRED_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && parsed.date === todayStr()) return new Set<string>(parsed.ids);
+  } catch { /* ignore */ }
+  return new Set();
+}
+
+function markFired(id: string) {
+  const set = firedSet();
+  set.add(id);
+  localStorage.setItem(FIRED_KEY, JSON.stringify({ date: todayStr(), ids: [...set] }));
+}
+
+// --- firing ----------------------------------------------------------------
+
+async function show(title: string, body: string, tag: string, url: string) {
+  if (!canNotify()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification(title, {
+      body,
+      tag,
+      icon: import.meta.env.BASE_URL + 'icons/icon-192.svg',
+      badge: import.meta.env.BASE_URL + 'icons/icon-192.svg',
+      data: { url },
+    });
   } catch {
-    return { enabled: false, minutesBefore: 15 };
+    try { new Notification(title, { body, tag }); } catch { /* ignore */ }
   }
+}
+
+export async function showTestNotification() {
+  await show(
+    'pepdose reminders are on',
+    "You'll get a nudge before each scheduled dose while the app is open.",
+    'pepdose-test',
+    import.meta.env.BASE_URL,
+  );
+}
+
+// --- scheduling ------------------------------------------------------------
+
+let timers: ReturnType<typeof setTimeout>[] = [];
+
+function clearTimers() {
+  timers.forEach(clearTimeout);
+  timers = [];
+}
+
+/**
+ * Recompute and (re)arm reminders for today's still-pending doses. Safe to call
+ * repeatedly — it clears prior timers first. Reminders already fired today are
+ * skipped via the per-day dedupe set.
+ */
+export async function scheduleReminders(): Promise<void> {
+  clearTimers();
+  const settings = readSettings();
+  if (!settings.notificationsEnabled || !canNotify()) return;
+
+  const today = todayStr();
+  const [scheduled, logs] = await Promise.all([
+    getScheduledDosesForDate(today),
+    getDoseLogsForDate(today),
+  ]);
+  const loggedIds = new Set(logs.map(l => l.scheduledDoseId).filter(Boolean));
+  const pending = scheduled.filter(d => d.status === 'upcoming' && !loggedIds.has(d.id));
+
+  const now = Date.now();
+  const lead = settings.reminderMinutesBefore * 60_000;
+
+  for (const dose of pending) {
+    if (firedSet().has(dose.id)) continue;
+
+    const doseAt = new Date(`${dose.date}T${dose.time || '08:00'}`).getTime();
+    if (Number.isNaN(doseAt)) continue;
+    const remindAt = doseAt - lead;
+    const pep = getPeptideById(dose.peptideId);
+    const title = `${pep?.name ?? 'Dose'} reminder`;
+    const body = `${dose.dose} ${dose.unit} due at ${dose.time}${dose.owner ? ` · ${dose.owner}` : ''}`;
+    const url = import.meta.env.BASE_URL + 'log';
+
+    // Window already open (reminder time passed but the dose isn't long overdue):
+    // fire immediately so a reopened app still nudges you.
+    if (remindAt <= now && doseAt + 60 * 60_000 > now) {
+      markFired(dose.id);
+      void show(title, body, dose.id, url);
+      continue;
+    }
+
+    if (remindAt > now) {
+      const timer = setTimeout(() => {
+        markFired(dose.id);
+        void show(title, body, dose.id, url);
+      }, remindAt - now);
+      timers.push(timer);
+    }
+  }
+}
+
+/**
+ * Wire reminders to the app lifecycle: schedule now, and re-schedule whenever
+ * the tab regains focus (covers day rollover and reminders that came due while
+ * the app was backgrounded). Returns a cleanup function.
+ */
+export function initReminders(): () => void {
+  void scheduleReminders();
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void scheduleReminders();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('focus', onVisible);
+  return () => {
+    clearTimers();
+    document.removeEventListener('visibilitychange', onVisible);
+    window.removeEventListener('focus', onVisible);
+  };
 }

@@ -22,7 +22,13 @@ const REACTIONS = ['redness', 'lump', 'pain', 'bruise'] as const;
 export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionSheetProps) {
   const isLogged = dose.status === 'logged';
   const [mode, setMode] = useState<SheetMode>('log');
-  const [actualDose, setActualDose] = useState(parseFloat((log?.dose ?? dose.dose).toPrecision(10)));
+  // Keep the dose field as a string so intermediate edits ("", "0.", "2.5") are
+  // never clobbered mid-typing. Parse to a number only at save time.
+  const [actualDoseStr, setActualDoseStr] = useState(
+    String(parseFloat((log?.dose ?? dose.dose).toPrecision(10))),
+  );
+  const actualDose = parseFloat(actualDoseStr);
+  const doseValid = Number.isFinite(actualDose) && actualDose > 0;
   const [actualTime, setActualTime] = useState(log?.time ?? format(new Date(), 'HH:mm'));
   const [site, setSite] = useState(log?.injectionSite || dose.suggestedSite || SITE_LABELS[0]);
   const [notes, setNotes] = useState(log?.notes ?? '');
@@ -53,6 +59,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
   );
 
   async function handleLog() {
+    if (!doseValid) return;
     setSaving(true);
     if (log) {
       await updateDoseLog(log.id, {
@@ -114,7 +121,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
               <div>
                 <p className="font-semibold text-sm">{dose.peptideName}</p>
                 <p className="text-xs text-text-muted">
-                  {dose.dose} {dose.unit} · {dose.date} · {dose.time}
+                  {(log?.dose ?? dose.dose)} {dose.unit} · {log?.date ?? dose.date} · {log?.time ?? dose.time}
                 </p>
               </div>
             </div>
@@ -179,9 +186,11 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                 </label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="any"
-                  value={parseFloat(actualDose.toPrecision(10))}
-                  onChange={e => setActualDose(parseFloat(e.target.value) || 0)}
+                  min="0"
+                  value={actualDoseStr}
+                  onChange={e => setActualDoseStr(e.target.value)}
                   className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-mono focus:ring-1 focus:ring-primary outline-none"
                 />
               </div>
@@ -258,7 +267,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                 </button>
                 <button
                   onClick={handleLog}
-                  disabled={saving || actualDose <= 0}
+                  disabled={saving || !doseValid}
                   className="flex-1 px-4 py-3 rounded-xl bg-primary text-bg text-sm font-semibold disabled:opacity-40"
                 >
                   {saving ? 'Saving...' : log ? 'Save Changes' : 'Log Dose'}
