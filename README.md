@@ -28,10 +28,16 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
   matching peptides + documented **synergy stacks**, one tap to a prefilled new protocol.
 - **Titration coach** — the Dashboard flags your next upcoming dose step-up ("Week 4 — step up
   to 4mg on Mon"), computed from the titration ladder. Rule-based, works offline.
+- **Adherence streak** — the Dashboard shows your consecutive fully-logged-day streak plus a
+  logged/due ratio for the week (skipped doses are neutral; a missed dose breaks the streak).
 - **Dose logging** — log actual quantity, time, injection site, and notes; reschedule or skip.
   Pick the site by tapping a **body map** (recency-colored so overused zones show red); a
   fresh log defaults to the *most-rested* zone. Optionally flag a **site reaction**
-  (redness/lump/pain/bruise). Logged rows show the *actual* recorded site.
+  (redness/lump/pain/bruise) and **rate systemic symptoms** (nausea, heart rate, dysesthesia,
+  fatigue, …) on a 1–10 scale. Logged rows show the *actual* recorded site.
+- **Symptom trends** — an Insights view charting logged symptom severity over time, with
+  **titration step-ups marked** so you can see whether a dose increase spiked side effects
+  (e.g. nausea after the 4→6mg step). Per-symptom summary of frequency + average/max severity.
 - **Injection map & zone volume** — an Insights view showing where doses landed: the body map
   colored by recency plus a per-zone table of injection count + last-used over a 30/90-day
   window, hottest zones first. Surfaces overuse (lipohypertrophy risk) and flags zones with
@@ -39,9 +45,19 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
   12-position sites around the navel.
 - **Calendar** — tap any scheduled dose to log, reschedule, or skip
 - **Peptide library** — peptide database with dosing data, plus stacking rules
-- **Calculators** — reconstitution calculator (with **IU→mg** converter for IU-dosed compounds
-  like HGH/HCG) and half-life decay charts
-- **Vial inventory** — track stock on hand, with a **run-out date forecast** from your dosing cadence
+- **Reconstitution calculator** — forward (water → units) **and reverse-BAC** ("I want my dose
+  on a clean 10-unit mark — how much water?"); a **blend breakdown** for GLOW-style vials
+  (per-component mg from one draw); a **visual syringe** that honors your U-100/U-40 setting;
+  plus an **IU↔mg** converter for IU-dosed compounds (HGH/HCG). Reachable directly from each
+  peptide's experience guide.
+- **Active Levels** — an Insights chart estimating how much of each compound is *in your system*
+  from your actual logged doses, **projected forward through upcoming scheduled doses** past a
+  "now" line (so you see the weekly trough and the next shot climb back to peak). Per-peptide
+  status: % of recent peak, last-dose-ago, next-dose-in.
+- **Vial inventory** — track stock on hand with a **run-out date forecast**; the add form
+  prefills from the peptide's reconstitution data and **auto-computes doses-per-vial**. Each
+  reconstituted vial shows a **beyond-use-date countdown** ("use by MMM d", "Expires in 3d").
+  Doses decrement as you log and are restored if you delete a log.
 - **Insights & health markers** — trends and self-reported markers over time, including
   **body measurements** (waist, chest, arms, thighs, etc. in cm) logged alongside weight/body-fat
   and plotted on the same trend chart to track physical progress
@@ -103,6 +119,20 @@ All data lives in IndexedDB in the browser — nothing is sent to a server.
   `/find` picker (only `synergy` stacks surface). Picks navigate to `NewProtocol` with
   `preselectPeptideIds` in router state.
 - The outcome overlay reuses the `HealthMarkers` recharts pattern with `getHealthMarkers(start, end)`.
+- `PeptideExperience` (in `experienceTimelines.ts`) carries optional rich sections — `evidenceLevel`,
+  a `dosing` guide (protocol + reconstitution bullets), `communityTips`, `commonMistakes`, `stacking` —
+  rendered by `ExperienceGuide.tsx`. The dosing section deep-links to `/calculator?peptide=<id>`.
+
+## How the analytics views work
+
+- `src/utils/activeLevels.ts` — pure decay math (`decayAt`/`levelAt`/`currentStatus`/`sampleLevels`).
+  `HalfLife.tsx` ("Active Levels") sums each peptide's logged doses into a level curve and projects
+  forward through upcoming scheduled doses past a "now" reference line.
+- `src/utils/symptomTrends.ts` — aggregates `DoseLog.symptoms` (name + 1–10 severity, captured in
+  `DoseActionSheet`) into per-symptom trends; `Symptoms.tsx` charts them with titration step-up
+  reference lines. Symptom catalog + category ordering live in `src/data/symptoms.ts`.
+- `src/utils/adherence.ts` — `adherenceStats(scheduled, today)` computes the Dashboard streak +
+  weekly logged/due ratio. All three helpers are unit-tested.
 
 ## How the two-user model works
 

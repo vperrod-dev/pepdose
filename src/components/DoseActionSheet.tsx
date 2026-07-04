@@ -4,6 +4,8 @@ import { X, Check, Clock, MapPin, CalendarDays, SkipForward, Pencil } from 'luci
 import { logDose, updateScheduledDose, updateDoseLog, getAllDoseLogs } from '../db/operations';
 import type { ScheduledDose, DoseLog } from '../db/schema';
 import { SITE_LABELS, INJECTION_SITES } from '../data/injectionSites';
+import { getPeptideById } from '../data/peptides';
+import { symptomsForCategory } from '../data/symptoms';
 import { BodyMapSVG } from './BodyMapSVG';
 import { AbdomenClockDial } from './AbdomenClockDial';
 import { daysSinceByLabel, mostRestedLabel } from '../utils/injectionStats';
@@ -33,7 +35,21 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
   const [site, setSite] = useState(log?.injectionSite || dose.suggestedSite || SITE_LABELS[0]);
   const [notes, setNotes] = useState(log?.notes ?? '');
   const [reaction, setReaction] = useState<typeof REACTIONS[number] | undefined>(log?.siteReaction);
+  const [symptoms, setSymptoms] = useState<Record<string, number>>(
+    () => Object.fromEntries((log?.symptoms ?? []).map(s => [s.name, s.severity])),
+  );
   const [saving, setSaving] = useState(false);
+
+  const symptomOptions = symptomsForCategory(getPeptideById(dose.peptideId)?.category);
+  function toggleSymptom(name: string) {
+    setSymptoms(prev => {
+      const next = { ...prev };
+      if (name in next) delete next[name];
+      else next[name] = 5;
+      return next;
+    });
+  }
+  const symptomsArray = Object.entries(symptoms).map(([name, severity]) => ({ name, severity }));
   const [daysMap, setDaysMap] = useState<Record<string, number>>({});
   const [showClock, setShowClock] = useState(false);
   const isAbdomen = site.startsWith('Left abdomen') || site.startsWith('Right abdomen') || site.startsWith('Abdomen');
@@ -67,6 +83,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
         dose: actualDose,
         injectionSite: site,
         siteReaction: reaction,
+        symptoms: symptomsArray.length ? symptomsArray : undefined,
         notes: notes || undefined,
       });
     } else {
@@ -82,6 +99,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
         route: dose.route,
         injectionSite: site,
         siteReaction: reaction,
+        symptoms: symptomsArray.length ? symptomsArray : undefined,
         notes: notes || undefined,
       });
     }
@@ -242,6 +260,49 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">
+                  How you're feeling (optional)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {symptomOptions.map(s => {
+                    const active = s.name in symptoms;
+                    return (
+                      <button
+                        key={s.name}
+                        onClick={() => toggleSymptom(s.name)}
+                        className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                          active ? 'bg-primary/20 text-primary ring-1 ring-primary/40' : 'bg-card border border-border text-text-secondary'
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {symptomsArray.length > 0 && (
+                  <div className="mt-3 space-y-2.5">
+                    {symptomsArray.map(s => (
+                      <div key={s.name} className="flex items-center gap-3">
+                        <span className="text-xs text-text-secondary w-32 shrink-0 truncate">{s.name}</span>
+                        <input
+                          type="range"
+                          min={1}
+                          max={10}
+                          value={s.severity}
+                          onChange={e => setSymptoms(prev => ({ ...prev, [s.name]: parseInt(e.target.value) }))}
+                          className="flex-1 accent-primary"
+                          aria-label={`${s.name} severity`}
+                        />
+                        <span className="text-xs font-mono w-6 text-right" style={{ color: s.severity >= 7 ? '#ef4444' : s.severity >= 4 ? '#f59e0b' : '#22c55e' }}>
+                          {s.severity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>

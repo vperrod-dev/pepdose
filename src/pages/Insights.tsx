@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Activity, TrendingUp, Heart, MapPin } from 'lucide-react';
+import { Activity, TrendingUp, Heart, MapPin, Thermometer } from 'lucide-react';
 
 export function Insights() {
   const navigate = useNavigate();
@@ -39,7 +39,17 @@ export function Insights() {
           </div>
         </button>
 
-        <button onClick={() => navigate('/injection-map')} className="card-glass w-full p-5 tap-target text-left stagger-item flex items-center gap-4" style={{ animationDelay: '0.2s' }}>
+        <button onClick={() => navigate('/symptoms')} className="card-glass w-full p-5 tap-target text-left stagger-item flex items-center gap-4" style={{ animationDelay: '0.2s' }}>
+          <div className="w-11 h-11 rounded-xl bg-danger-dim flex items-center justify-center">
+            <Thermometer className="w-5 h-5 text-danger" />
+          </div>
+          <div>
+            <p className="font-semibold">Symptoms</p>
+            <p className="text-sm text-text-muted">Side effects vs your dose timeline</p>
+          </div>
+        </button>
+
+        <button onClick={() => navigate('/injection-map')} className="card-glass w-full p-5 tap-target text-left stagger-item flex items-center gap-4" style={{ animationDelay: '0.25s' }}>
           <div className="w-11 h-11 rounded-xl bg-secondary-dim flex items-center justify-center">
             <MapPin className="w-5 h-5 text-secondary" />
           </div>

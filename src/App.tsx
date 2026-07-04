@@ -19,6 +19,7 @@ import { Settings } from './pages/Settings';
 import { DoseHistory } from './pages/DoseHistory';
 import { Onboarding } from './pages/Onboarding';
 import { InjectionMap } from './pages/InjectionMap';
+import { Symptoms } from './pages/Symptoms';
 import { GoalPicker } from './pages/GoalPicker';
 import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
@@ -62,6 +63,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/history" element={<DoseHistory />} />
             <Route path="/injection-map" element={<InjectionMap />} />
+            <Route path="/symptoms" element={<Symptoms />} />
             <Route path="/find" element={<GoalPicker />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
