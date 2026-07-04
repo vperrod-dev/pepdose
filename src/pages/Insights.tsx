@@ -14,8 +14,8 @@ export function Insights() {
             <Activity className="w-5 h-5 text-secondary" />
           </div>
           <div>
-            <p className="font-semibold">Half-Life Decay</p>
-            <p className="text-sm text-text-muted">Compound levels over time</p>
+            <p className="font-semibold">Active Levels</p>
+            <p className="text-sm text-text-muted">What's in your system, now &amp; projected</p>
           </div>
         </button>
 
