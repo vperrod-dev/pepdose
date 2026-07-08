@@ -31,6 +31,7 @@ export interface ScheduledDose {
   isTitrationStepUp?: boolean;
   weekNumber: number;
   editNote?: string;
+  updatedAt?: string;
 }
 
 export interface DoseLog {
@@ -51,6 +52,7 @@ export interface DoseLog {
   // logs simply omit it (no migration needed).
   symptoms?: { name: string; severity: number }[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Vial {
@@ -68,6 +70,7 @@ export interface Vial {
   batchNumber?: string;
   status: 'unreconstituted' | 'active' | 'empty' | 'expired';
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface HealthMarker {
@@ -88,6 +91,7 @@ export interface HealthMarker {
   bloodwork?: Record<string, number>;
   measurements?: Record<string, number>;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface EditHistory {

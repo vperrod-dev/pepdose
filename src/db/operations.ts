@@ -80,7 +80,7 @@ export async function updateScheduledDose(id: string, updates: Partial<Scheduled
   const db = await getDB();
   const existing = await db.get('scheduledDoses', id);
   if (!existing) return;
-  await db.put('scheduledDoses', { ...existing, ...updates });
+  await db.put('scheduledDoses', { ...existing, ...updates, updatedAt: new Date().toISOString() });
 }
 
 export async function updateFutureScheduledDoses(
@@ -101,6 +101,7 @@ export async function updateFutureScheduledDoses(
       ...dose,
       ...updates,
       editNote: `${editField} changed on ${format(new Date(), 'yyyy-MM-dd')}`,
+      updatedAt: new Date().toISOString(),
     });
   }
   await tx.done;
@@ -178,7 +179,7 @@ export async function updateDoseLog(id: string, updates: Partial<DoseLog>): Prom
   const db = await getDB();
   const existing = await db.get('doseLogs', id);
   if (!existing) return;
-  await db.put('doseLogs', { ...existing, ...updates });
+  await db.put('doseLogs', { ...existing, ...updates, updatedAt: new Date().toISOString() });
 }
 
 export async function getAllDoseLogs(): Promise<DoseLog[]> {
@@ -216,7 +217,7 @@ export async function updateVial(id: string, updates: Partial<Vial>): Promise<vo
   const db = await getDB();
   const existing = await db.get('vials', id);
   if (!existing) return;
-  await db.put('vials', { ...existing, ...updates });
+  await db.put('vials', { ...existing, ...updates, updatedAt: new Date().toISOString() });
 }
 
 export async function decrementVialDose(peptideId: string, owner?: UserName): Promise<void> {
@@ -232,6 +233,7 @@ export async function decrementVialDose(peptideId: string, owner?: UserName): Pr
     ...active,
     dosesRemaining: remaining,
     status: remaining <= 0 ? 'empty' : 'active',
+    updatedAt: new Date().toISOString(),
   });
 }
 

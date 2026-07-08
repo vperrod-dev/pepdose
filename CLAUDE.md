@@ -2,9 +2,17 @@
 
 Peptide dose-tracking PWA: protocols, smart injection scheduling (auto-titration,
 phased variants), vial tracking, body-map site logging, dose reminders, and
-insights (active-levels curve, symptom trends, adherence) — all stored locally
-(IndexedDB). React 19 + Vite + TypeScript + Tailwind v4 + idb + Recharts.
+insights (active-levels curve, symptom trends, adherence) — stored locally
+(IndexedDB) with an **optional Supabase cloud mirror** for cross-device sync.
+React 19 + Vite + TypeScript + Tailwind v4 + idb + Recharts.
 Live: https://vperrod.github.io/pepdose/
+
+Cloud sync (optional): active only when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
+are set — else fully local, no login. `src/db/supabase.ts` (client), `src/db/sync.ts`
+(bidirectional union-merge, LWW, never destructive — see `planMerge`),
+`src/components/AuthGate.tsx` (shared-account login gate + sync triggers). Schema +
+setup: `supabase/migrations/0001_init.sql`, `docs/CLOUD_SYNC_SETUP.md`. Deletes don't
+yet propagate (safe-by-design; `deleted` tombstone column exists for a fast-follow).
 
 ## Commands
 

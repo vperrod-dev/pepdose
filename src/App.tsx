@@ -23,11 +23,20 @@ import { Symptoms } from './pages/Symptoms';
 import { GoalPicker } from './pages/GoalPicker';
 import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
+import { AuthGate } from './components/AuthGate';
 import { initReminders } from './utils/notifications';
 
 export default function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem('pepdose-onboarded') === 'true');
 
+  return (
+    <AuthGate>
+      <AppInner onboarded={onboarded} setOnboarded={setOnboarded} />
+    </AuthGate>
+  );
+}
+
+function AppInner({ onboarded, setOnboarded }: { onboarded: boolean; setOnboarded: (v: boolean) => void }) {
   useEffect(() => {
     if (!onboarded) return;
     return initReminders();

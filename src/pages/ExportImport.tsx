@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Upload, Trash2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Download, Upload, Trash2, CheckCircle, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { exportAllData, importData, clearAllData } from '../db/operations';
+import { supabase, cloudEnabled } from '../db/supabase';
+import { syncNow } from '../db/sync';
 
 export function ExportImport() {
   const navigate = useNavigate();
@@ -62,6 +64,8 @@ export function ExportImport() {
         <h1 className="text-xl font-bold">Export / Import</h1>
       </div>
 
+      {cloudEnabled && <CloudSyncCard />}
+
       {status && (
         <div className={`card-glass p-3 mb-4 flex items-center gap-2 stagger-item ${status.type === 'error' ? 'border-danger/40' : 'border-success/40'} border`}>
           {status.type === 'success' ? <CheckCircle className="w-4 h-4 text-success" /> : <AlertTriangle className="w-4 h-4 text-danger" />}
@@ -112,6 +116,54 @@ export function ExportImport() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function CloudSyncCard() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase!.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setMsg(null);
+    try {
+      const res = await syncNow();
+      setMsg(res ? `Synced (↑${res.pushed} ↓${res.pulled})` : 'Not signed in');
+    } catch {
+      setMsg('Sync failed — check connection');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="card-glass p-4 mb-4 border border-primary/20 stagger-item">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold">Cloud sync</p>
+          <p className="text-xs text-text-muted">{email ?? 'Signed in'}</p>
+        </div>
+        <button
+          onClick={() => supabase!.auth.signOut()}
+          className="tap-target flex items-center gap-1.5 text-xs text-text-muted"
+        >
+          <LogOut className="w-4 h-4" /> Sign out
+        </button>
+      </div>
+      <button
+        onClick={handleSync}
+        disabled={syncing}
+        className="w-full py-2.5 rounded-xl bg-primary/15 text-primary text-sm font-medium flex items-center justify-center gap-2 disabled:opacity-60"
+      >
+        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} /> {syncing ? 'Syncing…' : 'Sync now'}
+      </button>
+      {msg && <p className="text-xs text-text-muted mt-2 text-center">{msg}</p>}
     </div>
   );
 }
