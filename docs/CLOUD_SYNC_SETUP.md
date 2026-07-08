@@ -1,59 +1,58 @@
-# Cloud sync setup (Supabase)
+# Cloud sync (Supabase)
 
-pepdose now syncs protocols, doses, vials, and health markers across devices via a
-free Supabase project. Without the two env vars below, the app stays 100% local
-(no login) — exactly as before. Nothing breaks if you never do this.
+pepdose syncs protocols, doses, vials, and health markers across devices via a free
+Supabase project. Without the two env vars below the app stays 100% local (no login) —
+exactly as before. Nothing breaks if sync is off.
 
-**Your existing phone data is never at risk.** Sync is a *union-merge*: it only
-ever copies rows between devices, never wipes a side. The first time you sign in
-on your phone (which has the data), that data is pushed up; the empty desktop then
-pulls it down. Belt-and-suspenders: hit **More → Export/Import → Export Backup** on
-your phone first.
+**Status: configured and live (2026-07-08).** Project ref `zqoehancrvcrkzuyrtrn`. The
+`records` table + Row-Level Security exist, repo secrets are set, the live build carries
+the config, and email auto-confirm is on. End-to-end write/read/isolation was verified.
 
-## One-time setup (~10 min, needs your account)
+**Your existing data is never at risk.** Sync is a *union-merge* (`planMerge` in
+`src/db/sync.ts`): it only ever copies rows between devices, never wipes a side. The first
+device you sign in on pushes its data up; other devices pull it down. Newer edit wins on
+conflict. Belt-and-suspenders before first sync: **More → Export/Import → Export Backup**.
 
-### 1. Create the project
-- Go to https://supabase.com → New project (free tier). Pick a region near you.
-- Wait for it to provision.
+## Using it (the only step left)
 
-### 2. Create the table
-- Left sidebar → **SQL Editor** → New query.
-- Paste the entire contents of `supabase/migrations/0001_init.sql` and **Run**.
-- This creates the `records` table with Row-Level Security (each account sees only
-  its own rows).
+1. **On the device that has your data first** (e.g. your phone) → open the live site →
+   **Create account** with an email + password you share → you're signed in immediately →
+   it syncs your local data up.
+2. On any other device → same URL → **Sign in** → your data pulls down.
 
-### 3. Grab your two keys
-- Left sidebar → **Project Settings → API**.
-- Copy **Project URL** and the **anon / public** key.
+Sync runs on login, on window focus, every 30s while open, and on close. Manual **Sync
+now** + **Sign out** live on the Export/Import page.
 
-### 4. Local dev
-Create `.env.local` in the repo root (gitignored):
+## Behaviour & limits
+- One shared account holds both people's data; the in-app Victor/Nadia filter separates it.
+- Newer `updatedAt` wins on conflict (every in-place mutation stamps it).
+- **Deletes do not propagate** across devices yet (a row deleted on one device can reappear
+  from another). Deliberately-safe direction: resurrection beats data loss. Tombstones are a
+  future fast-follow — the `deleted` column already exists.
 
-```
-VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...your-anon-key...
-```
+## Re-provisioning from scratch (reference)
 
-Run `npm run dev` — you'll now get a login screen.
+Only needed if you ever recreate the Supabase project.
 
-### 5. Live site (GitHub Pages)
-- Repo → **Settings → Secrets and variables → Actions → New repository secret**.
-- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with the same values.
-- The deploy workflow already reads them. Next push to `main` builds with sync on.
+1. **Create project** at https://supabase.com (free tier).
+2. **Run the migration**: SQL Editor → paste `supabase/migrations/0001_init.sql` → Run.
+   (Or via Management API with a personal access token:
+   `POST https://api.supabase.com/v1/projects/<ref>/database/query`.)
+3. **Keys**: Project Settings → API. Use the **publishable** key (`sb_publishable_…`) or the
+   legacy `anon` JWT for the frontend — **never the `sb_secret_` / service-role key** (it
+   bypasses RLS and would ship in the public bundle).
+4. **Local dev**: create `.env.local` (gitignored):
+   ```
+   VITE_SUPABASE_URL=https://<ref>.supabase.co
+   VITE_SUPABASE_ANON_KEY=sb_publishable_...
+   ```
+5. **Live site**: add the same two as GitHub repo secrets (Settings → Secrets → Actions).
+   The deploy workflow already injects them at build time.
+6. **Auth**: to skip the email-confirmation step, Authentication → Providers → Email → turn
+   off "Confirm email" (or set `mailer_autoconfirm: true` via the Management API).
 
-### 6. Create the shared login
-- On the live site or dev, click **Create account**, use one email + password that
-  you and Nadia both use (one shared account holds both of your data — the in-app
-  Victor/Nadia filter still separates it).
-- If email confirmation is on (Supabase default), click the link in the email, then
-  sign in. To skip confirmation: Supabase → **Authentication → Providers → Email** →
-  turn off "Confirm email".
-- Sign in on your phone first (seeds the cloud from your real data), then on desktop.
-
-## How sync behaves
-- Merges on login, on window focus, every 30s while open, and on close.
-- Newer edit wins on conflict (each record stamps `updatedAt`).
-- **Deletes do not yet propagate** across devices (a row deleted on one device can
-  reappear from another). This is the deliberately-safe direction. Add tombstones
-  later if it becomes annoying (the `deleted` column already exists).
-- Manual **Sync now** + **Sign out** live on the Export/Import page.
+## Architecture
+- `src/db/supabase.ts` — client; `cloudEnabled` is false when env vars are unset (→ local-only).
+- `src/db/sync.ts` — `planMerge` (pure, unit-tested in `sync.test.ts`) + `syncNow`.
+- `src/components/AuthGate.tsx` — login gate + sync triggers; wraps the app in `App.tsx`.
+- `supabase/migrations/0001_init.sql` — generic `records` table (jsonb payload) + RLS policies.

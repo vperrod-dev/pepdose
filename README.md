@@ -1,7 +1,8 @@
 # pepdose
 
 A peptide dose-tracking PWA. Plan protocols, log injections, track vials, and reason about
-half-lives, reconstitution, and stacking — all stored locally on your device.
+half-lives, reconstitution, and stacking — stored locally on your device, with optional
+cloud sync across devices.
 
 **Live:** https://vperrod.github.io/pepdose/
 
@@ -73,13 +74,20 @@ half-lives, reconstitution, and stacking — all stored locally on your device.
 - **Ad-hoc logging** — log an unscheduled injection (peptide, owner, dose, time) straight from the
   Log tab, no protocol required.
 - **Export / import** — back up and restore all data (reloads the app after restore/clear)
+- **Cloud sync (optional)** — sign in with a shared account to sync protocols, doses, vials, and
+  health markers across phone and desktop. Offline-first: IndexedDB stays primary; the cloud is a
+  mirror. Merge is union/last-write-wins and never destructive — an empty device can't wipe the one
+  holding your data. Disabled by default; enable by setting the two Supabase env vars. See
+  [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_SETUP.md).
 - **Offline-first PWA** — installable, works without a connection
 
 ## Stack
 
-React 19 · TypeScript · Vite · Tailwind CSS 4 · React Router 7 · Recharts · IndexedDB (via `idb`) · date-fns · lucide-react
+React 19 · TypeScript · Vite · Tailwind CSS 4 · React Router 7 · Recharts · IndexedDB (via `idb`) · date-fns · lucide-react · Supabase (optional cloud sync)
 
-All data lives in IndexedDB in the browser — nothing is sent to a server.
+Data lives in IndexedDB in the browser. With cloud sync off (no Supabase env vars), nothing is sent
+to a server. With it on, data is also mirrored to a private, per-account Supabase table (Row-Level
+Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_SETUP.md).
 
 ## How scheduling works
 
