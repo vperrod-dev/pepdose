@@ -629,39 +629,9 @@ export const PEPTIDES: Peptide[] = [
       offCycleWeeks: 4,
       protocolVariants: [
         {
-          id: 'glow-short-taper',
-          name: 'Short Taper (2wk daily → 2wk 5×/wk)',
-          description: 'Daily for 2 weeks, then 5×/week (weekdays) for 2 weeks, then off. A compact 4-week front-loaded cycle. Derived from the loading-then-taper pattern — no single source documents this exact split.',
-          phases: [
-            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
-            { weekStart: 3, weekEnd: 4, frequency: '5x_week' },
-          ],
-        },
-        {
-          id: 'glow-loading-taper',
-          name: 'Loading + Taper (2wk daily → 6wk 5×/wk)',
-          description: 'Front-load daily for 2 weeks for faster onset, then settle into 5-on/2-off for 6 weeks. Good for acute recovery / post-surgery.',
-          phases: [
-            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
-            { weekStart: 3, weekEnd: 8, frequency: '5x_week' },
-          ],
-          source: 'https://www.peptidedeck.com/glow-dosage-chart',
-        },
-        {
-          id: 'glow-full-taper',
-          name: 'Full Taper (4wk daily → 4wk 5×/wk → maintenance)',
-          description: 'Activation (daily, wk1-4) → remodeling (5×/week, wk5-8) → maintenance (every other day, wk9-12). Sustained signal without blunting response.',
-          phases: [
-            { weekStart: 1, weekEnd: 4, frequency: 'daily' },
-            { weekStart: 5, weekEnd: 8, frequency: '5x_week' },
-            { weekStart: 9, weekEnd: 12, frequency: 'eod' },
-          ],
-          source: 'https://peptidefox.com/tools/glow-dosage-calculator',
-        },
-        {
           id: 'glow-weekdays',
-          name: 'Weekdays (5-on/2-off, 8wk)',
-          description: 'Mon–Fri dosing, weekends off, for 8 weeks. Copper-conscious: the 2 weekly off-days cut cumulative GHK-Cu load while keeping near-daily exposure.',
+          name: 'Standard (5-on/2-off, 8wk)',
+          description: 'The canonical GLOW protocol: 2.33mg (10 units) 5×/week, weekends off, for 8 weeks — then 2–4 weeks off. This is what most vendor charts call the "standard" cadence. Copper-conscious: the 2 weekly off-days cut cumulative GHK-Cu load while keeping near-daily exposure.',
           phases: [
             { weekStart: 1, weekEnd: 8, frequency: '5x_week' },
           ],
@@ -677,9 +647,48 @@ export const PEPTIDES: Peptide[] = [
           source: 'https://peptidedosages.com/peptide-blend-dosages/glow-peptide-blend-70-mg-vial-dosage-protocol/',
         },
         {
+          id: 'glow-short-taper',
+          name: 'Short Taper (2wk daily → 2wk 5×/wk)',
+          description: 'Daily for 2 weeks, then 5×/week (weekdays) for 2 weeks, then 2–4 weeks off. A compact 4-week front-loaded cycle. Derived from the loading-then-taper pattern — no single source documents this exact split.',
+          phases: [
+            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
+            { weekStart: 3, weekEnd: 4, frequency: '5x_week' },
+          ],
+        },
+        {
+          id: 'glow-loading-taper',
+          name: 'Loading + Taper (2wk daily → 6wk 5×/wk)',
+          description: 'Front-load daily for 2 weeks for faster onset, then settle into 5-on/2-off for 6 weeks, then 4–8 weeks off. Good for acute recovery / post-surgery.',
+          phases: [
+            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
+            { weekStart: 3, weekEnd: 8, frequency: '5x_week' },
+          ],
+          source: 'https://www.peptidedeck.com/glow-dosage-chart',
+        },
+        {
+          id: 'glow-full-taper',
+          name: 'Full Taper (4wk daily → 4wk 5×/wk → maintenance)',
+          description: 'Activation (daily, wk1-4) → remodeling (5×/week, wk5-8) → maintenance (every other day, wk9-12), then 4–8 weeks off. Sustained signal without blunting response.',
+          phases: [
+            { weekStart: 1, weekEnd: 4, frequency: 'daily' },
+            { weekStart: 5, weekEnd: 8, frequency: '5x_week' },
+            { weekStart: 9, weekEnd: 12, frequency: 'eod' },
+          ],
+          source: 'https://peptidefox.com/tools/glow-dosage-calculator',
+        },
+        {
+          id: 'glow-maintenance',
+          name: 'Maintenance (every other day, 8wk)',
+          description: 'Low-intensity upkeep: every other day (≈3–4×/week) for 8 weeks. The lightest standalone cadence — vendor charts describe post-cycle maintenance as 2–3×/week; EOD is the closest schedulable option. Lowest copper load, so the off-cycle can be shorter (~2 weeks).',
+          phases: [
+            { weekStart: 1, weekEnd: 8, frequency: 'eod' },
+          ],
+          source: 'https://peptidefox.com/tools/glow-dosage-calculator',
+        },
+        {
           id: 'glow-aggressive',
           name: 'Aggressive (high-dose 5×/wk, 6wk)',
-          description: 'Higher dose (≈3.5mg) 5×/week for 6 weeks for experienced users wanting rapid remodeling. Highest copper exposure — get bloodwork (copper, ceruloplasmin).',
+          description: 'Higher dose (≈3.5mg) 5×/week for 6 weeks for experienced users wanting rapid remodeling, then 4–8 weeks off. Highest copper exposure — get bloodwork (copper, ceruloplasmin) and consider zinc 15–25mg to counterbalance.',
           phases: [
             { weekStart: 1, weekEnd: 6, frequency: '5x_week' },
           ],
@@ -701,7 +710,7 @@ export const PEPTIDES: Peptide[] = [
         { name: 'BPC-157', mg: 10 },
       ],
     },
-    cyclingReason: 'Reconstitute 70mg in 3mL BAC water (23.3mg/mL): a 2.33mg dose = 10 units on a U-100 syringe. Cycle: daily weeks 1-4, 5x/week weeks 5-8, then 4-8 weeks off (or step down to 2-3x/week maintenance). Breaks let newly built collagen organize AND clear copper — GHK-Cu accumulation is the limiting factor, so never run continuously. Stop early if you get a metallic taste or GI issues.',
+    cyclingReason: 'Reconstitute 70mg in 3mL BAC water (23.3mg/mL): a 2.33mg dose = 10 units on a U-100 syringe — the "10 units = 2.33mg" math only holds at 3mL, so lock the mix volume. Cycle: daily weeks 1-4, 5x/week weeks 5-8, then off (or step down to 2-3x/week maintenance). Breaks let newly built collagen organize AND clear copper — GHK-Cu accumulation is the limiting factor, so never run continuously. Off-cycle length is debated: 2-4 weeks is the community norm after a 4-8 week run, scaling to 4-8 weeks (roughly off ≈ on) after longer 8-12 week cycles. Consider zinc 15-25mg/day during/after to counterbalance copper. Stop early on metallic taste or GI issues.',
   },
   {
     id: 'nad-plus',

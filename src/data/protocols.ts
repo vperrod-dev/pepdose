@@ -95,7 +95,7 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
   {
     id: 'retatrutide-glow',
     name: 'Retatrutide + GLOW (Weight Loss + Skin)',
-    description: 'Retatrutide weekly titration (Phase 3 ladder 2→4→6→9→12mg) for weight loss, paired with a phased GLOW blend cycle for skin support during rapid fat loss. GLOW defaults to a tapered protocol (pick a different one in setup); retatrutide continues the full 24 weeks.',
+    description: 'Retatrutide weekly titration (Phase 3 ladder 2→4→6→9→12mg) for weight loss, paired with a phased GLOW blend cycle for skin support during rapid fat loss. GLOW defaults to the Standard 5-on/2-off cadence (pick a different variant in setup); retatrutide continues the full 24 weeks.',
     peptides: [
       { peptideId: 'retatrutide' },
       { peptideId: 'glow-blend', doseOverride: 2.33, unitOverride: 'mg' },

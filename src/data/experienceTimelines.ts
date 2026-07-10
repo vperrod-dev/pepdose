@@ -577,7 +577,7 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
       'Yellow skin or eyes, or right-upper-quadrant pain (liver — stop and get bloodwork)',
       'Suggested labs on longer/repeat cycles: serum copper, ceruloplasmin, CBC, CMP (liver enzymes), hs-CRP — baseline and every few weeks',
     ],
-    postCycleNotes: 'Collagen remodeling is structural — benefits persist well after stopping. Community protocol: 4-8 weeks off, then 2-3x/week maintenance. Monitor copper levels with bloodwork (serum copper, ceruloplasmin) if running multiple cycles back-to-back. Users report skin quality holds for months post-cycle. Copper accumulation is the reason it is cycled, not run continuously.',
+    postCycleNotes: 'Collagen remodeling is structural — benefits persist well after stopping. Community protocol: 2-4 weeks off after a short (4-8wk) run, 4-8 weeks (roughly off ≈ on) after a long 8-12wk cycle, then optional 2-3x/week maintenance. Off-cycle length is genuinely contested — one mechanistic argument says copper-transporter (CTR1) recovery takes only ~10-14 days, while the community norm is 2-4+ weeks; err longer if running back-to-back. Zinc 15-25mg/day during/after helps counterbalance copper. Monitor copper levels with bloodwork (serum copper, ceruloplasmin) if cycling repeatedly. Copper accumulation is the reason it is cycled, not run continuously.',
     evidenceLevel: 'anecdotal',
     evidenceNote: 'GHK-Cu has solid human data — for TOPICAL cosmetic use. The injectable GLOW blend and its 50/10/10 ratio are entirely anecdotal (no human trials of the blend), and BPC-157/TB-500 human efficacy data is essentially zero. Treat all dosing as community-derived.',
     dosing: {
@@ -604,6 +604,7 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
       'Vitamin C supports collagen, but NEVER layer topical GHK-Cu with L-ascorbic acid — the low pH breaks the copper bond. Separate them (copper AM, vitamin C PM).',
       'Inject slowly (5-10s), let the alcohol swab dry, and bring the vial to room temperature to reduce the copper sting.',
       'Deeper sleep is commonly reported during a cycle.',
+      'Consider zinc 15-25mg/day during and after a cycle — copper and zinc compete, and prolonged GHK-Cu can tip the ratio.',
     ],
     commonMistakes: [
       'Running it continuously without a break → copper accumulation (metallic taste, GI upset, toxicity).',
