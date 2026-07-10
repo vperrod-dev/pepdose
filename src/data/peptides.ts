@@ -703,6 +703,41 @@ export const PEPTIDES: Peptide[] = [
     },
     cyclingReason: 'Reconstitute 70mg in 3mL BAC water (23.3mg/mL): a 2.33mg dose = 10 units on a U-100 syringe. Cycle: daily weeks 1-4, 5x/week weeks 5-8, then 4-8 weeks off (or step down to 2-3x/week maintenance). Breaks let newly built collagen organize AND clear copper — GHK-Cu accumulation is the limiting factor, so never run continuously. Stop early if you get a metallic taste or GI issues.',
   },
+  {
+    id: 'nad-plus',
+    name: 'NAD+',
+    aliases: ['Nicotinamide Adenine Dinucleotide', 'NAD', 'NAD injection'],
+    category: 'nootropic',
+    halfLifeHours: 4,
+    mechanismShort: 'Central redox coenzyme for mitochondrial ATP production, sirtuin (SIRT1-7) activation, and PARP-driven DNA repair; cellular NAD+ falls with age. Users inject it subcutaneously for energy, mental clarity, and "cellular repair." Evidence is largely anecdotal for subQ — most human data is on IV NAD+ or oral precursors (NMN/NR), and how much injected NAD+ reaches cells intact is genuinely unsettled. The half-life shown is a rough placeholder; exogenous NAD+ pharmacokinetics are poorly characterized. Not FDA-approved for these uses.',
+    route: 'subq',
+    needleGauge: '29-31G insulin',
+    dosing: {
+      low: 25,
+      standard: 50,
+      high: 100,
+      unit: 'mg',
+      frequency: 'daily',
+      cycleWeeks: 4,
+      offCycleWeeks: 2,
+      timeOfDay: 'morning',
+      withFood: 'either',
+      // Ramp exists to build tolerance to the flush/nausea/pressure reaction, which is
+      // dose- AND injection-rate-dependent — not to chase a therapeutic ceiling.
+      titration: [
+        { weekStart: 1, weekEnd: 1, dose: 25, unit: 'mg' },
+        { weekStart: 2, weekEnd: 2, dose: 50, unit: 'mg' },
+        { weekStart: 3, weekEnd: 999, dose: 100, unit: 'mg' },
+      ],
+    },
+    reconstitution: {
+      typicalVialMg: 500,
+      bacWaterMl: 5,
+      shelfLifeDays: 28,
+      storageTemp: '2-8°C refrigerated',
+    },
+    cyclingReason: 'Reconstitute 500mg in 5mL BAC water (100mg/mL): a 50mg dose = 50 units on a U-100 syringe. Start at 25mg (25 units) and inject SLOWLY — the flushing, nausea, and chest/abdominal pressure are driven by how fast it goes in, not just the amount. Ramp over 2-3 weeks as tolerance builds. Run 4-week blocks with 1-2 weeks off; there is no established maintenance schedule, so err toward conservative cycling.',
+  },
 ];
 
 export function getPeptideById(id: string): Peptide | undefined {

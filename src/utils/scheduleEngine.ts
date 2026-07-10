@@ -58,9 +58,9 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
     const days = eachDayOfInterval({ start: startDate, end: addDays(endDate, -1) });
     for (const day of days) {
       const weekNum = Math.floor((day.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum) : config.dose;
+      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum, config.dose) : config.dose;
       const currentUnit = hasTitration ? (peptide!.dosing.titration![0].unit) : config.unit;
-      const prevWeekDose = hasTitration && weekNum > 1 ? getTitrationDose(peptide!, weekNum - 1) : currentDose;
+      const prevWeekDose = hasTitration && weekNum > 1 ? getTitrationDose(peptide!, weekNum - 1, config.dose) : currentDose;
       const isStepUp = hasTitration && currentDose !== prevWeekDose && day.getDay() === startDate.getDay();
 
       const timesPerDay = config.timesPerDay || 1;
@@ -90,7 +90,7 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
     let current = startDate;
     while (isBefore(current, endDate)) {
       const weekNum = Math.floor((current.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum) : config.dose;
+      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum, config.dose) : config.dose;
 
       doses.push({
         id: generateId(),
@@ -112,9 +112,9 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
     let current = startDate;
     while (isBefore(current, endDate)) {
       const weekNum = Math.floor((current.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
-      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum) : config.dose;
+      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum, config.dose) : config.dose;
       const currentUnit = hasTitration ? (peptide!.dosing.titration![0].unit) : config.unit;
-      const prevWeekDose = weekNum > 1 && hasTitration ? getTitrationDose(peptide!, weekNum - 1) : currentDose;
+      const prevWeekDose = weekNum > 1 && hasTitration ? getTitrationDose(peptide!, weekNum - 1, config.dose) : currentDose;
 
       doses.push({
         id: generateId(),
@@ -178,16 +178,25 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
   return doses;
 }
 
-function getTitrationDose(peptide: Peptide, weekNumber: number): number {
+function getTitrationDose(peptide: Peptide, weekNumber: number, startDose?: number): number {
   const titration = peptide.dosing.titration;
   if (!titration || titration.length === 0) return peptide.dosing.standard;
 
+  let base = titration[titration.length - 1].dose;
   for (const step of titration) {
     if (weekNumber >= step.weekStart && weekNumber <= step.weekEnd) {
-      return step.dose;
+      base = step.dose;
+      break;
     }
   }
-  return titration[titration.length - 1].dose;
+
+  // Honor a user-chosen starting dose by scaling the whole ladder proportionally,
+  // so someone can start Retatrutide at 0.5mg instead of the stock 2mg week-1 step.
+  const firstStep = titration[0].dose;
+  if (startDose && startDose > 0 && firstStep > 0 && startDose !== firstStep) {
+    return Math.round(base * (startDose / firstStep) * 1000) / 1000;
+  }
+  return base;
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -227,7 +236,7 @@ function generatePhasedSchedule(config: ScheduleConfig, peptide: Peptide | undef
       peptideId: config.peptideId,
       date: format(day, 'yyyy-MM-dd'),
       time: timeStr,
-      dose: hasTitration ? getTitrationDose(peptide!, weekNum) : config.dose,
+      dose: hasTitration ? getTitrationDose(peptide!, weekNum, config.dose) : config.dose,
       unit: hasTitration ? peptide!.dosing.titration![0].unit : config.unit,
       route: peptide?.route || 'subq',
       status: 'upcoming',

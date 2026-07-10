@@ -8,7 +8,7 @@ import { scheduleReminders } from '../utils/notifications';
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
 import { adherenceStats } from '../utils/adherence';
 import { DoseActionSheet } from '../components/DoseActionSheet';
-import type { ScheduledDose, UserProtocol } from '../db/schema';
+import type { ScheduledDose, UserProtocol, DoseLog } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
 
@@ -32,6 +32,7 @@ export function Dashboard() {
   const [todayDoses, setTodayDoses] = useState<DashboardDose[]>([]);
   const [protocols, setProtocols] = useState<UserProtocol[]>([]);
   const [logged, setLogged] = useState<Set<string>>(new Set());
+  const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<NextStep | null>(null);
   const [allScheduled, setAllScheduled] = useState<ScheduledDose[]>([]);
@@ -61,6 +62,9 @@ export function Dashboard() {
       setTodayDoses(enriched);
       setProtocols(protos);
       setLogged(new Set(logs.map(l => l.scheduledDoseId).filter(Boolean) as string[]));
+      setLogsByDoseId(new Map(
+        logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
+      ));
       setLoading(false);
 
       // Re-arm reminders whenever today's doses change (new log, edit, reload).
@@ -260,7 +264,7 @@ export function Dashboard() {
                       <UserBadge owner={dose.owner} />
                     </div>
                     <p className="text-xs text-text-muted font-mono">
-                      {dose.dose} {dose.unit}
+                      {logsByDoseId.get(dose.id)?.dose ?? dose.dose} {dose.unit}
                     </p>
                   </div>
                   <span className={`text-xs font-mono ${isDone ? 'text-success' : 'text-text-secondary'}`}>
@@ -324,6 +328,7 @@ export function Dashboard() {
       {activeDose && (
         <DoseActionSheet
           dose={{ ...activeDose, color: activeDose.categoryColor }}
+          log={logsByDoseId.get(activeDose.id)}
           onClose={() => setActiveDose(null)}
           onUpdated={() => { setActiveDose(null); setReloadKey(k => k + 1); }}
         />

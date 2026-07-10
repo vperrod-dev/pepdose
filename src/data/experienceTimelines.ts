@@ -844,6 +844,74 @@ export const EXPERIENCE_DATA: PeptideExperience[] = [
     ],
     postCycleNotes: 'No dependence, withdrawal, or PCT. Effects taper after stopping. Cycling is precautionary. Not FDA-approved — Western evidence is anecdotal on top of older Russian clinical data.',
   },
+  {
+    peptideId: 'nad-plus',
+    evidenceLevel: 'anecdotal',
+    evidenceNote: 'Injectable/subQ NAD+ benefits are anecdotal. Human clinical work centers on IV NAD+ and oral precursors (NMN/NR); how much subQ NAD+ reaches cells intact is unproven. Treat energy/anti-aging claims as unverified.',
+    weeklyGuide: [
+      {
+        weekStart: 1, weekEnd: 1,
+        title: 'Tolerance-Building — Go Low and Slow',
+        description: 'NAD+ is the body\'s central redox coenzyme (mitochondrial energy, sirtuin activation, DNA repair). The dominant week-1 experience is not benefit but the injection reaction: flushing, nausea, and a chest/abdominal "pressure" or cramping that tracks how FAST you push the plunger, not just the dose. Starting at 25mg and injecting over 30–60+ seconds is how people make it tolerable.',
+        tips: ['Start at 25mg (25 units of a 100mg/mL mix) — do not open at 100mg', 'Inject SLOWLY: push over 30–60 seconds, pause if pressure builds', 'Dose in the morning — it can be stimulating and disrupt sleep', 'Have water and a chair; the reaction passes within minutes'],
+      },
+      {
+        weekStart: 2, weekEnd: 2,
+        title: 'Ramping the Dose',
+        description: 'As tolerance to the flush builds, the ladder steps to 50mg. Some users report cleaner energy, sharper focus, or better mood; many notice little beyond the injection reaction. Both are normal — subQ NAD+ is highly individual and the benefit signal is not reliable.',
+        tips: ['Only step up if 25mg was tolerable — otherwise hold', 'Still inject slowly; the reaction returns at each dose increase', 'Track energy/sleep/mood so you can judge real effect vs. placebo', 'Warm the vial to room temp before injecting'],
+      },
+      {
+        weekStart: 3, weekEnd: 4,
+        title: 'Full Dose & Honest Assessment',
+        description: 'At 100mg, decide whether NAD+ is doing anything for you worth the cost and the injection burden. There is no established maintenance protocol, so keep blocks short (4 weeks) and take 1–2 weeks off rather than running it continuously.',
+        tips: ['If you feel nothing by now, it may not be worth continuing', 'Do not exceed 100mg subQ chasing an effect', 'Plan an off-week — cycling is the conservative default here', 'Bloodwork isn\'t validated for subQ NAD+, but note any BP or heart-rate changes'],
+      },
+    ],
+    sideEffects: [
+      { name: 'Flushing / warmth', severity: 'normal', likelihood: 'common', onset: 'On injection', duration: 'Minutes', notes: 'Rate-dependent. Inject slower.' },
+      { name: 'Nausea', severity: 'normal', likelihood: 'common', onset: 'On injection', duration: 'Minutes', notes: 'Slow the push; lower the dose.' },
+      { name: 'Chest / abdominal pressure or cramping', severity: 'monitor', likelihood: 'common', onset: 'On injection', duration: 'Minutes', notes: 'Classic fast-injection reaction. Pause and inject more slowly.' },
+      { name: 'Injection-site pain / redness', severity: 'normal', likelihood: 'common', onset: 'On injection', duration: 'Hours', notes: 'Rotate sites.' },
+      { name: 'Lightheadedness / blood-pressure change', severity: 'monitor', likelihood: 'uncommon', onset: 'On injection', duration: 'Minutes', notes: 'Sit down; hydrate. Stop if it persists.' },
+      { name: 'Insomnia / overstimulation', severity: 'monitor', likelihood: 'uncommon', onset: 'Same day', duration: 'Hours', notes: 'Dose earlier in the day.' },
+    ],
+    redFlags: [
+      'Severe or persistent chest pressure, or pain that does not resolve within minutes',
+      'Fainting, severe lightheadedness, or a large blood-pressure swing',
+      'Signs of an allergic reaction (hives, swelling, difficulty breathing)',
+      'Palpitations or an irregular heartbeat',
+    ],
+    postCycleNotes: 'No hormonal suppression or PCT. There is no validated maintenance schedule for subQ NAD+ — run short 4-week blocks with 1–2 weeks off rather than continuous use. Not FDA-approved for these uses; benefits beyond the injection experience are anecdotal.',
+    dosing: {
+      protocol: [
+        'Start 25mg/day, ramp 25 → 50 → 100mg over ~3 weeks as tolerance builds',
+        'Injection RATE controls side effects more than dose — push over 30–60+ seconds',
+        'Morning dosing; it can be stimulating',
+        'Cap subQ dosing around 100mg; higher amounts mostly amplify the reaction',
+      ],
+      reconstitution: [
+        '500mg vial + 5mL BAC water = 100mg/mL',
+        '25mg = 25 units · 50mg = 50 units · 100mg = 100 units (full 1mL U-100 syringe)',
+        'Refrigerate; use within ~28 days',
+      ],
+    },
+    communityTips: [
+      'Slower is the whole game — people who "can\'t tolerate NAD+" are usually injecting too fast',
+      'Room-temperature solution injects more comfortably than cold from the fridge',
+      'Split into two smaller injections if one 100mg push is too intense',
+    ],
+    commonMistakes: [
+      'Pushing the plunger fast — the #1 cause of the nausea/pressure reaction',
+      'Starting at 100mg instead of ramping from 25mg',
+      'Dosing late in the day and wrecking sleep',
+      'Expecting IV-level effects from subQ — absorption and cellular uptake are unproven',
+    ],
+    stacking: [
+      'Often paired with GLP-1 or GH-axis protocols for "energy/recovery," but there is no synergy data — treat as additive experiments',
+      'Oral NMN/NR are the better-studied way to raise NAD+; some prefer those over injections',
+    ],
+  },
 ];
 
 export function getExperienceForPeptide(peptideId: string): PeptideExperience | undefined {

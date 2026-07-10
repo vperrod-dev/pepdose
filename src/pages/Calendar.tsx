@@ -4,13 +4,13 @@ import {
   isSameMonth, isSameDay, isToday, addMonths, subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getScheduledDosesInRange } from '../db/operations';
+import { getScheduledDosesInRange, getAllDoseLogs } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { UserBadge } from '../components/UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
 import { filterByOwner } from '../context/ownerFilter';
-import type { ScheduledDose } from '../db/schema';
+import type { ScheduledDose, DoseLog } from '../db/schema';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -28,6 +28,7 @@ export function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [monthDoses, setMonthDoses] = useState<ScheduledDose[]>([]);
+  const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const monthStart = startOfMonth(currentMonth);
@@ -40,8 +41,14 @@ export function Calendar() {
     async function load() {
       const rangeStart = format(calStart, 'yyyy-MM-dd');
       const rangeEnd = format(calEnd, 'yyyy-MM-dd');
-      const doses = await getScheduledDosesInRange(rangeStart, rangeEnd);
+      const [doses, logs] = await Promise.all([
+        getScheduledDosesInRange(rangeStart, rangeEnd),
+        getAllDoseLogs(),
+      ]);
       setMonthDoses(doses);
+      setLogsByDoseId(new Map(
+        logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
+      ));
     }
     load();
   }, [currentMonth, reloadKey]);
@@ -167,6 +174,7 @@ export function Calendar() {
             {selectedDoses.map((dose) => {
               const isDone = dose.status === 'logged';
               const isMissed = dose.status === 'missed';
+              const doseLog = logsByDoseId.get(dose.id);
               return (
                 <button
                   key={dose.id}
@@ -188,7 +196,7 @@ export function Calendar() {
                       <UserBadge owner={dose.owner} />
                     </div>
                     <p className="text-xs text-text-muted font-mono">
-                      {dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
+                      {doseLog?.dose ?? dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
                     </p>
                   </div>
                   <span className={`text-xs font-medium px-2 py-1 rounded-md ${
@@ -208,6 +216,7 @@ export function Calendar() {
       {activeDose && (
         <DoseActionSheet
           dose={activeDose}
+          log={logsByDoseId.get(activeDose.id)}
           onClose={() => setActiveDose(null)}
           onUpdated={() => setReloadKey(k => k + 1)}
         />

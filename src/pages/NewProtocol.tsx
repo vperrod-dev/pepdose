@@ -96,7 +96,7 @@ export function NewProtocol() {
     const variant = peptide.dosing.protocolVariants?.[0];
     const config: PeptideConfig = {
       peptideId: peptide.id,
-      dose: variant?.doseOverride ?? peptide.dosing.standard,
+      dose: variant?.doseOverride ?? peptide.dosing.titration?.[0]?.dose ?? peptide.dosing.standard,
       unit: peptide.dosing.unit,
       frequency: peptide.dosing.frequency,
       customFrequencyDays: peptide.dosing.customFrequencyDays,
@@ -130,7 +130,7 @@ export function NewProtocol() {
       const variant = pep?.dosing.protocolVariants?.[0];
       return {
         peptideId: tp.peptideId,
-        dose: tp.doseOverride ?? variant?.doseOverride ?? pep?.dosing.standard ?? 100,
+        dose: tp.doseOverride ?? variant?.doseOverride ?? pep?.dosing.titration?.[0]?.dose ?? pep?.dosing.standard ?? 100,
         unit: tp.unitOverride ?? pep?.dosing.unit ?? 'mcg',
         frequency: (tp.frequencyOverride as FrequencyType) ?? pep?.dosing.frequency ?? 'daily',
         customFrequencyDays: pep?.dosing.customFrequencyDays,
