@@ -29,7 +29,10 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
 - **`src/`** — React app; scheduling engine (`utils/scheduleEngine.ts`) generates
   every injection from a protocol (titration ladders, phased schedules,
   weekday-only cadence) and regenerates safely on edit (preserves
-  logged/skipped/missed doses).
+  logged/skipped/missed doses). A titration ladder is **scaled to the user's
+  chosen start dose** — the dose field defaults to the ladder's first step, and
+  typing a different value shifts the whole ladder proportionally (see
+  `getTitrationDose`), so a user can start e.g. Retatrutide at 0.5mg.
 - Storage: IndexedDB via `idb` (`db/schema.ts` + `db/operations.ts`) — no backend,
   no accounts; data never leaves the device. Supports two users/profiles. Logging
   a dose decrements the peptide's active vial; deleting a log restores it.
