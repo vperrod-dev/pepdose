@@ -4,9 +4,10 @@ import {
   isSameMonth, isSameDay, isToday, addMonths, subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getScheduledDosesInRange, getAllDoseLogs, getProtocols } from '../db/operations';
+import { getScheduledDosesInRange, getAllDoseLogs, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { ProtocolTimeline } from '../components/ProtocolTimeline';
 import { UserBadge } from '../components/UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
 import { filterByOwner } from '../context/ownerFilter';
@@ -41,6 +42,9 @@ export function Calendar() {
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [protocolsById, setProtocolsById] = useState<Map<string, UserProtocol>>(new Map());
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
+  const [view, setView] = useState<'month' | 'timeline'>('month');
+  const [timelineProtocols, setTimelineProtocols] = useState<UserProtocol[]>([]);
+  const [dosesByProtocol, setDosesByProtocol] = useState<Map<string, ScheduledDose[]>>(new Map());
   const [reloadKey, setReloadKey] = useState(0);
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -55,7 +59,7 @@ export function Calendar() {
       const [doses, logs, protos] = await Promise.all([
         getScheduledDosesInRange(rangeStart, rangeEnd),
         getAllDoseLogs(),
-        getProtocols(),
+        getProtocols('active'),
       ]);
       setMonthDoses(doses);
       setLogsByDoseId(new Map(
@@ -65,6 +69,19 @@ export function Calendar() {
     }
     load();
   }, [currentMonth, reloadKey]);
+
+  useEffect(() => {
+    async function loadTimeline() {
+      const protos = await getProtocols('active');
+      const byProto = new Map<string, ScheduledDose[]>();
+      await Promise.all(protos.map(async (p) => {
+        byProto.set(p.id, await getScheduledDosesForProtocol(p.id));
+      }));
+      setTimelineProtocols(protos);
+      setDosesByProtocol(byProto);
+    }
+    if (view === 'timeline') loadTimeline();
+  }, [view, reloadKey]);
 
   const { filter } = useViewFilter();
 
@@ -95,26 +112,46 @@ export function Calendar() {
 
   return (
     <div className="safe-top px-5 pt-4">
-      <div className="flex items-center justify-between mb-5 stagger-item">
-        <button
-          onClick={() => setCurrentMonth(m => subMonths(m, 1))}
-          className="tap-target p-2 rounded-xl hover:bg-card"
-          aria-label="Previous month"
-        >
-          <ChevronLeft className="w-5 h-5 text-text-secondary" />
-        </button>
+      <div className="flex items-center justify-between mb-4 stagger-item">
+        {view === 'month' ? (
+          <button
+            onClick={() => setCurrentMonth(m => subMonths(m, 1))}
+            className="tap-target p-2 rounded-xl hover:bg-card"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="w-5 h-5 text-text-secondary" />
+          </button>
+        ) : <span className="w-9" />}
         <h1 className="text-lg font-semibold">
-          {format(currentMonth, 'MMMM yyyy')}
+          {view === 'month' ? format(currentMonth, 'MMMM yyyy') : 'Protocol Timeline'}
         </h1>
-        <button
-          onClick={() => setCurrentMonth(m => addMonths(m, 1))}
-          className="tap-target p-2 rounded-xl hover:bg-card"
-          aria-label="Next month"
-        >
-          <ChevronRight className="w-5 h-5 text-text-secondary" />
-        </button>
+        {view === 'month' ? (
+          <button
+            onClick={() => setCurrentMonth(m => addMonths(m, 1))}
+            className="tap-target p-2 rounded-xl hover:bg-card"
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5 text-text-secondary" />
+          </button>
+        ) : <span className="w-9" />}
       </div>
 
+      <div className="flex bg-card rounded-xl p-1 mb-4 stagger-item">
+        {(['month', 'timeline'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`flex-1 text-center text-sm font-medium py-2 rounded-lg transition-colors ${
+              view === v ? 'bg-primary text-bg' : 'text-text-secondary'
+            }`}
+          >
+            {v === 'month' ? 'Month' : 'Timeline'}
+          </button>
+        ))}
+      </div>
+
+      {view === 'month' && (
+      <>
       <div className="grid grid-cols-7 gap-0 mb-2 stagger-item" style={{ animationDelay: '0.05s' }}>
         {WEEKDAYS.map((day, i) => (
           <div key={i} className="text-center text-xs font-medium text-text-muted py-2">
@@ -250,7 +287,17 @@ export function Calendar() {
             })}
           </div>
         )}
-      </div>
+        </div>
+      </>
+      )}
+
+      {view === 'timeline' && (
+        <ProtocolTimeline
+          protocols={timelineProtocols}
+          dosesByProtocol={dosesByProtocol}
+          logsByDoseId={logsByDoseId}
+        />
+      )}
 
       {activeDose && (
         <DoseActionSheet
