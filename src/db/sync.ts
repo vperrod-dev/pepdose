@@ -8,9 +8,9 @@ import { supabase, cloudEnabled } from './supabase';
 // When both sides have a row, the newer `updatedAt`/`createdAt` wins (LWW).
 // So logging in on an empty device can never erase the device that has the data.
 //
-// Deletes do not yet propagate across devices (a row deleted on one device may
-// reappear from another). That is the deliberately-safe direction: resurrection
-// beats data loss. Tombstones are a future fast-follow (the `deleted` column exists).
+// Deletes DO propagate: local deletions are pushed as `deleted: true` tombstones
+// (see syncNow), and planMerge drops remote-deleted rows on pull. Resurrection of
+// a row newer than a tombstone still wins (LWW), so a genuine re-edit survives.
 
 const KINDS = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
 
@@ -107,6 +107,24 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number } | nu
         const { error: upErr } = await supabase.from('records').upsert(envelopes);
         if (upErr) throw upErr;
         pushed += push.length;
+      }
+      // Propagate local deletes: any remote row absent locally becomes a tombstone.
+      // planMerge already applies remote->local deletes; this closes the loop so a
+      // protocol/dose deleted on one device is removed on the other.
+      const localIds = new Set(localRows.map((r) => r.id));
+      const deletes = (remoteRows ?? []).filter((r) => !localIds.has(r.id) && !r.deleted);
+      if (deletes.length) {
+        const tombstones = deletes.map((r) => ({
+          user_id: userId,
+          kind,
+          id: r.id,
+          data: r.data,
+          updated_at: new Date().toISOString(),
+          deleted: true,
+        }));
+        const { error: delErr } = await supabase.from('records').upsert(tombstones);
+        if (delErr) throw delErr;
+        pushed += deletes.length;
       }
       if (localPut.length) {
         const tx = db.transaction(kind, 'readwrite');

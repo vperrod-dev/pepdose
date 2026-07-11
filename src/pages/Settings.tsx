@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, Moon, Ruler, Clock } from 'lucide-react';
-import { requestNotificationPermission, scheduleReminders, showTestNotification, notificationsSupported } from '../utils/notifications';
+import { requestNotificationPermission, scheduleReminders, showTestNotification, notificationsSupported, triggeredNotificationsSupported } from '../utils/notifications';
 
 interface AppSettings {
   notificationsEnabled: boolean;
@@ -10,6 +10,7 @@ interface AppSettings {
   syringeType: 'u100' | 'u40';
   darkMode: boolean;
   defaultInjectionTime: string;
+  timezone: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -19,6 +20,7 @@ const DEFAULTS: AppSettings = {
   syringeType: 'u100',
   darkMode: true,
   defaultInjectionTime: '08:00',
+  timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC',
 };
 
 function loadSettings(): AppSettings {
@@ -121,9 +123,19 @@ export function Settings() {
               >
                 Send a test notification
               </button>
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  <label className="text-xs text-text-muted">Reminder timezone</label>
+                  <p className="text-[10px] text-text-muted">Use your home zone so travel doesn't shift dose times.</p>
+                </div>
+                <span className="text-xs font-mono text-text-secondary bg-bg border border-border rounded px-2 py-1">
+                  {settings.timezone}
+                </span>
+              </div>
               <p className="text-[11px] text-text-muted leading-relaxed">
-                Reminders fire while pepdose is open or in the background. For alerts when the app is fully
-                closed, keep it installed to your home screen and open daily.
+                {triggeredNotificationsSupported()
+                  ? 'On this browser, reminders can fire even when pepdose is fully closed. Otherwise they fire while the app is open or in the background — keep it installed to your home screen and open daily.'
+                  : 'Reminders fire while pepdose is open or in the background. For alerts when the app is fully closed, keep it installed to your home screen and open daily (some browsers support closed-app alerts).'}
               </p>
             </div>
           )}

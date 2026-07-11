@@ -80,13 +80,14 @@ export function ProtocolTimeline({
 
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [openWeek, setOpenWeek] = useState<{ pt: ProtocolTimeline; week: number } | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const todayLineRef = useRef<HTMLDivElement>(null);
 
   const scrollToToday = () => {
-    if (todayX === null || !scrollRef.current) return;
-    const c = scrollRef.current;
-    // Center the today line horizontally within the scroll viewport.
-    c.scrollTo({ left: Math.max(0, todayX - c.clientWidth / 2), behavior: 'smooth' });
+    // Use the actual today-line element so any label/padding offset is handled
+    // correctly (scrollIntoView measures real layout, not computed pixels).
+    if (todayLineRef.current) {
+      todayLineRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
   };
 
   if (model.protocols.length === 0) {
@@ -126,7 +127,7 @@ export function ProtocolTimeline({
         </div>
       </div>
 
-      <div ref={scrollRef} className="card-glass p-3 overflow-x-auto">
+      <div className="card-glass p-3 overflow-x-auto">
         <div className="relative" style={{ width: LABEL_W + trackWidth }}>
           {/* Week ruler */}
           <div className="relative" style={{ height: HEADER_H, marginLeft: LABEL_W, width: trackWidth }}>
@@ -144,6 +145,7 @@ export function ProtocolTimeline({
           {/* Today line (spans all lanes) */}
           {todayX !== null && (
             <div
+              ref={todayLineRef}
               className="absolute bg-primary/70"
               style={{ left: todayX, top: 0, bottom: 0, width: 2, zIndex: 5 }}
             />

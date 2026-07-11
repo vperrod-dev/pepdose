@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Next Dose</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { margin: 0; height: 100%; background: #0a0e17; color: #e2e8f0;
+      font-family: 'DM Sans', system-ui, sans-serif; }
+    .wrap { display: flex; flex-direction: column; justify-content: center;
+      height: 100%; padding: 14px 16px; box-sizing: border-box; }
+    .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+      color: #64748b; margin-bottom: 6px; }
+    .pep { font-size: 22px; font-weight: 700; line-height: 1.1; }
+    .meta { font-size: 14px; color: #94a3b8; margin-top: 6px; }
+    .none { font-size: 15px; color: #64748b; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+      background: #00d4aa; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="label"><span class="dot"></span>Next dose</div>
+    <div id="content"><div class="none">Loading…</div></div>
+  </div>
+  <script>
+    // Self-contained widget: reads the same IndexedDB the app uses (no bundler).
+    const DB = 'pepdose', STORE = 'scheduledDoses';
+    function openDB() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function nextDose() {
+      const db = await openDB();
+      return new Promise((res, rej) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => {
+          const today = new Date().toISOString().slice(0, 10);
+          const now = new Date();
+          const upcoming = req.result
+            .filter(d => d.status === 'upcoming' && (d.date > today || (d.date === today && d.time >= '00:00')))
+            .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+          res(upcoming[0] || null);
+        };
+        req.onerror = () => rej(req.error);
+      });
+    }
+    function fmt(d) {
+      const dt = new Date(d.date + 'T' + (d.time || '08:00'));
+      return dt.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+    nextDose().then(d => {
+      const el = document.getElementById('content');
+      if (!d) { el.innerHTML = '<div class="none">No upcoming doses</div>'; return; }
+      const cat = ({ healing:'#22c55e', glp1:'#6366f1', gh_secretagogue:'#f59e0b',
+        fat_loss:'#ef4444', cosmetic:'#ec4899', sexual_health:'#a855f7', nootropic:'#06b6d4' })[d.peptideId]
+        || '#00d4aa';
+      el.innerHTML =
+        '<div class="pep">' + (d.peptideId || 'Dose') + '</div>' +
+        '<div class="meta">' + d.dose + ' ' + d.unit + ' · ' + fmt(d) + '</div>';
+    }).catch(() => {
+      document.getElementById('content').innerHTML = '<div class="none">Unavailable</div>';
+    });
+  </script>
+</body>
+</html>

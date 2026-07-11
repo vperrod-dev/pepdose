@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { getScheduledDosesForDate, getDoseLogsForDate } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
+import { zonedTimeToUtc } from './tz';
 
 /**
  * Local-first dose reminders.
@@ -16,6 +17,7 @@ import { getPeptideById } from '../data/peptides';
 interface AppSettings {
   notificationsEnabled: boolean;
   reminderMinutesBefore: number;
+  timezone: string;
 }
 
 const SETTINGS_KEY = 'pepdose-settings';
@@ -28,9 +30,14 @@ function readSettings(): AppSettings {
     return {
       notificationsEnabled: !!parsed.notificationsEnabled,
       reminderMinutesBefore: Number.isFinite(parsed.reminderMinutesBefore) ? parsed.reminderMinutesBefore : 15,
+      timezone: parsed.timezone || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'),
     };
   } catch {
-    return { notificationsEnabled: false, reminderMinutesBefore: 15 };
+    return {
+      notificationsEnabled: false,
+      reminderMinutesBefore: 15,
+      timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC',
+    };
   }
 }
 
@@ -70,7 +77,51 @@ function markFired(id: string) {
   localStorage.setItem(FIRED_KEY, JSON.stringify({ date: todayStr(), ids: [...set] }));
 }
 
-// --- firing ----------------------------------------------------------------
+// --- scheduled (triggered) notifications for closed-app delivery -----------
+
+/** True where the Notification Triggers API lets a notification fire at a future
+ *  timestamp even if the app is fully closed (Chrome/Edge on Android). */
+export function triggeredNotificationsSupported(): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return notificationsSupported() && typeof (globalThis as any).TimestampTrigger === 'function';
+}
+
+/**
+ * Arm a dose reminder that can fire even when the app is closed, using the
+ * Notification Triggers API. Falls back to the in-page timer path (caller's
+ * responsibility) when unsupported. The timestamp is computed in the user's
+ * chosen timezone so travel doesn't shift the dose time.
+ */
+export async function scheduleTriggeredReminder(
+  id: string,
+  title: string,
+  body: string,
+  doseAt: number,
+  url: string,
+): Promise<boolean> {
+  if (!triggeredNotificationsSupported()) return false;
+  if (doseAt <= Date.now()) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const trigger = new (globalThis as any).TimestampTrigger(doseAt);
+    // showTrigger is a Notification Triggers API extension not yet in lib.dom.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const options: any = {
+      body,
+      tag: id,
+      icon: import.meta.env.BASE_URL + 'icons/icon-192.svg',
+      badge: import.meta.env.BASE_URL + 'icons/icon-192.svg',
+      data: { url },
+      showTrigger: trigger,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (reg.showNotification as any)(title, options);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function show(title: string, body: string, tag: string, url: string) {
   if (!canNotify()) return;
@@ -130,7 +181,7 @@ export async function scheduleReminders(): Promise<void> {
   for (const dose of pending) {
     if (firedSet().has(dose.id)) continue;
 
-    const doseAt = new Date(`${dose.date}T${dose.time || '08:00'}`).getTime();
+    const doseAt = zonedTimeToUtc(dose.date, dose.time || '08:00', settings.timezone);
     if (Number.isNaN(doseAt)) continue;
     const remindAt = doseAt - lead;
     const pep = getPeptideById(dose.peptideId);
@@ -147,11 +198,16 @@ export async function scheduleReminders(): Promise<void> {
     }
 
     if (remindAt > now) {
-      const timer = setTimeout(() => {
-        markFired(dose.id);
-        void show(title, body, dose.id, url);
-      }, remindAt - now);
-      timers.push(timer);
+      // Prefer a triggered notification so it still fires if the app is closed.
+      // Where unsupported, fall back to an in-page timer (fires only while open/backgrounded).
+      const armed = await scheduleTriggeredReminder(dose.id, title, body, remindAt, url);
+      if (!armed) {
+        const timer = setTimeout(() => {
+          markFired(dose.id);
+          void show(title, body, dose.id, url);
+        }, remindAt - now);
+        timers.push(timer);
+      }
     }
   }
 }

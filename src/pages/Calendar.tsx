@@ -125,6 +125,15 @@ export function Calendar() {
         <h1 className="text-lg font-semibold">
           {view === 'month' ? format(currentMonth, 'MMMM yyyy') : 'Protocol Timeline'}
         </h1>
+        {view === 'month' && !isSameMonth(currentMonth, new Date()) && (
+          <button
+            onClick={() => setCurrentMonth(new Date())}
+            className="tap-target text-xs font-medium text-primary bg-primary-dim px-2 py-1 rounded"
+            aria-label="Jump to current month"
+          >
+            Today
+          </button>
+        )}
         {view === 'month' ? (
           <button
             onClick={() => setCurrentMonth(m => addMonths(m, 1))}

@@ -20,5 +20,15 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
+  ],
+  "widgets": [
+    {
+      "name": "Next Dose",
+      "short_name": "Next Dose",
+      "description": "Shows your next upcoming peptide dose",
+      "template": "/pepdose/widgets/next-dose.html",
+      "type": "window",
+      "sizes": "4x2"
+    }
   ]
 }
