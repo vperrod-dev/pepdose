@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { ArrowUpCircle } from 'lucide-react';
+import { ArrowUpCircle, Crosshair } from 'lucide-react';
 import { getPeptideById } from '../data/peptides';
 import { UserBadge } from './UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
@@ -23,7 +23,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const LABEL_W = 96;       // px reserved for protocol name on the left
 const WEEK_W = 34;        // px per week column
-const LANE_H = 46;
+const LANE_H = 58;
 const HEADER_H = 26;
 
 function protocolColor(p: UserProtocol): string {
@@ -34,6 +34,27 @@ function protocolColor(p: UserProtocol): string {
 function hexWithAlpha(hex: string, alpha: number): string {
   const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, '0');
   return `${hex}${a}`;
+}
+
+/** Tiny inline sparkline of per-week representative dose across the protocol span. */
+function DoseRamp({ pt, color }: { pt: ProtocolTimeline; color: string }) {
+  const data = pt.weeks.map(w => (w.dose ?? 0));
+  const max = Math.max(1, ...data);
+  const w = 80;
+  const h = 16;
+  const step = pt.weeks.length > 1 ? w / (pt.weeks.length - 1) : w;
+  const points = data.map((d, i) => {
+    const x = i * step;
+    const y = h - (d / max) * (h - 2) - 1;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} className="mt-0.5 block" aria-hidden>
+      {data.some(d => d > 0) && (
+        <polyline points={points} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      )}
+    </svg>
+  );
 }
 
 export function ProtocolTimeline({
@@ -59,6 +80,14 @@ export function ProtocolTimeline({
 
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [openWeek, setOpenWeek] = useState<{ pt: ProtocolTimeline; week: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToToday = () => {
+    if (todayX === null || !scrollRef.current) return;
+    const c = scrollRef.current;
+    // Center the today line horizontally within the scroll viewport.
+    c.scrollTo({ left: Math.max(0, todayX - c.clientWidth / 2), behavior: 'smooth' });
+  };
 
   if (model.protocols.length === 0) {
     return (
@@ -82,14 +111,22 @@ export function ProtocolTimeline({
         <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
           Protocol Timeline
         </h2>
-        {model.todayIndex >= 0 && (
-          <span className="text-[10px] font-mono text-primary bg-primary-dim px-2 py-0.5 rounded">
+        <div className="flex items-center gap-2">
+          {model.todayIndex >= 0 && (
+            <button
+              onClick={scrollToToday}
+              className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary-dim px-2 py-1 rounded tap-target"
+            >
+              <Crosshair className="w-3 h-3" /> Today
+            </button>
+          )}
+          <span className="text-[10px] font-mono text-text-muted">
             {format(model.start, 'MMM d')} → {format(model.end, 'MMM d')}
           </span>
-        )}
+        </div>
       </div>
 
-      <div className="card-glass p-3 overflow-x-auto">
+      <div ref={scrollRef} className="card-glass p-3 overflow-x-auto">
         <div className="relative" style={{ width: LABEL_W + trackWidth }}>
           {/* Week ruler */}
           <div className="relative" style={{ height: HEADER_H, marginLeft: LABEL_W, width: trackWidth }}>
@@ -127,6 +164,7 @@ export function ProtocolTimeline({
                     <span className="text-[11px] font-medium truncate">{pt.protocol.name}</span>
                   </div>
                   <UserBadge owner={pt.protocol.owner} />
+                  <DoseRamp pt={pt} color={color} />
                 </button>
 
                 <div className="relative flex" style={{ width: trackWidth }}>
