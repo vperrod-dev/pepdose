@@ -44,7 +44,14 @@ cloud sync across devices.
   window, hottest zones first. Surfaces overuse (lipohypertrophy risk) and flags zones with
   logged reactions. For daily abdomen dosers, an opt-in **clock-method dial** logs precise
   12-position sites around the navel.
-- **Calendar** — tap any scheduled dose to log, reschedule, or skip
+- **Calendar** — a month grid where each day shows a per-peptide color strip (up to 8 doses,
+  overflow as "+N") with a category legend; tap any scheduled dose to log, reschedule, or skip,
+  and each dose in the day list names its owning protocol. A **Month / Timeline** toggle switches
+  to a **Protocol Timeline** — a Gantt-style view with one horizontal lane per active protocol on
+  a shared week axis, a vertical "today" line across all lanes, dose-density shading, off-week
+  hatching, titration step-up arrows, and a per-protocol **dose-ramp sparkline**. Tap a lane or
+  week for a summary sheet. A **Today** button jumps back to the current month (grid) or scrolls
+  the today line into view (timeline).
 - **Peptide library** — peptide database with dosing data, plus stacking rules
 - **Reconstitution calculator** — forward (water → units) **and reverse-BAC** ("I want my dose
   on a clean 10-unit mark — how much water?"); a **blend breakdown** for GLOW-style vials
@@ -69,15 +76,23 @@ cloud sync across devices.
   **Both / Victor / Nadia** filter chip in the header to narrow the view (charts respect it).
   Onboarding and settings are shared.
 - **Dose reminders** — opt-in local notifications nudge you before each scheduled dose (lead time
-  configurable in Settings). Fired via the service worker while the app is open or backgrounded;
-  deduped per day, re-armed on focus. No backend/push server, so it can't wake a fully-closed app.
+  configurable in Settings). Reminders are **timezone-aware**: dose times are anchored to a
+  configurable home timezone (defaults to the device's), so traveling doesn't shift them, and DST
+  is handled correctly. On browsers that support the **Notification Triggers API** (e.g. Chrome/Edge
+  on Android) reminders can fire **even when the app is fully closed**; elsewhere they fire via the
+  service worker while the app is open or backgrounded (deduped per day, re-armed on focus).
+- **Home-screen widget** — a "Next Dose" PWA widget (Android/Chromium widget hosts) shows your next
+  upcoming dose straight on the home screen, reading local data directly. iOS doesn't support web
+  widgets and ignores it.
 - **Ad-hoc logging** — log an unscheduled injection (peptide, owner, dose, time) straight from the
   Log tab, no protocol required.
 - **Export / import** — back up and restore all data (reloads the app after restore/clear)
 - **Cloud sync (optional)** — sign in with a shared account to sync protocols, doses, vials, and
   health markers across phone and desktop. Offline-first: IndexedDB stays primary; the cloud is a
   mirror. Merge is union/last-write-wins and never destructive — an empty device can't wipe the one
-  holding your data. Disabled by default; enable by setting the two Supabase env vars. See
+  holding your data. **Deletes propagate** via `deleted: true` tombstones (a row removed on one
+  device is removed on the others; a newer re-edit still wins over an older tombstone). Disabled by
+  default; enable by setting the two Supabase env vars. See
   [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_SETUP.md).
 - **Offline-first PWA** — installable, works without a connection
 
@@ -141,6 +156,28 @@ Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_
   reference lines. Symptom catalog + category ordering live in `src/data/symptoms.ts`.
 - `src/utils/adherence.ts` — `adherenceStats(scheduled, today)` computes the Dashboard streak +
   weekly logged/due ratio. All three helpers are unit-tested.
+- `src/utils/protocolTimeline.ts` — `buildTimeline(protocols, dosesByProtocol)` buckets actual
+  scheduled doses into per-week lane segments (count, representative dose, step-up flag) and computes
+  the global week span + today index for the Calendar's Gantt **Protocol Timeline**
+  (`src/components/ProtocolTimeline.tsx`). Pure and unit-tested.
+
+## How reminders, timezones & sync work
+
+- `src/utils/notifications.ts` — opt-in dose reminders. Reads settings from localStorage, dedupes
+  fired reminders per day, and re-arms on focus/visibility. Where the **Notification Triggers API**
+  is available it schedules a `TimestampTrigger` so the reminder fires even if the app is closed;
+  otherwise it falls back to in-page `setTimeout` timers fired through the service worker
+  (`public/sw.js`). `triggeredNotificationsSupported()` gates the capability and the Settings copy.
+- `src/utils/tz.ts` — pure, unit-tested timezone math. `zonedTimeToUtc(date, time, ianaZone)` turns a
+  stored date + wall-clock time in a chosen timezone into a UTC epoch (DST-correct via
+  `Intl.DateTimeFormat` `shortOffset`), so reminders don't drift when you travel. The active zone is
+  stored in Settings (`timezone`, defaulting to the device zone).
+- `src/db/sync.ts` — bidirectional union-merge (`planMerge`, LWW, never destructive). Local deletes
+  are pushed as `deleted: true` tombstones and remote tombstones are applied on pull, so deletions
+  propagate across devices while a newer re-edit still wins.
+- `public/widgets/next-dose.html` + the `widgets` member in `public/manifest.json` — a self-contained
+  PWA home-screen widget that reads the `pepdose` IndexedDB store directly to show the next dose
+  (Android/Chromium widget hosts; ignored on iOS).
 
 ## How the two-user model works
 

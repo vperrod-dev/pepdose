@@ -11,8 +11,9 @@ Cloud sync (optional): active only when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_
 are set — else fully local, no login. `src/db/supabase.ts` (client), `src/db/sync.ts`
 (bidirectional union-merge, LWW, never destructive — see `planMerge`),
 `src/components/AuthGate.tsx` (shared-account login gate + sync triggers). Schema +
-setup: `supabase/migrations/0001_init.sql`, `docs/CLOUD_SYNC_SETUP.md`. Deletes don't
-yet propagate (safe-by-design; `deleted` tombstone column exists for a fast-follow).
+setup: `supabase/migrations/0001_init.sql`, `docs/CLOUD_SYNC_SETUP.md`. Deletes
+propagate via `deleted: true` tombstones (local delete → tombstone push; remote
+tombstone → local drop on pull; a newer re-edit still wins over an older tombstone).
 
 ## Commands
 
@@ -47,9 +48,17 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   - `utils/adherence.ts` → Dashboard streak + weekly ratio.
   - `utils/injectionStats.ts` → injection-map zone volume; `utils/titrationCoach.ts`
     → next step-up hint.
-- Reminders (`utils/notifications.ts`): scheduled via in-page timers, fired through
-  the service worker (`public/sw.js` `showNotification`), deduped per day. **No push
-  server — cannot wake a fully-closed app.**
+- Reminders (`utils/notifications.ts`): timezone-aware (via pure `utils/tz.ts` +
+  `settings.timezone`, DST-correct). Where the Notification Triggers API is available
+  (`TimestampTrigger`), reminders are armed to fire even when the app is fully closed;
+  otherwise they fall back to in-page timers fired through the service worker
+  (`public/sw.js` `showNotification`), deduped per day. `triggeredNotificationsSupported()`
+  gates the capability.
+- Calendar (`pages/Calendar.tsx`): month grid (per-peptide color strip + legend) with a
+  Month/Timeline toggle. The Gantt **Protocol Timeline** (`components/ProtocolTimeline.tsx`)
+  is driven by pure `utils/protocolTimeline.ts` (`buildTimeline`), unit-tested.
+- PWA "Next Dose" widget: `public/widgets/next-dose.html` + `widgets` member in
+  `public/manifest.json` (self-contained, reads IndexedDB directly; Android/Chromium only).
 - Reconstitution calculator (`ReconCalculator.tsx`): forward + reverse-BAC solve,
   blend per-component breakdown (`Peptide.reconstitution.components`), honors the
   U-100/U-40 setting. Deep-linkable via `/calculator?peptide=<id>`.
