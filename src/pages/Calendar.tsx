@@ -4,13 +4,13 @@ import {
   isSameMonth, isSameDay, isToday, addMonths, subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getScheduledDosesInRange, getAllDoseLogs } from '../db/operations';
+import { getScheduledDosesInRange, getAllDoseLogs, getProtocols } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { UserBadge } from '../components/UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
 import { filterByOwner } from '../context/ownerFilter';
-import type { ScheduledDose, DoseLog } from '../db/schema';
+import type { ScheduledDose, DoseLog, UserProtocol } from '../db/schema';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -22,6 +22,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   nootropic: '#06b6d4',
 };
 
+const CATEGORY_LABELS: { key: keyof typeof CATEGORY_COLORS; label: string }[] = [
+  { key: 'healing', label: 'Healing' },
+  { key: 'glp1', label: 'GLP-1' },
+  { key: 'gh_secretagogue', label: 'GH Secretagogue' },
+  { key: 'fat_loss', label: 'Fat Loss' },
+  { key: 'cosmetic', label: 'Cosmetic' },
+  { key: 'sexual_health', label: 'Sexual Health' },
+  { key: 'nootropic', label: 'Nootropic' },
+];
+
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export function Calendar() {
@@ -29,6 +39,7 @@ export function Calendar() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [monthDoses, setMonthDoses] = useState<ScheduledDose[]>([]);
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
+  const [protocolsById, setProtocolsById] = useState<Map<string, UserProtocol>>(new Map());
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const monthStart = startOfMonth(currentMonth);
@@ -41,14 +52,16 @@ export function Calendar() {
     async function load() {
       const rangeStart = format(calStart, 'yyyy-MM-dd');
       const rangeEnd = format(calEnd, 'yyyy-MM-dd');
-      const [doses, logs] = await Promise.all([
+      const [doses, logs, protos] = await Promise.all([
         getScheduledDosesInRange(rangeStart, rangeEnd),
         getAllDoseLogs(),
+        getProtocols(),
       ]);
       setMonthDoses(doses);
       setLogsByDoseId(new Map(
         logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
       ));
+      setProtocolsById(new Map(protos.map(p => [p.id, p])));
     }
     load();
   }, [currentMonth, reloadKey]);
@@ -73,11 +86,12 @@ export function Calendar() {
         return {
           ...d,
           peptideName: pep?.name ?? d.peptideId,
+          protocolName: protocolsById.get(d.protocolId)?.name ?? '',
           color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
         };
       })
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [selectedDate, dosesByDate]);
+  }, [selectedDate, dosesByDate, protocolsById]);
 
   return (
     <div className="safe-top px-5 pt-4">
@@ -109,6 +123,15 @@ export function Calendar() {
         ))}
       </div>
 
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3 stagger-item" style={{ animationDelay: '0.08s' }}>
+        {CATEGORY_LABELS.map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[key] }} />
+            <span className="text-[10px] text-text-muted">{label}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="grid grid-cols-7 gap-0 stagger-item" style={{ animationDelay: '0.1s' }}>
         {calendarDays.map((day) => {
           const dateKey = format(day, 'yyyy-MM-dd');
@@ -117,12 +140,21 @@ export function Calendar() {
           const selected = isSameDay(day, selectedDate);
           const today = isToday(day);
 
-          const uniqueColors = [...new Set(
-            dayDoses.map(d => {
+          const dayPeptides = (() => {
+            const seen = new Set<string>();
+            const segs: { name: string; color: string }[] = [];
+            for (const d of dayDoses) {
               const pep = getPeptideById(d.peptideId);
-              return CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa';
-            })
-          )].slice(0, 3);
+              const name = pep?.name ?? d.peptideId;
+              if (seen.has(name)) continue;
+              seen.add(name);
+              segs.push({ name, color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa' });
+            }
+            return segs;
+          })();
+          const MAX_SEG = 8;
+          const dayExtra = dayPeptides.length - MAX_SEG;
+          const dayStrip = dayPeptides.slice(0, MAX_SEG);
 
           return (
             <button
@@ -144,15 +176,19 @@ export function Calendar() {
               >
                 {format(day, 'd')}
               </span>
-              {uniqueColors.length > 0 && (
-                <div className="flex gap-0.5 mt-1">
-                  {uniqueColors.map((color, i) => (
+              {dayStrip.length > 0 && (
+                <div className="flex items-end gap-px mt-1 h-3">
+                  {dayStrip.map((s, i) => (
                     <div
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: color }}
+                      className="h-full w-1.5 rounded-sm shrink-0"
+                      style={{ backgroundColor: s.color }}
+                      title={s.name}
                     />
                   ))}
+                  {dayExtra > 0 && (
+                    <span className="text-[8px] leading-none text-text-muted ml-0.5">+{dayExtra}</span>
+                  )}
                 </div>
               )}
             </button>
@@ -195,6 +231,9 @@ export function Calendar() {
                       </p>
                       <UserBadge owner={dose.owner} />
                     </div>
+                    {dose.protocolName && (
+                      <p className="text-[10px] text-text-muted truncate">{dose.protocolName}</p>
+                    )}
                     <p className="text-xs text-text-muted font-mono">
                       {doseLog?.dose ?? dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
                     </p>
