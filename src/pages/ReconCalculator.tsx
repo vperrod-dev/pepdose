@@ -26,7 +26,7 @@ export function ReconCalculator() {
   const [vialMg, setVialMg] = useState('');
   const [bacWaterMl, setBacWaterMl] = useState('');
   const [desiredDose, setDesiredDose] = useState('');
-  const [doseUnit, setDoseUnit] = useState<'mcg' | 'mg'>('mcg');
+  const [doseUnit, setDoseUnit] = useState<'mcg' | 'mg' | 'IU'>('mcg');
   const [targetUnits, setTargetUnits] = useState('10'); // reverse mode: units mark to hit
   const [selectedPeptide, setSelectedPeptide] = useState('');
   const [iuMg, setIuMg] = useState('');       // mg to convert
@@ -42,9 +42,8 @@ export function ReconCalculator() {
     if (!p) return;
     setVialMg(String(p.reconstitution.typicalVialMg));
     setBacWaterMl(String(p.reconstitution.bacWaterMl));
-    const inMg = p.dosing.unit === 'mg';
     setDesiredDose(String(p.dosing.standard));
-    setDoseUnit(inMg ? 'mg' : 'mcg');
+    setDoseUnit(p.dosing.unit);
   }
 
   // Deep-link target: /calculator?peptide=<id> preselects the peptide (used by the
@@ -118,7 +117,7 @@ export function ReconCalculator() {
             <option value="">Custom / Manual</option>
             {RECON_PEPTIDES.map(p => (
               <option key={p.id} value={p.id}>
-                {p.name} ({p.reconstitution.typicalVialMg}mg vial)
+                {p.name} ({p.reconstitution.typicalVialMg}{p.dosing.unit === 'IU' ? ' IU' : 'mg'} vial)
               </option>
             ))}
           </select>
@@ -229,7 +228,7 @@ export function ReconCalculator() {
             />
           </div>
           <button
-            onClick={() => setDoseUnit(doseUnit === 'mcg' ? 'mg' : 'mcg')}
+            onClick={() => setDoseUnit(doseUnit === 'mcg' ? 'mg' : doseUnit === 'mg' ? 'IU' : 'mcg')}
             className="bg-bg-raised border border-border rounded-xl px-4 py-3 font-mono text-sm font-semibold text-primary tap-target min-w-[60px]"
           >
             {doseUnit}
@@ -243,7 +242,7 @@ export function ReconCalculator() {
           <p className="text-xs text-text-muted uppercase tracking-wider font-medium mb-2">Add this much water</p>
           <p className="font-mono text-3xl font-bold text-primary">{solvedWater.toFixed(2)} <span className="text-lg text-text-muted">mL</span></p>
           <p className="text-xs text-text-secondary mt-1">
-            Then your {doseUnit === 'mcg' ? `${dose}mcg` : `${dose}mg`} dose = <span className="font-mono text-text">{targetU} units</span> on a {syringeLabel} syringe.
+            Then your {dose}{doseUnit} dose = <span className="font-mono text-text">{targetU} units</span> on a {syringeLabel} syringe.
           </p>
           {waterImpractical && (
             <p className="text-xs text-yellow-400 mt-2">
@@ -274,7 +273,7 @@ export function ReconCalculator() {
           </div>
 
           <div className="text-xs text-text-secondary space-y-1">
-            <p>Concentration: <span className="font-mono text-text">{concentration.toFixed(2)} mg/ml</span></p>
+            <p>Concentration: <span className="font-mono text-text">{concentration.toFixed(2)} {doseUnit === 'IU' ? 'IU' : 'mg'}/ml</span></p>
             {doseMg < 0.001 && (
               <p className="text-yellow-400">Dose very small — verify units are correct</p>
             )}

@@ -9,7 +9,7 @@ export type DraftDose = Omit<ScheduledDose, 'owner'>;
 interface ScheduleConfig {
   peptideId: string;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   frequency: string;
   customFrequencyDays?: number;
   timesPerDay?: number;

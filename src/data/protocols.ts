@@ -5,7 +5,7 @@ export interface ProtocolTemplate {
   peptides: {
     peptideId: string;
     doseOverride?: number;
-    unitOverride?: 'mcg' | 'mg';
+    unitOverride?: 'mcg' | 'mg' | 'IU';
     frequencyOverride?: string;
     // Per-peptide cycle length. Lets a combo protocol run each peptide for a
     // different duration (e.g. GLP-1 for months while a cosmetic peptide cycles

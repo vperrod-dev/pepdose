@@ -78,8 +78,15 @@ against ≥2 sources (peptidedosages.com + trial data / independent reference):
 
 Verified: `npx tsc -b` clean, `npm run build` OK, `npm test` 71/71, ESLint clean, no duplicate IDs.
 
+## IU unit added (2026-07-13, follow-up)
+`'IU'` is now a first-class dose unit (`'mcg' | 'mg' | 'IU'`) threaded through peptides/schema/
+scheduleEngine/protocolTimeline/titrationCoach and every unit picker. HCG switched from the
+`mcg` placeholder to real `unit: 'IU'` (250/500/2500 IU, 5000-IU vial). Quantity math treats IU
+as whole units (no ×1000), so recon/vial/forecast all compute correctly. Recon calculator, vial
+inventory, and both protocol-editor selects are IU-aware.
+Browser-verified (Playwright, local-only build): calculator shows "HCG (5000 IU vial)",
+"Concentration: 2500.00 IU/ml", "Draw to 20.0 unit mark" (500 IU ÷ 2500 IU/mL × 100 = 20u);
+library shows "500 IU · Every 2 days". tsc clean, build OK, 71/71 tests.
+
 ## Known limitations to revisit
-- **HCG uses `unit: 'mcg'` as a placeholder for IU** (schema has no `iu` unit). Real dosing
-  (250–2500 IU) + 5000-IU vial are documented in mechanism/cycling text, but the recon calculator
-  will show misleading mg/mcg. Proper fix = add `'iu'` to the unit enum + calculator support. Deferred.
 - Bioregulators (SS-31, FOXO4-DRI, Khavinson family) still need a new `longevity` category (Tier 3).

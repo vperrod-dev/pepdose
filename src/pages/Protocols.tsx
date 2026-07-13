@@ -172,7 +172,7 @@ export function Protocols() {
       generateSchedule({
         peptideId: d.peptideId,
         dose: d.dose,
-        unit: d.unit as 'mcg' | 'mg',
+        unit: d.unit as 'mcg' | 'mg' | 'IU',
         frequency: d.frequency,
         customFrequencyDays: d.customFrequencyDays,
         timesPerDay: d.timesPerDay,
@@ -630,11 +630,12 @@ export function Protocols() {
                               />
                               <select
                                 value={dose.unit}
-                                onChange={e => updateEditDose(idx, { unit: e.target.value as 'mcg' | 'mg' })}
+                                onChange={e => updateEditDose(idx, { unit: e.target.value as 'mcg' | 'mg' | 'IU' })}
                                 className="bg-bg-raised border border-l-0 border-border rounded-r-lg px-2 py-2 text-xs text-text-secondary"
                               >
                                 <option value="mcg">mcg</option>
                                 <option value="mg">mg</option>
+                                <option value="IU">IU</option>
                               </select>
                             </div>
                           </div>

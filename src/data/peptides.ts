@@ -15,7 +15,7 @@ export interface TitrationStep {
   weekStart: number;
   weekEnd: number;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
 }
 
 // A phase of a tapered protocol: a week range run at a given cadence.
@@ -39,7 +39,7 @@ export interface DosingProtocol {
   low: number;
   standard: number;
   high: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   frequency: FrequencyType;
   customFrequencyDays?: number;
   timesPerDay?: number;
@@ -1125,12 +1125,12 @@ export const PEPTIDES: Peptide[] = [
     aliases: ['Human Chorionic Gonadotropin', 'Pregnyl', 'Novarel', 'Ovidrel'],
     category: 'sexual_health',
     halfLifeHours: 36,
-    mechanismShort: 'REAL DOSING IS IN IU, NOT mcg: 250-500 IU 2-3x/week. Binds testicular LH receptors on Leydig cells to stimulate endogenous testosterone and preserve testicular size/fertility; FDA-approved drug.',
+    mechanismShort: 'Binds testicular LH receptors on Leydig cells to stimulate endogenous testosterone and preserve testicular size/fertility; FDA-approved drug. Dosed in IU (International Units): 250-500 IU subq 2-3x/week.',
     route: 'subq',
     needleGauge: '29-31G 1/2 inch (U-100 insulin)',
     dosing: {
       low: 250, standard: 500, high: 2500,
-      unit: 'mcg',
+      unit: 'IU',
       frequency: 'custom',
       customFrequencyDays: 2,
       cycleWeeks: 12, offCycleWeeks: 4,
@@ -1138,7 +1138,7 @@ export const PEPTIDES: Peptide[] = [
       withFood: 'either',
     },
     reconstitution: { typicalVialMg: 5000, bacWaterMl: 2.0, shelfLifeDays: 30, storageTemp: '2-8°C refrigerated' },
-    cyclingReason: 'UNIT CAVEAT: low/standard/high (250/500/2500) are IU, not mcg — the schema has no IU unit so "mcg" is a placeholder ONLY, and typicalVialMg holds 5000 IU (not mg). Standard maintenance = 500 IU subq 3x/week (Mon/Wed/Fri, ~every 2 days); high recovery/fertility = 1500-2500 IU 3x/week. Refrigerated reconstituted stability up to ~30-60 days; 30 used conservatively.',
+    cyclingReason: 'Dosed in IU: standard maintenance = 500 IU subq 3x/week (Mon/Wed/Fri, ~every 2 days); high recovery/fertility = 1500-2500 IU 3x/week. The vial is 5000 IU (the reconstitution "vial" field holds IU, not mg, for IU-dosed compounds). Refrigerated reconstituted stability up to ~30-60 days; 30 used conservatively.',
   },
   {
     id: 'gonadorelin',

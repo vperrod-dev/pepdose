@@ -217,7 +217,7 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
   const [saving, setSaving] = useState(false);
 
   const pep = getPeptideById(peptideId);
-  const unit = (pep?.dosing.unit ?? 'mg') as 'mcg' | 'mg';
+  const unit = (pep?.dosing.unit ?? 'mg') as 'mcg' | 'mg' | 'IU';
   const valid = !!peptideId && dose > 0;
 
   async function handleSave() {
