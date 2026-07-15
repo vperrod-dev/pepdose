@@ -134,7 +134,9 @@ function CloudSyncCard() {
     setMsg(null);
     try {
       const res = await syncNow();
-      setMsg(res ? `Synced (↑${res.pushed} ↓${res.pulled})` : 'Not signed in');
+      if (!res) setMsg('Not signed in');
+      else if (res.errors.length) setMsg(`Partial sync (↑${res.pushed} ↓${res.pulled}) — failed: ${res.errors.join('; ')}`);
+      else setMsg(`Synced (↑${res.pushed} ↓${res.pulled})`);
     } catch {
       setMsg('Sync failed — check connection');
     } finally {

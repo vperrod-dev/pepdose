@@ -32,14 +32,19 @@ function CloudGate({ children }: { children: ReactNode }) {
     syncNow().finally(() => { if (!cancelled) setFirstSyncDone(true); });
 
     const tick = () => { void syncNow(); };
+    // beforeunload is unreliable (esp. mobile); visibilitychange→hidden is the
+    // last dependable moment to flush, so sync on both.
+    const onHidden = () => { if (document.visibilityState === 'hidden') tick(); };
     const interval = setInterval(tick, 30_000);
     window.addEventListener('focus', tick);
     window.addEventListener('beforeunload', tick);
+    document.addEventListener('visibilitychange', onHidden);
     return () => {
       cancelled = true;
       clearInterval(interval);
       window.removeEventListener('focus', tick);
       window.removeEventListener('beforeunload', tick);
+      document.removeEventListener('visibilitychange', onHidden);
     };
   }, [session]);
 
@@ -97,6 +102,12 @@ function LoginForm() {
           Sign in to sync your protocols and doses across devices.
         </p>
 
+        {mode === 'signup' && (
+          <div className="card-glass p-3 mb-3 border border-border text-xs text-text-muted">
+            A new account starts with an empty dataset. To see the existing shared
+            data, sign in with the shared account instead of creating a new one.
+          </div>
+        )}
         {error && <div className="card-glass p-3 mb-3 border border-danger/40 text-sm text-danger">{error}</div>}
         {notice && <div className="card-glass p-3 mb-3 border border-success/40 text-sm text-success">{notice}</div>}
 

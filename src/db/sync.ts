@@ -70,8 +70,9 @@ export function planMerge(
 
 let running = false;
 
-/** Merge local <-> cloud. Returns counts, or null if cloud disabled / not signed in. */
-export async function syncNow(): Promise<{ pushed: number; pulled: number } | null> {
+/** Merge local <-> cloud. Returns counts (plus per-kind errors, if any), or
+ *  null if cloud disabled / not signed in. */
+export async function syncNow(): Promise<{ pushed: number; pulled: number; errors: string[] } | null> {
   if (!cloudEnabled || !supabase || running) return null;
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData.session;
@@ -84,8 +85,10 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number } | nu
     const db = (await getDB()) as any;
     let pushed = 0;
     let pulled = 0;
+    const errors: string[] = [];
 
     for (const kind of KINDS) {
+      try {
       const localRows: Timestamped[] = await db.getAll(kind);
       const { data: remoteRows, error } = await supabase
         .from('records')
@@ -132,9 +135,16 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number } | nu
         await tx.done;
         pulled += localPut.length;
       }
+      } catch (e) {
+        // One kind failing (e.g. a bad row rejected by Supabase) must not abort
+        // the remaining kinds — collect and surface instead.
+        const msg = `${kind}: ${e instanceof Error ? e.message : String(e)}`;
+        console.error('[sync] ' + msg);
+        errors.push(msg);
+      }
     }
 
-    return { pushed, pulled };
+    return { pushed, pulled, errors };
   } finally {
     running = false;
   }

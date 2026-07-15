@@ -54,15 +54,16 @@
       const dt = new Date(d.date + 'T' + (d.time || '08:00'));
       return dt.toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
     }
+    // DB fields are user-influenced (and cloud-synced) — escape before innerHTML.
+    function esc(v) {
+      return String(v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+    }
     nextDose().then(d => {
       const el = document.getElementById('content');
       if (!d) { el.innerHTML = '<div class="none">No upcoming doses</div>'; return; }
-      const cat = ({ healing:'#22c55e', glp1:'#6366f1', gh_secretagogue:'#f59e0b',
-        fat_loss:'#ef4444', cosmetic:'#ec4899', sexual_health:'#a855f7', nootropic:'#06b6d4' })[d.peptideId]
-        || '#00d4aa';
       el.innerHTML =
-        '<div class="pep">' + (d.peptideId || 'Dose') + '</div>' +
-        '<div class="meta">' + d.dose + ' ' + d.unit + ' · ' + fmt(d) + '</div>';
+        '<div class="pep">' + esc(d.peptideId || 'Dose') + '</div>' +
+        '<div class="meta">' + esc(d.dose) + ' ' + esc(d.unit) + ' · ' + fmt(d) + '</div>';
     }).catch(() => {
       document.getElementById('content').innerHTML = '<div class="none">Unavailable</div>';
     });

@@ -40,11 +40,14 @@ export async function getProtocol(id: string): Promise<UserProtocol | undefined>
 
 export async function deleteProtocol(id: string): Promise<void> {
   const db = await getDB();
-  await db.delete('protocols', id);
-  const doses = await db.getAllFromIndex('scheduledDoses', 'by-protocol', id);
-  const tx = db.transaction('scheduledDoses', 'readwrite');
-  for (const dose of doses) {
-    await tx.store.delete(dose.id);
+  // One transaction across both stores so a protocol can never be removed
+  // while its scheduled doses survive as orphans (or vice versa).
+  const tx = db.transaction(['protocols', 'scheduledDoses'], 'readwrite');
+  void tx.objectStore('protocols').delete(id);
+  const doseStore = tx.objectStore('scheduledDoses');
+  const keys = await doseStore.index('by-protocol').getAllKeys(id);
+  for (const key of keys) {
+    void doseStore.delete(key);
   }
   await tx.done;
 }
@@ -222,24 +225,29 @@ export async function updateVial(id: string, updates: Partial<Vial>): Promise<vo
 
 export async function decrementVialDose(peptideId: string, owner?: UserName): Promise<void> {
   const db = await getDB();
-  const vials = await db.getAllFromIndex('vials', 'by-peptide', peptideId);
+  // Read + write inside one readwrite transaction so two concurrent logs can't
+  // both read the same dosesRemaining and lose a draw-down.
+  const tx = db.transaction('vials', 'readwrite');
+  const vials = await tx.store.index('by-peptide').getAll(peptideId);
   const active = vials.find(
     v => v.status === 'active' && v.dosesRemaining > 0 && (!owner || v.owner === owner),
   );
-  if (!active) return;
-
-  const remaining = active.dosesRemaining - 1;
-  await db.put('vials', {
-    ...active,
-    dosesRemaining: remaining,
-    status: remaining <= 0 ? 'empty' : 'active',
-    updatedAt: new Date().toISOString(),
-  });
+  if (active) {
+    const remaining = active.dosesRemaining - 1;
+    void tx.store.put({
+      ...active,
+      dosesRemaining: remaining,
+      status: remaining <= 0 ? 'empty' : 'active',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  await tx.done;
 }
 
 export async function incrementVialDose(peptideId: string, owner?: UserName): Promise<void> {
   const db = await getDB();
-  const vials = await db.getAllFromIndex('vials', 'by-peptide', peptideId);
+  const tx = db.transaction('vials', 'readwrite');
+  const vials = await tx.store.index('by-peptide').getAll(peptideId);
   // Prefer an active vial with headroom; fall back to the most recent one that
   // was emptied (so undoing a log that emptied a vial restores it).
   const candidates = vials
@@ -247,13 +255,15 @@ export async function incrementVialDose(peptideId: string, owner?: UserName): Pr
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const target = candidates.find(v => v.status === 'active' && v.dosesRemaining < v.totalDoses)
     ?? candidates.find(v => v.status === 'empty');
-  if (!target) return;
-
-  await db.put('vials', {
-    ...target,
-    dosesRemaining: target.dosesRemaining + 1,
-    status: 'active',
-  });
+  if (target) {
+    void tx.store.put({
+      ...target,
+      dosesRemaining: target.dosesRemaining + 1,
+      status: 'active',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  await tx.done;
 }
 
 // --- Health Markers ---
