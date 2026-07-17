@@ -1,9 +1,15 @@
-import { getDB, type UserProtocol, type ScheduledDose, type DoseLog, type Vial, type HealthMarker, type EditHistory } from './schema';
+import { getDB, type UserProtocol, type ScheduledDose, type DoseLog, type Vial, type HealthMarker, type EditHistory, type DeletionRecord } from './schema';
 import type { UserName } from '../data/users';
 import { format } from 'date-fns';
 
 function genId(): string {
   return crypto.randomUUID();
+}
+
+/** Ledger entry for a just-deleted record so cloud sync pushes an explicit
+ *  tombstone (see db/sync.ts). Must run inside the same tx as the delete. */
+function ledgerEntry(kind: DeletionRecord['kind'], id: string): DeletionRecord {
+  return { id, kind, deletedAt: new Date().toISOString() };
 }
 
 // --- Protocols ---
@@ -42,12 +48,15 @@ export async function deleteProtocol(id: string): Promise<void> {
   const db = await getDB();
   // One transaction across both stores so a protocol can never be removed
   // while its scheduled doses survive as orphans (or vice versa).
-  const tx = db.transaction(['protocols', 'scheduledDoses'], 'readwrite');
+  const tx = db.transaction(['protocols', 'scheduledDoses', 'deletions'], 'readwrite');
+  const ledger = tx.objectStore('deletions');
   void tx.objectStore('protocols').delete(id);
+  void ledger.put(ledgerEntry('protocols', id));
   const doseStore = tx.objectStore('scheduledDoses');
   const keys = await doseStore.index('by-protocol').getAllKeys(id);
   for (const key of keys) {
     void doseStore.delete(key);
+    void ledger.put(ledgerEntry('scheduledDoses', key));
   }
   await tx.done;
 }
@@ -126,10 +135,13 @@ export async function updateFutureScheduledDoses(
 export async function deleteUpcomingDosesFrom(protocolId: string, fromDate: string): Promise<void> {
   const db = await getDB();
   const doses = await db.getAllFromIndex('scheduledDoses', 'by-protocol', protocolId);
-  const tx = db.transaction('scheduledDoses', 'readwrite');
+  const tx = db.transaction(['scheduledDoses', 'deletions'], 'readwrite');
+  const store = tx.objectStore('scheduledDoses');
+  const ledger = tx.objectStore('deletions');
   for (const dose of doses) {
     if (dose.status === 'upcoming' && dose.date >= fromDate) {
-      await tx.store.delete(dose.id);
+      await store.delete(dose.id);
+      await ledger.put(ledgerEntry('scheduledDoses', dose.id));
     }
   }
   await tx.done;
@@ -138,9 +150,12 @@ export async function deleteUpcomingDosesFrom(protocolId: string, fromDate: stri
 export async function deleteScheduledDosesForProtocol(protocolId: string): Promise<void> {
   const db = await getDB();
   const doses = await db.getAllFromIndex('scheduledDoses', 'by-protocol', protocolId);
-  const tx = db.transaction('scheduledDoses', 'readwrite');
+  const tx = db.transaction(['scheduledDoses', 'deletions'], 'readwrite');
+  const store = tx.objectStore('scheduledDoses');
+  const ledger = tx.objectStore('deletions');
   for (const dose of doses) {
-    await tx.store.delete(dose.id);
+    await store.delete(dose.id);
+    await ledger.put(ledgerEntry('scheduledDoses', dose.id));
   }
   await tx.done;
 }
@@ -196,7 +211,10 @@ export async function deleteDoseLog(id: string): Promise<void> {
   if (log?.scheduledDoseId) {
     await updateScheduledDose(log.scheduledDoseId, { status: 'upcoming' });
   }
-  await db.delete('doseLogs', id);
+  const tx = db.transaction(['doseLogs', 'deletions'], 'readwrite');
+  void tx.objectStore('doseLogs').delete(id);
+  if (log) void tx.objectStore('deletions').put(ledgerEntry('doseLogs', id));
+  await tx.done;
   // Return the drawn-down dose to inventory so deleting a log is fully reversible.
   if (log) await incrementVialDose(log.peptideId, log.owner);
 }
@@ -309,19 +327,62 @@ export async function exportAllData(): Promise<string> {
   return JSON.stringify(data, null, 2);
 }
 
+const IMPORT_STORES = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
+
+// Minimal per-store required string fields — enough to catch a wrong/garbled
+// file before anything touches IndexedDB (every store also requires string id).
+const IMPORT_REQUIRED: Record<(typeof IMPORT_STORES)[number], string[]> = {
+  protocols: ['name', 'startDate'],
+  scheduledDoses: ['protocolId', 'peptideId', 'date'],
+  doseLogs: ['peptideId', 'date'],
+  vials: ['peptideId'],
+  healthMarkers: ['date'],
+  editHistory: ['protocolId'],
+};
+
+/** Validates a parsed backup's shape. Throws (before any write) on anything
+ *  that isn't a pepdose export, so a bad file can't corrupt existing state. */
+export function validateImport(data: unknown): asserts data is Record<string, unknown> {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    throw new Error('Backup must be a JSON object');
+  }
+  const obj = data as Record<string, unknown>;
+  for (const storeName of IMPORT_STORES) {
+    const rows = obj[storeName];
+    if (rows === undefined) continue;
+    if (!Array.isArray(rows)) throw new Error(`${storeName} must be an array`);
+    for (const item of rows) {
+      if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+        throw new Error(`${storeName} contains a non-object entry`);
+      }
+      const rec = item as Record<string, unknown>;
+      for (const field of ['id', ...IMPORT_REQUIRED[storeName]]) {
+        if (typeof rec[field] !== 'string' || rec[field] === '') {
+          throw new Error(`${storeName} entry missing required field: ${field}`);
+        }
+      }
+    }
+  }
+}
+
 export async function importData(jsonString: string): Promise<void> {
   const data = JSON.parse(jsonString);
+  validateImport(data);
   const db = await getDB();
 
-  const stores = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
   const ownedStores = new Set(['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers']);
-  for (const storeName of stores) {
+  for (const storeName of IMPORT_STORES) {
     if (data[storeName]) {
-      const tx = db.transaction(storeName, 'readwrite');
-      for (const item of data[storeName]) {
+      const tx = db.transaction([storeName, 'deletions'], 'readwrite');
+      const store = tx.objectStore(storeName);
+      const ledger = tx.objectStore('deletions');
+      for (const item of data[storeName] as Record<string, unknown>[]) {
         // Default owner for records from pre-two-user backups.
         if (ownedStores.has(storeName) && !item.owner) item.owner = 'Victor';
-        await tx.store.put(item);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await store.put(item as any);
+        // Restoring a record cancels any pending delete of it.
+        await ledger.delete(item.id as string);
       }
       await tx.done;
     }
@@ -330,7 +391,9 @@ export async function importData(jsonString: string): Promise<void> {
 
 export async function clearAllData(): Promise<void> {
   const db = await getDB();
-  const stores = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
+  // NOTE: deliberately does NOT write deletion-ledger entries — "clear all data"
+  // means wipe this device, not delete the cloud copy; sync re-pulls afterwards.
+  const stores = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory', 'deletions'] as const;
   for (const storeName of stores) {
     await db.clear(storeName);
   }

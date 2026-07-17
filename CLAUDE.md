@@ -11,9 +11,12 @@ Cloud sync (optional): active only when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_
 are set — else fully local, no login. `src/db/supabase.ts` (client), `src/db/sync.ts`
 (bidirectional union-merge, LWW, never destructive — see `planMerge`),
 `src/components/AuthGate.tsx` (shared-account login gate + sync triggers). Schema +
-setup: `supabase/migrations/0001_init.sql`, `docs/CLOUD_SYNC_SETUP.md`. Deletes
-propagate via `deleted: true` tombstones (local delete → tombstone push; remote
-tombstone → local drop on pull; a newer re-edit still wins over an older tombstone).
+setup: `supabase/migrations/0001_init.sql`, `docs/CLOUD_SYNC_SETUP.md`. Deletes are
+explicit: every local delete writes a `deletions` ledger entry (IndexedDB store,
+schema v3), which sync pushes as a `deleted: true` tombstone (marked `data._ledger`)
+and prunes; marked remote tombstones delete the local row when newer (a newer
+re-edit still wins). Legacy unmarked tombstones never delete local data — the
+surviving row is pushed back to repair the cloud.
 
 ## Commands
 

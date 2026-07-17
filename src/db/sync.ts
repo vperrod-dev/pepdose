@@ -1,4 +1,4 @@
-import { getDB } from './schema';
+import { getDB, type DeletionRecord } from './schema';
 import { supabase, cloudEnabled } from './supabase';
 
 // Cloud sync: bidirectional union-merge between local IndexedDB and Supabase.
@@ -8,9 +8,14 @@ import { supabase, cloudEnabled } from './supabase';
 // When both sides have a row, the newer `updatedAt`/`createdAt` wins (LWW).
 // So logging in on an empty device can never erase the device that has the data.
 //
-// Deletes DO propagate: local deletions are pushed as `deleted: true` tombstones
-// (see syncNow), and planMerge drops remote-deleted rows on pull. Resurrection of
-// a row newer than a tombstone still wins (LWW), so a genuine re-edit survives.
+// Deletes are explicit, never inferred from absence: every local delete writes a
+// `deletions` ledger entry (db/schema.ts DeletionRecord), which syncNow pushes as
+// a `deleted: true` tombstone and then prunes. Remote tombstones written by
+// ledger-aware clients (marked `data._ledger`) delete the local row when newer
+// (a later local re-edit still wins, LWW). Legacy tombstones — created by the old
+// absence heuristic, which wrongly tombstoned the whole cloud on a fresh device's
+// first pull — carry no marker and are never allowed to delete local data;
+// instead the surviving local row is pushed back, repairing the cloud.
 
 const KINDS = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
 
@@ -23,7 +28,7 @@ export interface Timestamped {
 
 export interface RemoteRow {
   id: string;
-  data: Timestamped;
+  data: Timestamped & { _ledger?: number };
   updated_at: string;
   deleted: boolean;
 }
@@ -34,38 +39,76 @@ export function rowTs(row: Timestamped): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-/** Pure union-merge decision for one record kind. Never drops a row from either
- *  side. `push` = local rows the cloud should take; `localPut` = cloud rows the
- *  device should take. Newer timestamp wins ties are left untouched. */
+/** Pure union-merge decision for one record kind. Never drops a live row from
+ *  either side on its own authority — local deletes only happen for a remote
+ *  tombstone written by a ledger-aware client (`data._ledger`) that is newer
+ *  than the local row. `push` = local rows the cloud should take; `localPut` =
+ *  cloud rows the device should take; `localDelete` = local ids a newer remote
+ *  tombstone removes; `pushTombstone` = ledger entries to publish as tombstones;
+ *  `ledgerResolved` = ledger ids settled without a push (remote re-edit won or
+ *  tombstone already in cloud). */
 export function planMerge(
   localRows: Timestamped[],
   remoteRows: RemoteRow[],
-): { push: Timestamped[]; localPut: Timestamped[] } {
+  localDeletions: DeletionRecord[] = [],
+): {
+  push: Timestamped[];
+  localPut: Timestamped[];
+  localDelete: string[];
+  pushTombstone: DeletionRecord[];
+  ledgerResolved: string[];
+} {
   const local = new Map(localRows.map((r) => [r.id, r]));
   const remote = new Map(remoteRows.map((r) => [r.id, r]));
-  const ids = new Set<string>([...local.keys(), ...remote.keys()]);
+  const ledger = new Map(localDeletions.map((d) => [d.id, d]));
+  const ids = new Set<string>([...local.keys(), ...remote.keys(), ...ledger.keys()]);
 
   const push: Timestamped[] = [];
   const localPut: Timestamped[] = [];
+  const localDelete: string[] = [];
+  const pushTombstone: DeletionRecord[] = [];
+  const ledgerResolved: string[] = [];
 
   for (const id of ids) {
     const l = local.get(id);
     const r = remote.get(id);
+    const d = ledger.get(id);
     const lts = l ? rowTs(l) : -1;
     const rts = r ? Date.parse(r.updated_at) : -1;
+
+    if (l && d) {
+      // Row re-created locally after a delete — it's alive; drop the stale entry.
+      ledgerResolved.push(id);
+    }
 
     if (l && !r) {
       push.push(l);
     } else if (r && !l) {
-      if (!r.deleted) localPut.push(r.data);
+      if (r.deleted) {
+        if (d) ledgerResolved.push(id); // tombstone already in the cloud
+      } else if (d) {
+        if (Date.parse(d.deletedAt) > rts) pushTombstone.push(d);
+        else { localPut.push(r.data); ledgerResolved.push(id); } // remote re-edit wins
+      } else {
+        localPut.push(r.data);
+      }
     } else if (l && r) {
-      if (r.deleted) continue;
-      if (lts > rts) push.push(l);
-      else if (rts > lts) localPut.push(r.data);
+      if (r.deleted) {
+        if (!r.data?._ledger) push.push(l); // legacy tombstone: never delete local — repair cloud
+        else if (rts > lts) localDelete.push(id);
+        else push.push(l); // local re-edit newer than the delete: resurrect
+      } else if (lts > rts) {
+        push.push(l);
+      } else if (rts > lts) {
+        localPut.push(r.data);
+      }
+    } else if (d) {
+      // Deleted here, cloud never saw the row — publish the intent anyway.
+      pushTombstone.push(d);
     }
   }
 
-  return { push, localPut };
+  return { push, localPut, localDelete, pushTombstone, ledgerResolved };
 }
 
 let running = false;
@@ -86,17 +129,23 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     let pushed = 0;
     let pulled = 0;
     const errors: string[] = [];
+    const allDeletions: DeletionRecord[] = await db.getAll('deletions');
 
     for (const kind of KINDS) {
       try {
       const localRows: Timestamped[] = await db.getAll(kind);
+      // ponytail: full-table select+getAll every tick. With explicit tombstones a
+      // per-kind delta cursor (.gt('updated_at', lastSync) + a local dirty set for
+      // the push side) is now possible — do it when the table gets big.
       const { data: remoteRows, error } = await supabase
         .from('records')
         .select('id,data,updated_at,deleted')
         .eq('kind', kind);
       if (error) throw error;
 
-      const { push, localPut } = planMerge(localRows, (remoteRows ?? []) as RemoteRow[]);
+      const deletions = allDeletions.filter((d) => d.kind === kind);
+      const { push, localPut, localDelete, pushTombstone, ledgerResolved } =
+        planMerge(localRows, (remoteRows ?? []) as RemoteRow[], deletions);
 
       if (push.length) {
         const envelopes = push.map((row) => ({
@@ -111,29 +160,30 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
         if (upErr) throw upErr;
         pushed += push.length;
       }
-      // Propagate local deletes: any remote row absent locally becomes a tombstone.
-      // planMerge already applies remote->local deletes; this closes the loop so a
-      // protocol/dose deleted on one device is removed on the other.
-      const localIds = new Set(localRows.map((r) => r.id));
-      const deletes = (remoteRows ?? []).filter((r) => !localIds.has(r.id) && !r.deleted);
-      if (deletes.length) {
-        const tombstones = deletes.map((r) => ({
+      const ledgerDone = [...ledgerResolved];
+      if (pushTombstone.length) {
+        const tombstones = pushTombstone.map((d) => ({
           user_id: userId,
           kind,
-          id: r.id,
-          data: r.data,
-          updated_at: new Date().toISOString(),
+          id: d.id,
+          data: { id: d.id, _ledger: 1 },
+          updated_at: d.deletedAt,
           deleted: true,
         }));
         const { error: delErr } = await supabase.from('records').upsert(tombstones);
         if (delErr) throw delErr;
-        pushed += deletes.length;
+        pushed += pushTombstone.length;
+        ledgerDone.push(...pushTombstone.map((d) => d.id)); // prune only after the cloud has it
       }
-      if (localPut.length) {
-        const tx = db.transaction(kind, 'readwrite');
-        for (const row of localPut) await tx.store.put(row);
+      if (localPut.length || localDelete.length || ledgerDone.length) {
+        const tx = db.transaction([kind, 'deletions'], 'readwrite');
+        const store = tx.objectStore(kind);
+        for (const row of localPut) await store.put(row);
+        for (const id of localDelete) await store.delete(id);
+        const ledgerStore = tx.objectStore('deletions');
+        for (const id of ledgerDone) await ledgerStore.delete(id);
         await tx.done;
-        pulled += localPut.length;
+        pulled += localPut.length + localDelete.length;
       }
       } catch (e) {
         // One kind failing (e.g. a bad row rejected by Supabase) must not abort

@@ -14,8 +14,12 @@ import {
   getScheduledDosesForProtocol,
   deleteProtocol,
   clearAllData,
+  importData,
+  validateImport,
+  exportAllData,
 } from './operations';
 import { predictEmptyDate } from '../utils/vialForecast';
+import { getDB } from './schema';
 import type { Vial } from './schema';
 
 const baseVial: Omit<Vial, 'id' | 'createdAt'> = {
@@ -135,5 +139,80 @@ describe('deleteProtocol', () => {
 
     expect(await getProtocol(protocol.id)).toBeUndefined();
     expect(await getScheduledDosesForProtocol(protocol.id)).toEqual([]);
+  });
+
+  it('records the protocol and its doses in the deletion ledger', async () => {
+    const protocol = await saveProtocol({
+      owner: 'Victor', name: 'Test', peptideIds: ['bpc-157'], doses: [],
+      startDate: '2026-07-15', durationWeeks: 4, status: 'active',
+    });
+    await saveScheduledDoses([
+      { id: 'd1', protocolId: protocol.id, peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    ], 'Victor');
+
+    await deleteProtocol(protocol.id);
+
+    const db = await getDB();
+    const ledger = await db.getAll('deletions');
+    expect(ledger.map((d) => `${d.kind}:${d.id}`).sort())
+      .toEqual([`protocols:${protocol.id}`, 'scheduledDoses:d1'].sort());
+  });
+});
+
+describe('deleteDoseLog deletion ledger', () => {
+  it('records the deleted log so sync can tombstone it', async () => {
+    await saveVial(baseVial);
+    const log = await logDose(baseLog);
+    await deleteDoseLog(log.id);
+    const db = await getDB();
+    expect(await db.get('deletions', log.id)).toMatchObject({ kind: 'doseLogs' });
+  });
+});
+
+describe('validateImport', () => {
+  it('rejects a non-object payload', () => {
+    expect(() => validateImport([1, 2, 3])).toThrow('Backup must be a JSON object');
+  });
+
+  it('rejects a store that is not an array', () => {
+    expect(() => validateImport({ protocols: 'nope' })).toThrow('protocols must be an array');
+  });
+
+  it('rejects an entry without an id', () => {
+    expect(() => validateImport({ doseLogs: [{ peptideId: 'bpc-157', date: '2026-07-15' }] }))
+      .toThrow('doseLogs entry missing required field: id');
+  });
+
+  it('rejects an entry missing a required field', () => {
+    expect(() => validateImport({ protocols: [{ id: 'p1', name: 'T' }] }))
+      .toThrow('protocols entry missing required field: startDate');
+  });
+
+  it('accepts a real export round trip', async () => {
+    await saveVial(baseVial);
+    const json = await exportAllData();
+    expect(() => validateImport(JSON.parse(json))).not.toThrow();
+  });
+});
+
+describe('importData', () => {
+  it('rejects malformed input without touching existing state', async () => {
+    await saveVial(baseVial);
+    await expect(importData(JSON.stringify({ vials: [{ notEvenClose: true }] }))).rejects.toThrow();
+    const vials = await getVials('bpc-157');
+    expect(vials).toHaveLength(1);
+  });
+
+  it('clears a pending deletion for a re-imported record', async () => {
+    await saveVial(baseVial);
+    const log = await logDose(baseLog);
+    const exported = await exportAllData();
+    await deleteDoseLog(log.id);
+
+    await importData(exported);
+
+    const db = await getDB();
+    expect(await db.get('deletions', log.id)).toBeUndefined();
+    expect((await getAllDoseLogs()).map((l) => l.id)).toEqual([log.id]);
   });
 });

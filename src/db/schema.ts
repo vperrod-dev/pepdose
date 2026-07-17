@@ -94,6 +94,16 @@ export interface HealthMarker {
   updatedAt?: string;
 }
 
+/** Local deletion ledger: every local delete of a synced record is written here
+ *  so cloud sync pushes deletes as explicit tombstones instead of inferring them
+ *  from absence (which nuked the cloud on a fresh device's first pull). Entries
+ *  are pruned once the tombstone lands in the cloud. */
+export interface DeletionRecord {
+  id: string; // the deleted record's id
+  kind: 'protocols' | 'scheduledDoses' | 'doseLogs' | 'vials' | 'healthMarkers' | 'editHistory';
+  deletedAt: string; // ISO timestamp — LWW against a later remote re-edit
+}
+
 export interface EditHistory {
   id: string;
   protocolId: string;
@@ -147,6 +157,10 @@ interface PepDoseDB extends DBSchema {
     value: EditHistory;
     indexes: { 'by-protocol': string };
   };
+  deletions: {
+    key: string;
+    value: DeletionRecord;
+  };
 }
 
 let dbInstance: IDBPDatabase<PepDoseDB> | null = null;
@@ -154,7 +168,7 @@ let dbInstance: IDBPDatabase<PepDoseDB> | null = null;
 export async function getDB(): Promise<IDBPDatabase<PepDoseDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<PepDoseDB>('pepdose', 2, {
+  dbInstance = await openDB<PepDoseDB>('pepdose', 3, {
     async upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {
         const protocolStore = db.createObjectStore('protocols', { keyPath: 'id' });
@@ -194,6 +208,11 @@ export async function getDB(): Promise<IDBPDatabase<PepDoseDB>> {
             cursor = await cursor.continue();
           }
         }
+      }
+
+      if (oldVersion < 3) {
+        // Deletion ledger only — existing stores and data are untouched.
+        db.createObjectStore('deletions', { keyPath: 'id' });
       }
     },
   });

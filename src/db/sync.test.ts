@@ -7,7 +7,7 @@ import { clearAllData } from './operations';
 // In-memory Supabase double so syncNow's push/tombstone/error paths are testable.
 interface Envelope { kind: string; id: string; deleted: boolean }
 const cloud = vi.hoisted(() => ({
-  remote: [] as { kind: string; id: string; data: { id: string }; updated_at: string; deleted: boolean }[],
+  remote: [] as { kind: string; id: string; data: { id: string; updatedAt?: string; _ledger?: number }; updated_at: string; deleted: boolean }[],
   upserted: [] as { kind: string; id: string; deleted: boolean }[],
   failKinds: new Set<string>(),
 }));
@@ -33,9 +33,17 @@ vi.mock('./supabase', () => ({
 
 const remote = (id: string, ts: string, deleted = false): RemoteRow => ({
   id,
+  // deleted=true here means a LEGACY tombstone (no _ledger marker).
   data: { id, updatedAt: ts },
   updated_at: ts,
   deleted,
+});
+
+const ledgerTombstone = (id: string, ts: string): RemoteRow => ({
+  id,
+  data: { id, _ledger: 1 },
+  updated_at: ts,
+  deleted: true,
 });
 
 describe('rowTs', () => {
@@ -84,11 +92,57 @@ describe('planMerge', () => {
     expect(localPut).toEqual([]);
   });
 
-  it('a tombstone on a row both sides have keeps the local copy but pushes nothing', () => {
-    const local: Timestamped[] = [{ id: 'a', updatedAt: '2024-06-01T00:00:00Z' }];
-    const { push, localPut } = planMerge(local, [remote('a', '2024-01-01T00:00:00Z', true)]);
+  it('a newer ledger tombstone deletes the local row (remote delete propagates)', () => {
+    const local: Timestamped[] = [{ id: 'a', updatedAt: '2024-01-01T00:00:00Z' }];
+    const { push, localPut, localDelete } = planMerge(local, [ledgerTombstone('a', '2024-06-01T00:00:00Z')]);
     expect(push).toEqual([]);
     expect(localPut).toEqual([]);
+    expect(localDelete).toEqual(['a']);
+  });
+
+  it('a local re-edit newer than the ledger tombstone resurrects the row', () => {
+    const local: Timestamped[] = [{ id: 'a', updatedAt: '2024-06-01T00:00:00Z' }];
+    const { push, localDelete } = planMerge(local, [ledgerTombstone('a', '2024-01-01T00:00:00Z')]);
+    expect(push.map((r) => r.id)).toEqual(['a']);
+    expect(localDelete).toEqual([]);
+  });
+
+  it('a legacy (unmarked) tombstone never deletes local data — the row is pushed back', () => {
+    // The old absence heuristic wrote these with a fresh timestamp; trusting it
+    // would wipe every device. Conservative: keep local, repair the cloud.
+    const local: Timestamped[] = [{ id: 'a', updatedAt: '2024-01-01T00:00:00Z' }];
+    const { push, localDelete } = planMerge(local, [remote('a', '2024-06-01T00:00:00Z', true)]);
+    expect(push.map((r) => r.id)).toEqual(['a']);
+    expect(localDelete).toEqual([]);
+  });
+
+  it('a local deletion-ledger entry becomes a pushed tombstone', () => {
+    const { pushTombstone, localPut } = planMerge(
+      [],
+      [remote('a', '2024-01-01T00:00:00Z')],
+      [{ id: 'a', kind: 'protocols', deletedAt: '2024-06-01T00:00:00Z' }],
+    );
+    expect(pushTombstone.map((d) => d.id)).toEqual(['a']);
+    expect(localPut).toEqual([]);
+  });
+
+  it('a remote re-edit newer than the local delete wins and resolves the ledger entry', () => {
+    const { pushTombstone, localPut, ledgerResolved } = planMerge(
+      [],
+      [remote('a', '2024-06-01T00:00:00Z')],
+      [{ id: 'a', kind: 'protocols', deletedAt: '2024-01-01T00:00:00Z' }],
+    );
+    expect(pushTombstone).toEqual([]);
+    expect(localPut.map((r) => r.id)).toEqual(['a']);
+    expect(ledgerResolved).toEqual(['a']);
+  });
+
+  it('a fresh empty device pulls the cloud without tombstoning anything', () => {
+    const rows = [remote('a', '2024-01-01T00:00:00Z'), remote('b', '2024-01-02T00:00:00Z')];
+    const { localPut, pushTombstone, localDelete } = planMerge([], rows, []);
+    expect(localPut.map((r) => r.id).sort()).toEqual(['a', 'b']);
+    expect(pushTombstone).toEqual([]);
+    expect(localDelete).toEqual([]);
   });
 });
 
@@ -100,7 +154,24 @@ describe('syncNow', () => {
     cloud.failKinds = new Set();
   });
 
-  it('pushes tombstones for remote rows that are gone locally (delete propagation)', async () => {
+  it('a fresh device first pull copies cloud rows locally and tombstones nothing', async () => {
+    cloud.remote = [{
+      kind: 'protocols',
+      id: 'p1',
+      data: { id: 'p1', updatedAt: '2024-01-01T00:00:00.000Z' },
+      updated_at: '2024-01-01T00:00:00.000Z',
+      deleted: false,
+    }];
+    const result = await syncNow();
+    expect(cloud.upserted).toEqual([]); // the old absence heuristic tombstoned everything here
+    expect(result?.pulled).toBe(1);
+    const db = await getDB();
+    expect(await db.get('protocols', 'p1')).toBeTruthy();
+  });
+
+  it('a local delete pushes a ledger tombstone and prunes the ledger', async () => {
+    const db = await getDB();
+    await db.put('deletions', { id: 'gone', kind: 'protocols', deletedAt: '2026-07-17T00:00:00.000Z' });
     cloud.remote = [{
       kind: 'protocols',
       id: 'gone',
@@ -108,9 +179,32 @@ describe('syncNow', () => {
       updated_at: '2024-01-01T00:00:00.000Z',
       deleted: false,
     }];
+
     await syncNow();
-    const tombstone = cloud.upserted.find((r) => r.id === 'gone');
-    expect(tombstone).toMatchObject({ kind: 'protocols', deleted: true });
+
+    expect(cloud.upserted.find((r) => r.id === 'gone')).toMatchObject({ kind: 'protocols', deleted: true });
+    expect(await db.get('deletions', 'gone')).toBeUndefined(); // pruned once the cloud has it
+  });
+
+  it('a remote ledger tombstone removes the row from a device that still holds it', async () => {
+    const db = await getDB();
+    await db.put('protocols', {
+      id: 'p1', owner: 'Victor', name: 'T', peptideIds: [], doses: [],
+      startDate: '2026-01-01', durationWeeks: 4, status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    cloud.remote = [{
+      kind: 'protocols',
+      id: 'p1',
+      data: { id: 'p1', _ledger: 1 },
+      updated_at: '2026-07-17T00:00:00.000Z',
+      deleted: true,
+    }];
+
+    const result = await syncNow();
+
+    expect(await db.get('protocols', 'p1')).toBeUndefined();
+    expect(result?.pulled).toBe(1);
   });
 
   it('one failing kind does not stop the others from syncing', async () => {
