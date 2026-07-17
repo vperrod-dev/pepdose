@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { CloudCheck, Loader2 } from 'lucide-react';
+import { CloudCheck, CloudOff, Loader2 } from 'lucide-react';
 import { supabase, cloudEnabled } from '../db/supabase';
 import { syncNow } from '../db/sync';
 
@@ -15,6 +15,7 @@ function CloudGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false); // resolved initial getSession
   const [firstSyncDone, setFirstSyncDone] = useState(false);
+  const [syncIssue, setSyncIssue] = useState<string | null>(null);
 
   useEffect(() => {
     supabase!.auth.getSession().then(({ data }) => {
@@ -29,9 +30,15 @@ function CloudGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
-    syncNow().finally(() => { if (!cancelled) setFirstSyncDone(true); });
+    // Auto-syncs report failures too — quietly (indicator, not modal), same info
+    // as the manual "Sync now" button. Clears itself on the next clean sync.
+    const runSync = () =>
+      syncNow()
+        .then((res) => { if (!cancelled && res) setSyncIssue(res.errors.length ? res.errors.join('; ') : null); })
+        .catch((e) => { if (!cancelled) setSyncIssue(e instanceof Error ? e.message : 'Sync failed'); });
+    runSync().finally(() => { if (!cancelled) setFirstSyncDone(true); });
 
-    const tick = () => { void syncNow(); };
+    const tick = () => { void runSync(); };
     // beforeunload is unreliable (esp. mobile); visibilitychange→hidden is the
     // last dependable moment to flush, so sync on both.
     const onHidden = () => { if (document.visibilityState === 'hidden') tick(); };
@@ -51,7 +58,21 @@ function CloudGate({ children }: { children: ReactNode }) {
   if (!ready) return <Splash label="Loading…" />;
   if (!session) return <LoginForm />;
   if (!firstSyncDone) return <Splash label="Syncing your data…" />;
-  return <>{children}</>;
+  return (
+    <>
+      {syncIssue && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-0 inset-x-0 z-50 safe-top flex items-center justify-center gap-1.5 px-4 py-1.5 bg-danger/15 text-danger text-xs"
+        >
+          <CloudOff className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Sync issue: {syncIssue}</span>
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
 
 function Splash({ label }: { label: string }) {
