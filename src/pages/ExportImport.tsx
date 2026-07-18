@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Upload, Trash2, CheckCircle, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { exportAllData, importData, clearAllData } from '../db/operations';
 import { supabase, cloudEnabled } from '../db/supabase';
-import { syncNow } from '../db/sync';
+import { resetSyncCursor, syncNow } from '../db/sync';
 
 export function ExportImport() {
   const navigate = useNavigate();
@@ -133,6 +133,7 @@ function CloudSyncCard() {
     setSyncing(true);
     setMsg(null);
     try {
+      resetSyncCursor(); // manual sync = full pass, not a delta
       const res = await syncNow();
       if (!res) setMsg('Not signed in');
       else if (res.errors.length) setMsg(`Partial sync (↑${res.pushed} ↓${res.pulled}) — failed: ${res.errors.join('; ')}`);

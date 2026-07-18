@@ -113,6 +113,22 @@ export function planMerge(
 
 let running = false;
 
+// Delta cursor: after a successful pass, later ticks fetch only remote rows with
+// updated_at newer than the last sync (minus a clock-skew margin, since
+// updated_at is stamped by whichever client pushed the row) and only consider
+// local rows edited since then — plus any ids the remote delta mentions, so a
+// remote edit/tombstone still meets its local counterpart in planMerge. An
+// offline peer can upload rows stamped older than the cursor; a periodic full
+// pass (FULL_SYNC_EVERY_MS) bounds how long such rows stay unseen.
+const CLOCK_SKEW_MS = 5 * 60_000;
+const FULL_SYNC_EVERY_MS = 60 * 60_000;
+let cursor: { userId: string; since: number; lastFull: number } | null = null;
+
+/** Force the next syncNow to do a full pass (manual sync button; tests). */
+export function resetSyncCursor() {
+  cursor = null;
+}
+
 /** Merge local <-> cloud. Returns counts (plus per-kind errors, if any), or
  *  null if cloud disabled / not signed in. */
 export async function syncNow(): Promise<{ pushed: number; pulled: number; errors: string[] } | null> {
@@ -130,22 +146,32 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     let pulled = 0;
     const errors: string[] = [];
     const allDeletions: DeletionRecord[] = await db.getAll('deletions');
+    const started = Date.now();
+    const delta =
+      cursor && cursor.userId === userId && started - cursor.lastFull < FULL_SYNC_EVERY_MS
+        ? cursor.since - CLOCK_SKEW_MS
+        : null;
 
     for (const kind of KINDS) {
       try {
-      const localRows: Timestamped[] = await db.getAll(kind);
-      // ponytail: full-table select+getAll every tick. With explicit tombstones a
-      // per-kind delta cursor (.gt('updated_at', lastSync) + a local dirty set for
-      // the push side) is now possible — do it when the table gets big.
-      const { data: remoteRows, error } = await supabase
+      const allLocal: Timestamped[] = await db.getAll(kind);
+      let query = supabase
         .from('records')
         .select('id,data,updated_at,deleted')
         .eq('kind', kind);
+      if (delta !== null) query = query.gt('updated_at', new Date(delta).toISOString());
+      const { data: remoteRows, error } = await query;
       if (error) throw error;
 
+      const remote = (remoteRows ?? []) as RemoteRow[];
+      const remoteIds = new Set(remote.map((r) => r.id));
+      const localRows =
+        delta === null
+          ? allLocal
+          : allLocal.filter((r) => rowTs(r) > delta || remoteIds.has(r.id));
       const deletions = allDeletions.filter((d) => d.kind === kind);
       const { push, localPut, localDelete, pushTombstone, ledgerResolved } =
-        planMerge(localRows, (remoteRows ?? []) as RemoteRow[], deletions);
+        planMerge(localRows, remote, deletions);
 
       if (push.length) {
         const envelopes = push.map((row) => ({
@@ -194,6 +220,9 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
       }
     }
 
+    if (!errors.length) {
+      cursor = { userId, since: started, lastFull: delta !== null ? cursor!.lastFull : started };
+    }
     return { pushed, pulled, errors };
   } finally {
     running = false;

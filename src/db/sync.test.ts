@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { planMerge, rowTs, syncNow, type RemoteRow, type Timestamped } from './sync';
+import { planMerge, resetSyncCursor, rowTs, syncNow, type RemoteRow, type Timestamped } from './sync';
 import { getDB } from './schema';
 import { clearAllData } from './operations';
 
@@ -10,6 +10,7 @@ const cloud = vi.hoisted(() => ({
   remote: [] as { kind: string; id: string; data: { id: string; updatedAt?: string; _ledger?: number }; updated_at: string; deleted: boolean }[],
   upserted: [] as { kind: string; id: string; deleted: boolean }[],
   failKinds: new Set<string>(),
+  queriedSince: [] as (string | null)[], // the .gt('updated_at', …) cursor of each select, null = full scan
 }));
 
 vi.mock('./supabase', () => ({
@@ -18,10 +19,18 @@ vi.mock('./supabase', () => ({
     auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }) },
     from: () => ({
       select: () => ({
-        eq: async (_col: string, kind: string) =>
-          cloud.failKinds.has(kind)
-            ? { data: null, error: new Error(`${kind} boom`) }
-            : { data: cloud.remote.filter((r) => r.kind === kind), error: null },
+        eq: (_col: string, kind: string) => {
+          const run = (since: string | null) => {
+            cloud.queriedSince.push(since);
+            return cloud.failKinds.has(kind)
+              ? { data: null, error: new Error(`${kind} boom`) }
+              : { data: cloud.remote.filter((r) => r.kind === kind && (!since || r.updated_at > since)), error: null };
+          };
+          return {
+            gt: async (_c: string, since: string) => run(since),
+            then: (resolve: (v: unknown) => unknown) => resolve(run(null)),
+          };
+        },
       }),
       upsert: async (rows: Envelope[]) => {
         cloud.upserted.push(...rows);
@@ -149,9 +158,11 @@ describe('planMerge', () => {
 describe('syncNow', () => {
   beforeEach(async () => {
     await clearAllData();
+    resetSyncCursor();
     cloud.remote = [];
     cloud.upserted = [];
     cloud.failKinds = new Set();
+    cloud.queriedSince = [];
   });
 
   it('a fresh device first pull copies cloud rows locally and tombstones nothing', async () => {
@@ -220,5 +231,55 @@ describe('syncNow', () => {
 
     expect(result?.errors).toEqual(['protocols: protocols boom']);
     expect(cloud.upserted.map((r) => r.id)).toEqual(['log1']); // doseLogs still pushed
+  });
+
+  it('the second sync asks the cloud only for rows changed since the first', async () => {
+    await syncNow();
+    await syncNow();
+    const [firstPass, secondPass] = [cloud.queriedSince.slice(0, 6), cloud.queriedSince.slice(6)];
+    expect(firstPass.every((s) => s === null) && secondPass.every((s) => s !== null)).toBe(true);
+  });
+
+  it('an already-synced local row is not re-pushed on the next tick', async () => {
+    const db = await getDB();
+    await db.put('protocols', {
+      id: 'p1', owner: 'Victor', name: 'T', peptideIds: [], doses: [],
+      startDate: '2026-01-01', durationWeeks: 4, status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    await syncNow();
+    cloud.upserted = [];
+
+    await syncNow();
+
+    expect(cloud.upserted).toEqual([]);
+  });
+
+  it('a remote tombstone arriving in a delta still deletes the untouched local row', async () => {
+    const db = await getDB();
+    await db.put('protocols', {
+      id: 'p1', owner: 'Victor', name: 'T', peptideIds: [], doses: [],
+      startDate: '2026-01-01', durationWeeks: 4, status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    await syncNow(); // establishes the cursor; local p1 is older than it
+    cloud.remote = [{
+      kind: 'protocols',
+      id: 'p1',
+      data: { id: 'p1', _ledger: 1 },
+      updated_at: new Date().toISOString(),
+      deleted: true,
+    }];
+
+    await syncNow();
+
+    expect(await db.get('protocols', 'p1')).toBeUndefined();
+  });
+
+  it('a failed sync does not advance the cursor (next pass is full again)', async () => {
+    cloud.failKinds = new Set(['protocols']);
+    await syncNow();
+    await syncNow();
+    expect(cloud.queriedSince.slice(6).every((s) => s === null)).toBe(true);
   });
 });
