@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Calculator, Droplets, ChevronDown } from 'lucide-react';
 import { PEPTIDES } from '../data/peptides';
 import { mgToIu } from '../utils/iuConvert';
+import { blendBreakdown, computeRecon, doseToMg } from '../utils/reconCalc';
 
 // ponytail: only injectable peptides with reconstitution data make sense here
 const RECON_PEPTIDES = PEPTIDES.filter(p => p.reconstitution.typicalVialMg > 0);
@@ -55,33 +56,20 @@ export function ReconCalculator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // shared math
-  const vial = parseFloat(vialMg);
+  // shared math — pure + unit-tested in utils/reconCalc.ts
   const dose = parseFloat(desiredDose);
-  const doseMg = dose > 0 ? (doseUnit === 'mcg' ? dose / 1000 : dose) : 0;
+  const doseMg = doseToMg(dose, doseUnit);
   const targetU = parseFloat(targetUnits);
+  const { valid, solvedWater, concentration, volumeMl, units: iu, dosesPerVial } = computeRecon({
+    mode,
+    vialMg: parseFloat(vialMg),
+    doseMg,
+    bacWaterMl: parseFloat(bacWaterMl),
+    targetUnits: targetU,
+    unitsPerMl: uPerMl,
+  });
 
-  // In reverse mode we back-solve the BAC water so the dose lands exactly on the
-  // target unit mark: water = targetUnits * vial / (unitsPerMl * doseMg).
-  const solvedWater = vial > 0 && doseMg > 0 && targetU > 0
-    ? (targetU * vial) / (uPerMl * doseMg)
-    : 0;
-  const water = mode === 'forward' ? parseFloat(bacWaterMl) : solvedWater;
-
-  const valid = mode === 'forward'
-    ? vial > 0 && water > 0 && dose > 0
-    : vial > 0 && dose > 0 && targetU > 0;
-
-  const concentration = valid && water > 0 ? vial / water : 0; // mg/ml
-  const volumeMl = valid && concentration > 0 ? doseMg / concentration : 0;
-  const iu = volumeMl * uPerMl; // syringe units: 1ml = uPerMl units
-  const dosesPerVial = valid && doseMg > 0 ? Math.floor(vial / doseMg) : 0;
-
-  // per-component breakdown for blends (ratio is fixed regardless of vial size)
-  const componentTotal = components?.reduce((s, c) => s + c.mg, 0) ?? 0;
-  const componentDoses = valid && components && componentTotal > 0
-    ? components.map(c => ({ name: c.name, mg: (c.mg / componentTotal) * doseMg }))
-    : [];
+  const componentDoses = valid && components ? blendBreakdown(components, doseMg) : [];
 
   // syringe visual: max = uPerMl (1ml)
   const syringeFill = valid ? Math.min(iu / uPerMl, 1) : 0;

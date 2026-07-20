@@ -567,7 +567,7 @@ export function NewProtocol() {
                   <input
                     type="number"
                     value={durationWeeks}
-                    onChange={e => setDurationWeeks(parseInt(e.target.value) || 1)}
+                    onChange={e => setDurationWeeks(Math.max(1, parseInt(e.target.value) || 1))}
                     min={1}
                     max={52}
                     className="flex-1 bg-bg-raised border border-border rounded-l-lg px-3 py-2 text-sm font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary/40"

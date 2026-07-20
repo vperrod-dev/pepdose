@@ -84,6 +84,15 @@ function Splash({ label }: { label: string }) {
   );
 }
 
+/** Signup-only policy (existing accounts predate it and must still sign in):
+ *  at least 10 chars, and not all one character class. */
+function passwordIssue(pw: string): string | null {
+  if (pw.length < 10) return 'Password must be at least 10 characters.';
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(pw)).length;
+  if (classes < 2) return 'Password needs a mix — add numbers, capitals, or symbols to plain letters (or vice versa).';
+  return null;
+}
+
 function LoginForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
@@ -97,9 +106,13 @@ function LoginForm() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError(null);
     setNotice(null);
+    if (mode === 'signup') {
+      const issue = passwordIssue(password);
+      if (issue) { setError(issue); return; }
+    }
+    setBusy(true);
     const fn = mode === 'signin'
       ? supabase!.auth.signInWithPassword({ email, password })
       : supabase!.auth.signUp({ email, password });
@@ -146,7 +159,7 @@ function LoginForm() {
           <input
             type="password"
             required
-            minLength={6}
+            minLength={mode === 'signup' ? 10 : 6}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
             placeholder="Password"
             value={password}

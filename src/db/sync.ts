@@ -112,6 +112,10 @@ export function planMerge(
 }
 
 let running = false;
+// A trigger landing mid-sync (focus + interval firing together) must not be
+// dropped — changes made while the pass was in flight would wait for the next
+// tick. Remember exactly one follow-up pass; concurrent triggers coalesce.
+let queuedFollowUp = false;
 
 // Delta cursor: after a successful pass, later ticks fetch only remote rows with
 // updated_at newer than the last sync (minus a clock-skew margin, since
@@ -132,13 +136,18 @@ export function resetSyncCursor() {
 /** Merge local <-> cloud. Returns counts (plus per-kind errors, if any), or
  *  null if cloud disabled / not signed in. */
 export async function syncNow(): Promise<{ pushed: number; pulled: number; errors: string[] } | null> {
-  if (!cloudEnabled || !supabase || running) return null;
-  const { data: sessionData } = await supabase.auth.getSession();
-  const session = sessionData.session;
-  if (!session) return null;
+  if (!cloudEnabled || !supabase) return null;
+  if (running) {
+    queuedFollowUp = true;
+    return null;
+  }
 
-  running = true;
+  running = true; // before the first await, so overlapping triggers queue instead of double-running
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData.session;
+    if (!session) return null;
+
     const userId = session.user.id;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = (await getDB()) as any;
@@ -226,5 +235,9 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     return { pushed, pulled, errors };
   } finally {
     running = false;
+    if (queuedFollowUp) {
+      queuedFollowUp = false;
+      void syncNow();
+    }
   }
 }

@@ -282,4 +282,28 @@ describe('syncNow', () => {
     await syncNow();
     expect(cloud.queriedSince.slice(6).every((s) => s === null)).toBe(true);
   });
+
+  it('triggers landing mid-sync queue exactly one follow-up pass', async () => {
+    const first = syncNow();
+    const second = syncNow(); // both land while the first pass is in flight
+    const third = syncNow();
+    expect(await second).toBeNull(); // skipped, same surface behavior as before
+    expect(await third).toBeNull();
+    await first;
+    // 6 kinds queried by the first pass + 6 by the single coalesced follow-up
+    await vi.waitFor(() => expect(cloud.queriedSince.length).toBe(12));
+    await new Promise((r) => setTimeout(r, 20)); // a second phantom follow-up would land here
+    expect(cloud.queriedSince.length).toBe(12);
+  });
+
+  it('a sync after the follow-up has drained starts fresh (no phantom queued run)', async () => {
+    const first = syncNow();
+    void syncNow(); // queues the follow-up
+    await first;
+    await vi.waitFor(() => expect(cloud.queriedSince.length).toBe(12)); // follow-up done
+    cloud.queriedSince = [];
+    await syncNow();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(cloud.queriedSince.length).toBe(6); // one pass, nothing extra queued
+  });
 });

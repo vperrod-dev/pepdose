@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pepdose-v2';
+const CACHE_NAME = 'pepdose-v3'; // v3: stop caching cross-origin (Supabase) responses; activate purges v2 caches that held them
 const BASE = '/pepdose/';
 const STATIC_ASSETS = [
   BASE,
@@ -45,6 +45,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+
+  // Cross-origin (e.g. Supabase API) responses carry dose/health data and must
+  // never enter the cache — they'd survive logout. Let the browser handle them.
+  if (url.origin !== self.location.origin) return;
 
   // For navigation requests (SPA routes), serve index.html
   if (event.request.mode === 'navigate') {

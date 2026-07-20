@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, act, cleanup } from '@testing-library/react';
+import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
 import { AuthGate } from './AuthGate';
 
 // Mutable doubles for the supabase client and syncNow, so each test can steer
@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
   session: null as { user: { id: string } } | null,
   syncResult: { pushed: 0, pulled: 0, errors: [] as string[] },
   syncCalls: 0,
+  signUpCalls: 0,
 }));
 
 vi.mock('../db/supabase', () => ({
@@ -18,6 +19,10 @@ vi.mock('../db/supabase', () => ({
     auth: {
       getSession: async () => ({ data: { session: state.session } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signUp: async () => {
+        state.signUpCalls += 1;
+        return { data: { session: null }, error: null };
+      },
     },
   },
 }));
@@ -36,6 +41,7 @@ beforeEach(() => {
   state.session = null;
   state.syncResult = { pushed: 0, pulled: 0, errors: [] };
   state.syncCalls = 0;
+  state.signUpCalls = 0;
 });
 
 afterEach(() => {
@@ -92,5 +98,35 @@ describe('AuthGate', () => {
     state.syncResult = { pushed: 0, pulled: 0, errors: [] };
     await act(async () => { vi.advanceTimersByTime(31_000); });
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  describe('signup password policy', () => {
+    const submitSignup = async (password: string) => {
+      render(<AuthGate><p>app</p></AuthGate>);
+      await flush();
+      fireEvent.click(screen.getByText('No account yet? Create one'));
+      fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'v@example.com' } });
+      fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: password } });
+      fireEvent.submit(screen.getByPlaceholderText('Password').closest('form')!);
+      await flush();
+    };
+
+    it('rejects a signup password shorter than 10 characters', async () => {
+      await submitSignup('Short1!');
+      expect(screen.getByText('Password must be at least 10 characters.')).toBeTruthy();
+      expect(state.signUpCalls).toBe(0);
+    });
+
+    it('rejects a signup password made of a single character class', async () => {
+      await submitSignup('aaaaaaaaaaaa');
+      expect(screen.getByText(/Password needs a mix/)).toBeTruthy();
+      expect(state.signUpCalls).toBe(0);
+    });
+
+    it('accepts a long mixed password and creates the account', async () => {
+      await submitSignup('correct-horse-battery-9');
+      expect(state.signUpCalls).toBe(1);
+      expect(screen.getByText(/Account created/)).toBeTruthy();
+    });
   });
 });
