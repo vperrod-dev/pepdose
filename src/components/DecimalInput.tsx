@@ -42,7 +42,10 @@ export function DecimalInput({ value, onChange, step = 'any', min, ...rest }: De
         const raw = e.target.value;
         setText(raw);
         const n = parseFloat(raw);
-        if (Number.isFinite(n)) onChange(n);
+        // The native min attribute doesn't block typed values, only the
+        // stepper arrows — clamp here so out-of-range input never reaches
+        // the parent.
+        if (Number.isFinite(n)) onChange(Math.max(min ?? -Infinity, n));
       }}
       onBlur={() => {
         // Normalize a left-over partial value ("", "2.") on blur.
