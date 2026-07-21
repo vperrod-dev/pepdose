@@ -153,7 +153,7 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
       doseIndex++;
       current = addDays(current, 14);
     }
-  } else if (config.frequency === 'custom' && config.customFrequencyDays) {
+  } else if (config.frequency === 'custom' && config.customFrequencyDays && config.customFrequencyDays > 0) {
     let current = startDate;
     while (isBefore(current, endDate)) {
       const weekNum = Math.floor((current.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;

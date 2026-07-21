@@ -75,6 +75,10 @@ describe('generateSchedule frequency branches', () => {
     expect(generateSchedule({ ...PLAIN, frequency: 'custom' })).toEqual([]);
   });
 
+  it('custom with a negative day interval emits nothing instead of looping forever', () => {
+    expect(generateSchedule({ ...PLAIN, frequency: 'custom', customFrequencyDays: -1 })).toEqual([]);
+  });
+
   it('phased schedules follow each phase cadence and skip off weeks', () => {
     const doses = generateSchedule({
       ...PLAIN,
