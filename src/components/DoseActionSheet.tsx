@@ -23,7 +23,9 @@ const REACTIONS = ['redness', 'lump', 'pain', 'bruise'] as const;
 
 export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionSheetProps) {
   const isLogged = dose.status === 'logged';
-  const [mode, setMode] = useState<SheetMode>('log');
+  // Pending doses open on the actions menu so Log / Reschedule / Skip are all
+  // visible; an already-logged dose opens straight into its editable log.
+  const [mode, setMode] = useState<SheetMode>(isLogged ? 'log' : 'actions');
   // Keep the dose field as a string so intermediate edits ("", "0.", "2.5") are
   // never clobbered mid-typing. Parse to a number only at save time.
   const [actualDoseStr, setActualDoseStr] = useState(

@@ -213,6 +213,7 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
   const [owner, setOwner] = useState<UserName>(getLastOwner());
   const [peptideId, setPeptideId] = useState('');
   const [dose, setDose] = useState(0);
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [saving, setSaving] = useState(false);
 
@@ -227,7 +228,7 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
       owner,
       protocolId: '',
       peptideId,
-      date: format(new Date(), 'yyyy-MM-dd'),
+      date,
       time,
       dose,
       unit,
@@ -263,13 +264,24 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
             </select>
           </div>
 
+          <div>
+            <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Dose ({unit})</label>
+            <DecimalInput
+              value={dose}
+              onChange={setDose}
+              min={0}
+              className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-mono outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Dose ({unit})</label>
-              <DecimalInput
-                value={dose}
-                onChange={setDose}
-                min={0}
+              <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Date</label>
+              <input
+                type="date"
+                value={date}
+                max={format(new Date(), 'yyyy-MM-dd')}
+                onChange={e => setDate(e.target.value)}
                 className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-mono outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
