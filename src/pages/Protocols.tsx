@@ -672,7 +672,7 @@ export function Protocols() {
                                 min={1}
                                 max={52}
                                 value={dose.durationWeeks ?? 1}
-                                onChange={e => updateEditDose(idx, { durationWeeks: parseInt(e.target.value) || 1 })}
+                                onChange={e => updateEditDose(idx, { durationWeeks: Math.max(1, parseInt(e.target.value) || 1) })}
                                 className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary outline-none"
                               />
                             </div>

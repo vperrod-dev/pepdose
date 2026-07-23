@@ -75,6 +75,11 @@ describe('generateSchedule frequency branches', () => {
     expect(generateSchedule({ ...PLAIN, frequency: 'custom' })).toEqual([]);
   });
 
+  it('non-positive durationWeeks emits nothing instead of throwing', () => {
+    expect(generateSchedule({ ...PLAIN, frequency: 'daily', durationWeeks: 0 })).toEqual([]);
+    expect(generateSchedule({ ...PLAIN, frequency: 'daily', durationWeeks: -2 })).toEqual([]);
+  });
+
   it('custom with a negative day interval emits nothing instead of looping forever', () => {
     expect(generateSchedule({ ...PLAIN, frequency: 'custom', customFrequencyDays: -1 })).toEqual([]);
   });

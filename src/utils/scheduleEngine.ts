@@ -50,6 +50,11 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
     return generatePhasedSchedule(config, peptide, timeStr);
   }
 
+  // Non-positive duration → no schedule. Without this the daily path feeds
+  // eachDayOfInterval a start-after-end range and throws (mirrors the negative
+  // custom-interval guard below).
+  if (!(config.durationWeeks > 0)) return [];
+
   const hasTitration = peptide?.dosing.titration && peptide.dosing.titration.length > 0;
 
   let doseIndex = 0;

@@ -168,6 +168,9 @@ export function NewProtocol() {
 
   async function createProtocol() {
     if (peptideConfigs.length === 0) return;
+    // Guard against a zero/blank dose or missing start date before scheduling —
+    // DecimalInput's min only blocks negatives, not 0, and 0-dose doses are junk.
+    if (!startDate || peptideConfigs.some(c => !(c.dose > 0))) return;
     setSaving(true);
 
     const protocol = await saveProtocol({
