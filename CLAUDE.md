@@ -5,7 +5,7 @@ phased variants), vial tracking, body-map site logging, dose reminders, and
 insights (active-levels curve, symptom trends, adherence) — stored locally
 (IndexedDB) with an **optional Supabase cloud mirror** for cross-device sync.
 React 19 + Vite + TypeScript + Tailwind v4 + idb + Recharts.
-Live: https://vperrod.github.io/pepdose/
+Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ (Caddy on this VM; deploy with `scripts/deploy.sh`)
 
 Cloud sync (optional): active only when `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`
 are set — else fully local, no login. `src/db/supabase.ts` (client), `src/db/sync.ts`
@@ -68,8 +68,13 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
 - Peptide content: `data/peptides.ts` (dosing/reconstitution/titration) and
   `data/experienceTimelines.ts` (`PeptideExperience` — weekly guide + optional
   evidence/dosing/tips/mistakes/stacking sections rendered by `ExperienceGuide.tsx`).
-- Deploy: GitHub Pages (build → gh-pages), triggered on push to `main`. CI runs
-  `npm run build` only.
+- Deploy: **`scripts/deploy.sh`** — builds and rsyncs `dist/` to `/srv/pepdose`
+  on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
+  Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ .
+  Pushing to `main` does NOT deploy — you must run the script. The old GitHub
+  Pages path (`.github/workflows/deploy.yml`) is DEAD while the account block
+  holds (Actions disabled account-wide, ticket 4583559); Vite `base` stays
+  `/pepdose/` so moving back needs no rebuild.
 
 ## Conventions
 
