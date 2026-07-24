@@ -89,6 +89,30 @@ describe('scheduleReminders timezone awareness', () => {
   });
 });
 
+describe('triggered (closed-app) reminders', () => {
+  it('arms an OS trigger for a future dose without re-arming on re-run', async () => {
+    // 09:00 America/New_York = 14:00 UTC; remind-at 13:45 UTC is 55 min from now.
+    stubBrowser('America/New_York');
+    const TimestampTrigger = vi.fn(function (this: { timestamp: number }, ts: number) {
+      this.timestamp = ts;
+    });
+    vi.stubGlobal('TimestampTrigger', TimestampTrigger);
+    await seedDose('d2', '09:00');
+
+    await scheduleReminders();
+    await flush();
+
+    expect(showNotification).toHaveBeenCalledTimes(1);
+    const options = showNotification.mock.calls[0]?.[1];
+    expect(options?.tag).toBe('d2');
+    expect(options?.showTrigger).toBeInstanceOf(TimestampTrigger);
+
+    await scheduleReminders(); // e.g. tab refocus re-evaluates
+    await flush();
+    expect(showNotification).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('per-day fired dedupe', () => {
   it('does not fire the same reminder twice in one day', async () => {
     stubBrowser('America/New_York');
