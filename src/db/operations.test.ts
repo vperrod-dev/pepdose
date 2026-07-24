@@ -12,6 +12,7 @@ import {
   getProtocol,
   saveScheduledDoses,
   getScheduledDosesForProtocol,
+  getScheduledDosesInRange,
   deleteProtocol,
   clearAllData,
   importData,
@@ -116,6 +117,21 @@ describe('logDose / deleteDoseLog inventory round trip', () => {
     const log = await logDose(baseLog);
     await deleteDoseLog(log.id);
     expect(await getAllDoseLogs()).toEqual([]);
+  });
+});
+
+describe('getScheduledDosesInRange', () => {
+  it('returns only doses within the inclusive date range', async () => {
+    await saveScheduledDoses([
+      { id: 'd1', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-14', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+      { id: 'd2', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+      { id: 'd3', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-16', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+      { id: 'd4', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-17', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    ], 'Victor');
+
+    const inRange = await getScheduledDosesInRange('2026-07-15', '2026-07-16');
+
+    expect(inRange.map((d) => d.id)).toEqual(['d2', 'd3']);
   });
 });
 
