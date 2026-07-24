@@ -84,8 +84,7 @@ export async function getScheduledDosesForProtocol(protocolId: string): Promise<
 
 export async function getScheduledDosesInRange(startDate: string, endDate: string): Promise<ScheduledDose[]> {
   const db = await getDB();
-  const all = await db.getAll('scheduledDoses');
-  return all.filter(d => d.date >= startDate && d.date <= endDate);
+  return db.getAllFromIndex('scheduledDoses', 'by-date', IDBKeyRange.bound(startDate, endDate));
 }
 
 export async function updateScheduledDose(id: string, updates: Partial<ScheduledDose>): Promise<void> {
@@ -165,16 +164,37 @@ export async function deleteScheduledDosesForProtocol(protocolId: string): Promi
 export async function logDose(log: Omit<DoseLog, 'id' | 'createdAt'>): Promise<DoseLog> {
   const db = await getDB();
   const full: DoseLog = { ...log, id: genId(), createdAt: new Date().toISOString() };
-  await db.put('doseLogs', full);
+  const now = new Date().toISOString();
+
+  // One transaction across all three stores so a thrown error can never leave
+  // vial inventory desynced from logged history (a partial log with no draw-down).
+  const tx = db.transaction(['doseLogs', 'scheduledDoses', 'vials'], 'readwrite');
+  void tx.objectStore('doseLogs').put(full);
 
   if (log.scheduledDoseId) {
-    await updateScheduledDose(log.scheduledDoseId, { status: 'logged' });
+    const doseStore = tx.objectStore('scheduledDoses');
+    const existing = await doseStore.get(log.scheduledDoseId);
+    if (existing) void doseStore.put({ ...existing, status: 'logged', updatedAt: now });
   }
 
   // Draw down inventory for the peptide's active vial so "doses remaining"
   // and the run-out forecast actually track logged injections.
-  await decrementVialDose(log.peptideId, log.owner);
+  const vialStore = tx.objectStore('vials');
+  const vials = await vialStore.index('by-peptide').getAll(log.peptideId);
+  const active = vials.find(
+    v => v.status === 'active' && v.dosesRemaining > 0 && (!log.owner || v.owner === log.owner),
+  );
+  if (active) {
+    const remaining = active.dosesRemaining - 1;
+    void vialStore.put({
+      ...active,
+      dosesRemaining: remaining,
+      status: remaining <= 0 ? 'empty' : 'active',
+      updatedAt: now,
+    });
+  }
 
+  await tx.done;
   return full;
 }
 
@@ -295,12 +315,10 @@ export async function saveHealthMarker(marker: Omit<HealthMarker, 'id' | 'create
 
 export async function getHealthMarkers(startDate?: string, endDate?: string): Promise<HealthMarker[]> {
   const db = await getDB();
-  const all = await db.getAll('healthMarkers');
   if (startDate && endDate) {
-    return all.filter(m => m.date >= startDate && m.date <= endDate)
-              .sort((a, b) => a.date.localeCompare(b.date));
+    return db.getAllFromIndex('healthMarkers', 'by-date', IDBKeyRange.bound(startDate, endDate));
   }
-  return all.sort((a, b) => a.date.localeCompare(b.date));
+  return db.getAllFromIndex('healthMarkers', 'by-date');
 }
 
 // --- Edit History ---
