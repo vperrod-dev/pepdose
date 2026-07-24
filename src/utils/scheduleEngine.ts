@@ -212,6 +212,9 @@ function generatePhasedSchedule(config: ScheduleConfig, peptide: Peptide | undef
   const phases = config.schedulePhases!;
   const startDate = parseISO(config.startDate);
   const totalWeeks = phasesTotalWeeks(phases);
+  // Non-positive duration → no schedule. Without this eachDayOfInterval gets a
+  // start-after-end range and throws (mirrors the flat-path guard above).
+  if (!(totalWeeks > 0)) return [];
   const days = eachDayOfInterval({ start: startDate, end: addDays(addWeeks(startDate, totalWeeks), -1) });
   const hasTitration = !!peptide?.dosing.titration && peptide.dosing.titration.length > 0;
 

@@ -109,6 +109,14 @@ describe('generateSchedule frequency branches', () => {
       '2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09',
     ]);
   });
+
+  it('phased schedule with non-positive total weeks emits nothing instead of throwing', () => {
+    expect(generateSchedule({
+      ...PLAIN,
+      frequency: 'daily',
+      schedulePhases: [{ weekStart: 0, weekEnd: 0, frequency: 'daily' }],
+    })).toEqual([]);
+  });
 });
 
 const scheduled = (id: string, date: string, status: ScheduledDose['status'] = 'upcoming'): ScheduledDose => ({
