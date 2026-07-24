@@ -201,7 +201,11 @@ export async function scheduleReminders(): Promise<void> {
       // Prefer a triggered notification so it still fires if the app is closed.
       // Where unsupported, fall back to an in-page timer (fires only while open/backgrounded).
       const armed = await scheduleTriggeredReminder(dose.id, title, body, remindAt, url);
-      if (!armed) {
+      if (armed) {
+        // The OS will fire this even if the app is closed; record it now so a
+        // later reopen doesn't re-show it via the immediate-fire branch.
+        markFired(dose.id);
+      } else {
         const timer = setTimeout(() => {
           markFired(dose.id);
           void show(title, body, dose.id, url);

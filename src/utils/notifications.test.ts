@@ -123,4 +123,19 @@ describe('per-day fired dedupe', () => {
     await flush();
     expect(showNotification).toHaveBeenCalledTimes(1);
   });
+
+  it('does not re-fire a triggered reminder after its window opens on reopen', async () => {
+    // With the Triggers API armed, the OS shows the notification when closed; a
+    // later reopen must not re-show it via the immediate-fire catch-up branch.
+    stubBrowser('America/New_York');
+    vi.stubGlobal('TimestampTrigger', vi.fn());
+    await seedDose('d2', '09:00'); // 14:00 UTC; remind-at 13:45 UTC is future
+    await scheduleReminders(); // arms the triggered notification
+    await flush();
+    expect(showNotification).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60 * 60_000); // now 13:50 UTC: window is open
+    await scheduleReminders(); // e.g. app reopened
+    await flush();
+    expect(showNotification).toHaveBeenCalledTimes(1);
+  });
 });
