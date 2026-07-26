@@ -41,6 +41,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
     () => Object.fromEntries((log?.symptoms ?? []).map(s => [s.name, s.severity])),
   );
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const symptomOptions = symptomsForCategory(getPeptideById(dose.peptideId)?.category);
   function toggleSymptom(name: string) {
@@ -76,55 +77,65 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
     Object.entries(daysMap).map(([label, d]) => [idByLabel[label], d]).filter(([id]) => id),
   );
 
-  async function handleLog() {
-    if (!doseValid) return;
+  // A thrown IndexedDB write (quota, blocked tx) must never strand the sheet on
+  // "Saving…": finally always clears `saving`, and the error surfaces inline so
+  // the user can retry instead of silently losing the edit.
+  async function runSave(write: () => Promise<unknown>) {
     setSaving(true);
-    if (log) {
-      await updateDoseLog(log.id, {
-        time: actualTime,
-        dose: actualDose,
-        injectionSite: site,
-        siteReaction: reaction,
-        symptoms: symptomsArray.length ? symptomsArray : undefined,
-        notes: notes || undefined,
-      });
-    } else {
-      await logDose({
-        owner: dose.owner,
-        scheduledDoseId: dose.id,
-        protocolId: dose.protocolId,
-        peptideId: dose.peptideId,
-        date: dose.date,
-        time: actualTime,
-        dose: actualDose,
-        unit: dose.unit,
-        route: dose.route,
-        injectionSite: site,
-        siteReaction: reaction,
-        symptoms: symptomsArray.length ? symptomsArray : undefined,
-        notes: notes || undefined,
-      });
+    setSaveError(null);
+    try {
+      await write();
+      onUpdated();
+      onClose();
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save — please try again.');
+    } finally {
+      setSaving(false);
     }
-    onUpdated();
-    onClose();
   }
 
-  async function handleReschedule() {
-    setSaving(true);
-    await updateScheduledDose(dose.id, {
-      date: newDate,
-      time: newTime,
-      editNote: `Rescheduled from ${dose.date} ${dose.time}`,
-    });
-    onUpdated();
-    onClose();
+  function handleLog() {
+    if (!doseValid) return;
+    return runSave(() =>
+      log
+        ? updateDoseLog(log.id, {
+            time: actualTime,
+            dose: actualDose,
+            injectionSite: site,
+            siteReaction: reaction,
+            symptoms: symptomsArray.length ? symptomsArray : undefined,
+            notes: notes || undefined,
+          })
+        : logDose({
+            owner: dose.owner,
+            scheduledDoseId: dose.id,
+            protocolId: dose.protocolId,
+            peptideId: dose.peptideId,
+            date: dose.date,
+            time: actualTime,
+            dose: actualDose,
+            unit: dose.unit,
+            route: dose.route,
+            injectionSite: site,
+            siteReaction: reaction,
+            symptoms: symptomsArray.length ? symptomsArray : undefined,
+            notes: notes || undefined,
+          }),
+    );
   }
 
-  async function handleSkip() {
-    setSaving(true);
-    await updateScheduledDose(dose.id, { status: 'skipped' });
-    onUpdated();
-    onClose();
+  function handleReschedule() {
+    return runSave(() =>
+      updateScheduledDose(dose.id, {
+        date: newDate,
+        time: newTime,
+        editNote: `Rescheduled from ${dose.date} ${dose.time}`,
+      }),
+    );
+  }
+
+  function handleSkip() {
+    return runSave(() => updateScheduledDose(dose.id, { status: 'skipped' }));
   }
 
   return (
@@ -149,6 +160,12 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
               <X className="w-5 h-5 text-text-muted" />
             </button>
           </div>
+
+          {saveError && (
+            <div role="alert" className="mx-4 mt-4 card-glass p-3 border border-danger/40 text-sm text-danger">
+              {saveError}
+            </div>
+          )}
 
           {mode === 'actions' && (
             <div className="p-4 space-y-2">
