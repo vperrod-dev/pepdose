@@ -12,6 +12,7 @@ import { getPeptideById, type Peptide } from '../data/peptides';
 import { getCurrentWeekGuide } from '../data/experienceTimelines';
 import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/scheduleEngine';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { DecimalInput } from '../components/DecimalInput';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
@@ -65,6 +66,7 @@ export function Protocols() {
   const [metric, setMetric] = useState<'weight' | 'sleepQuality' | 'energy' | 'mood'>('weight');
   const [selectedDose, setSelectedDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [selectedLog, setSelectedLog] = useState<DoseLog | undefined>(undefined);
+  const [viewAdhocLog, setViewAdhocLog] = useState<DoseLog | null>(null);
 
   // Edit state
   const [editDoses, setEditDoses] = useState<UserProtocol['doses']>([]);
@@ -549,7 +551,7 @@ export function Protocols() {
                             );
                           })}
                           {weekAdhoc.map(l => (
-                            <div key={l.id} className="w-full flex items-center gap-3 card-glass px-3 py-2.5">
+                            <button key={l.id} onClick={() => setViewAdhocLog(l)} className="w-full text-left flex items-center gap-3 card-glass px-3 py-2.5 tap-target">
                               <CheckCircle2 className="w-4 h-4 shrink-0 text-secondary" />
                               <div className="flex-1 min-w-0">
                                 <span className="text-sm font-medium">
@@ -569,7 +571,7 @@ export function Protocols() {
                               <span className="text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0 text-secondary" style={{ backgroundColor: '#6366f11a' }}>
                                 ad-hoc
                               </span>
-                            </div>
+                            </button>
                           ))}
                         </div>
                         )}
@@ -858,6 +860,14 @@ export function Protocols() {
             </div>
           </div>
         </>
+      )}
+
+      {viewAdhocLog && activeProto && (
+        <AdhocLogSheet
+          log={viewAdhocLog}
+          onClose={() => setViewAdhocLog(null)}
+          onDeleted={() => loadJourney(activeProto.id)}
+        />
       )}
 
       {selectedDose && (

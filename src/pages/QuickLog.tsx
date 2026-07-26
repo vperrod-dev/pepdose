@@ -7,6 +7,7 @@ import type { ScheduledDose, DoseLog } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
+import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 import { useOwnerFilter } from '../context/ViewFilterContext';
 
@@ -33,6 +34,7 @@ export function QuickLog() {
   const [loading, setLoading] = useState(true);
   const [showAdhoc, setShowAdhoc] = useState(false);
   const [adhocMsg, setAdhocMsg] = useState('');
+  const [viewAdhocLog, setViewAdhocLog] = useState<DoseLog | null>(null);
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const applyOwnerFilter = useOwnerFilter();
@@ -179,7 +181,7 @@ export function QuickLog() {
               </div>
             ))}
             {adhocDone.map(log => (
-              <div key={log.id} className="card-glass p-3 opacity-70">
+              <button key={log.id} onClick={() => setViewAdhocLog(log)} className="card-glass p-3 opacity-70 w-full text-left tap-target">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center shrink-0">
                     <Check className="w-4 h-4 text-secondary" />
@@ -191,7 +193,7 @@ export function QuickLog() {
                   </div>
                   <span className="text-xs text-text-muted font-mono shrink-0">{log.dose} {log.unit} · {log.time}</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -212,6 +214,14 @@ export function QuickLog() {
         <Plus className="w-5 h-5" />
         Ad-hoc dose
       </button>
+
+      {viewAdhocLog && (
+        <AdhocLogSheet
+          log={viewAdhocLog}
+          onClose={() => setViewAdhocLog(null)}
+          onDeleted={load}
+        />
+      )}
 
       {showAdhoc && (
         <AdhocDoseSheet

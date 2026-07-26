@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { X, Check, Clock, MapPin, CalendarDays, SkipForward, Pencil } from 'lucide-react';
-import { logDose, updateScheduledDose, updateDoseLog, getAllDoseLogs } from '../db/operations';
+import { X, Check, Clock, MapPin, CalendarDays, SkipForward, Pencil, Trash2 } from 'lucide-react';
+import { logDose, updateScheduledDose, updateDoseLog, getAllDoseLogs, deleteDoseLog } from '../db/operations';
 import type { ScheduledDose, DoseLog } from '../db/schema';
 import { SITE_LABELS, INJECTION_SITES } from '../data/injectionSites';
 import { getPeptideById } from '../data/peptides';
@@ -42,6 +42,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const symptomOptions = symptomsForCategory(getPeptideById(dose.peptideId)?.category);
   function toggleSymptom(name: string) {
@@ -136,6 +137,13 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
 
   function handleSkip() {
     return runSave(() => updateScheduledDose(dose.id, { status: 'skipped' }));
+  }
+
+  // Deleting a log restores the vial draw-down and flips the scheduled dose
+  // back to pending (deleteDoseLog handles both + the sync tombstone).
+  function handleDeleteLog() {
+    if (!log) return;
+    return runSave(() => deleteDoseLog(log.id));
   }
 
   return (
@@ -338,7 +346,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                 />
               </div>
 
-              <div className="flex gap-3 pt-2 pb-4">
+              <div className={`flex gap-3 pt-2${log ? '' : ' pb-4'}`}>
                 <button
                   onClick={() => isLogged ? onClose() : setMode('actions')}
                   className="flex-1 px-4 py-3 rounded-xl border border-border text-sm font-medium text-text-secondary"
@@ -353,6 +361,35 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                   {saving ? 'Saving...' : log ? 'Save Changes' : 'Log Dose'}
                 </button>
               </div>
+
+              {log && (
+                <div className="pb-4">
+                  {!confirmingDelete ? (
+                    <button
+                      onClick={() => setConfirmingDelete(true)}
+                      className="w-full px-4 py-3 rounded-xl border border-danger/40 text-sm font-medium text-danger flex items-center justify-center gap-2 tap-target"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete log
+                    </button>
+                  ) : (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setConfirmingDelete(false)}
+                        className="flex-1 px-4 py-3 rounded-xl border border-border text-sm font-medium text-text-secondary"
+                      >
+                        Keep it
+                      </button>
+                      <button
+                        onClick={handleDeleteLog}
+                        disabled={saving}
+                        className="flex-1 px-4 py-3 rounded-xl bg-danger text-white text-sm font-semibold disabled:opacity-40"
+                      >
+                        {saving ? 'Deleting…' : 'Yes, delete — back to pending'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

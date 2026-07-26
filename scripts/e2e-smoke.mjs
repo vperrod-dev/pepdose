@@ -155,6 +155,18 @@ await scenario('S7 ad-hoc dose for today is visible in Completed and on the Dash
   if (!(await page.getByText('Ad-hoc', { exact: true }).count())) throw new Error('ad-hoc dose not on Calendar day view');
 });
 
+await scenario('S8 delete an ad-hoc dose from the Completed list', async () => {
+  await page.goto(BASE + '/log', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(500);
+  await page.getByText('MK-677').first().click(); // the S7 ad-hoc entry
+  await page.getByText('Delete this dose').click();
+  await page.getByText('Yes, delete').click();
+  await page.waitForTimeout(800);
+  const left = (await readStore('doseLogs')).filter(l => l.peptideId === 'mk-677');
+  if (left.length) throw new Error('ad-hoc log still in DB after delete');
+  if (await page.getByText('MK-677').count()) throw new Error('deleted dose still listed');
+});
+
 await scenario('S6 protocol journey shows the per-week dose summary', async () => {
   await page.evaluate(async ({ today }) => {
     const db = await new Promise((res) => { const r = indexedDB.open('pepdose'); r.onsuccess = () => res(r.result); });

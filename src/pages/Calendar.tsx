@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { ProtocolTimeline } from '../components/ProtocolTimeline';
 import { UserBadge } from '../components/UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
@@ -43,6 +44,7 @@ export function Calendar() {
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [protocolsById, setProtocolsById] = useState<Map<string, UserProtocol>>(new Map());
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
+  const [viewAdhocLog, setViewAdhocLog] = useState<DoseLog | null>(null);
   const [view, setView] = useState<'month' | 'timeline'>('month');
   const [timelineProtocols, setTimelineProtocols] = useState<UserProtocol[]>([]);
   const [dosesByProtocol, setDosesByProtocol] = useState<Map<string, ScheduledDose[]>>(new Map());
@@ -318,7 +320,7 @@ export function Calendar() {
             {selectedAdhoc.map((log) => {
               const pep = getPeptideById(log.peptideId);
               return (
-                <div key={log.id} className="card-glass w-full flex items-center gap-3 p-4">
+                <button key={log.id} onClick={() => setViewAdhocLog(log)} className="card-glass w-full flex items-center gap-3 p-4 tap-target text-left">
                   <div className="flex flex-col items-center w-12">
                     <span className="text-xs font-mono text-text-muted">{log.time}</span>
                     <div className="w-2 h-2 rounded-full mt-1 bg-secondary" />
@@ -335,7 +337,7 @@ export function Calendar() {
                   <span className="text-xs font-medium px-2 py-1 rounded-md bg-secondary/15 text-secondary">
                     Ad-hoc
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -349,6 +351,14 @@ export function Calendar() {
           protocols={timelineProtocols}
           dosesByProtocol={dosesByProtocol}
           logsByDoseId={logsByDoseId}
+        />
+      )}
+
+      {viewAdhocLog && (
+        <AdhocLogSheet
+          log={viewAdhocLog}
+          onClose={() => setViewAdhocLog(null)}
+          onDeleted={() => setReloadKey(k => k + 1)}
         />
       )}
 

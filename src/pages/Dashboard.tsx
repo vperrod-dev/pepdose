@@ -8,6 +8,7 @@ import { scheduleReminders } from '../utils/notifications';
 import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
 import { adherenceStats } from '../utils/adherence';
 import { DoseActionSheet } from '../components/DoseActionSheet';
+import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import type { ScheduledDose, UserProtocol, DoseLog } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
@@ -34,6 +35,7 @@ export function Dashboard() {
   const [logged, setLogged] = useState<Set<string>>(new Set());
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [adhocLogs, setAdhocLogs] = useState<DoseLog[]>([]);
+  const [viewAdhocLog, setViewAdhocLog] = useState<DoseLog | null>(null);
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<NextStep | null>(null);
   const [allScheduled, setAllScheduled] = useState<ScheduledDose[]>([]);
@@ -282,7 +284,7 @@ export function Dashboard() {
               );
             })}
             {visibleAdhoc.map(log => (
-              <div key={log.id} className="card-glass w-full flex items-center gap-3 p-4">
+              <button key={log.id} onClick={() => setViewAdhocLog(log)} className="card-glass w-full flex items-center gap-3 p-4 tap-target text-left">
                 <div className="w-2 h-2 rounded-full shrink-0 bg-secondary" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -295,7 +297,7 @@ export function Dashboard() {
                   <p className="text-xs text-text-muted font-mono">{log.dose} {log.unit}</p>
                 </div>
                 <span className="text-xs font-mono text-success">{log.time}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -346,6 +348,14 @@ export function Dashboard() {
             })}
           </div>
         </div>
+      )}
+
+      {viewAdhocLog && (
+        <AdhocLogSheet
+          log={viewAdhocLog}
+          onClose={() => setViewAdhocLog(null)}
+          onDeleted={() => setReloadKey(k => k + 1)}
+        />
       )}
 
       {activeDose && (
