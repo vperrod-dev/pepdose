@@ -39,6 +39,7 @@ export function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [monthDoses, setMonthDoses] = useState<ScheduledDose[]>([]);
+  const [monthAdhoc, setMonthAdhoc] = useState<DoseLog[]>([]);
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
   const [protocolsById, setProtocolsById] = useState<Map<string, UserProtocol>>(new Map());
   const [activeDose, setActiveDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
@@ -65,6 +66,9 @@ export function Calendar() {
       setLogsByDoseId(new Map(
         logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
       ));
+      // Logs without a scheduledDoseId are ad-hoc doses — they must still
+      // show on the calendar or a logged dose looks like it vanished.
+      setMonthAdhoc(logs.filter(l => !l.scheduledDoseId));
       setProtocolsById(new Map(protos.map(p => [p.id, p])));
     }
     load();
@@ -94,6 +98,19 @@ export function Calendar() {
     }
     return map;
   }, [monthDoses, filter]);
+
+  const adhocByDate = useMemo(() => {
+    const map = new Map<string, DoseLog[]>();
+    for (const log of filterByOwner(monthAdhoc, filter)) {
+      map.set(log.date, [...(map.get(log.date) ?? []), log]);
+    }
+    return map;
+  }, [monthAdhoc, filter]);
+
+  const selectedAdhoc = useMemo(() => {
+    const key = format(selectedDate, 'yyyy-MM-dd');
+    return [...(adhocByDate.get(key) ?? [])].sort((a, b) => a.time.localeCompare(b.time));
+  }, [selectedDate, adhocByDate]);
 
   const selectedDoses = useMemo(() => {
     const key = format(selectedDate, 'yyyy-MM-dd');
@@ -189,9 +206,13 @@ export function Calendar() {
           const dayPeptides = (() => {
             const seen = new Set<string>();
             const segs: { name: string; color: string }[] = [];
-            for (const d of dayDoses) {
-              const pep = getPeptideById(d.peptideId);
-              const name = pep?.name ?? d.peptideId;
+            const peptideIds = [
+              ...dayDoses.map(d => d.peptideId),
+              ...(adhocByDate.get(dateKey) ?? []).map(l => l.peptideId),
+            ];
+            for (const pid of peptideIds) {
+              const pep = getPeptideById(pid);
+              const name = pep?.name ?? pid;
               if (seen.has(name)) continue;
               seen.add(name);
               segs.push({ name, color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa' });
@@ -247,7 +268,7 @@ export function Calendar() {
           {format(selectedDate, 'EEEE, MMMM d')}
         </h2>
 
-        {selectedDoses.length === 0 ? (
+        {selectedDoses.length === 0 && selectedAdhoc.length === 0 ? (
           <div className="card-glass p-6 text-center">
             <p className="text-text-muted text-sm">No doses scheduled</p>
           </div>
@@ -292,6 +313,29 @@ export function Calendar() {
                     {isDone ? 'Done' : isMissed ? 'Missed' : 'Pending'}
                   </span>
                 </button>
+              );
+            })}
+            {selectedAdhoc.map((log) => {
+              const pep = getPeptideById(log.peptideId);
+              return (
+                <div key={log.id} className="card-glass w-full flex items-center gap-3 p-4">
+                  <div className="flex flex-col items-center w-12">
+                    <span className="text-xs font-mono text-text-muted">{log.time}</span>
+                    <div className="w-2 h-2 rounded-full mt-1 bg-secondary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm text-text-muted">{pep?.name ?? log.peptideId}</p>
+                      <UserBadge owner={log.owner} />
+                    </div>
+                    <p className="text-xs text-text-muted font-mono">
+                      {log.dose} {log.unit}{log.injectionSite ? ` · ${log.injectionSite}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-xs font-medium px-2 py-1 rounded-md bg-secondary/15 text-secondary">
+                    Ad-hoc
+                  </span>
+                </div>
               );
             })}
           </div>

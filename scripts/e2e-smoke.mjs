@@ -150,6 +150,9 @@ await scenario('S7 ad-hoc dose for today is visible in Completed and on the Dash
   await page.goto(BASE + '/', { waitUntil: 'networkidle' });
   await page.waitForTimeout(600);
   if (!(await page.getByText('MK-677').count())) throw new Error('ad-hoc dose not on Dashboard');
+  await page.goto(BASE + '/calendar', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(800);
+  if (!(await page.getByText('Ad-hoc', { exact: true }).count())) throw new Error('ad-hoc dose not on Calendar day view');
 });
 
 await scenario('S6 protocol journey shows the per-week dose summary', async () => {
