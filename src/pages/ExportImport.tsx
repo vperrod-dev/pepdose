@@ -145,6 +145,28 @@ function CloudSyncCard() {
     }
   };
 
+  // Sign-out must wipe the local store: the next account to sign in on this device
+  // would otherwise read (and re-upload) the previous account's rows.
+  const handleSignOut = async () => {
+    setSyncing(true);
+    setMsg('Saving your data to the cloud…');
+    try {
+      await syncNow();
+    } catch {
+      // A failed final push must not trap the user in a signed-in session; the
+      // cloud copy is behind by whatever was unsynced, which is the same state
+      // as closing the app.
+      setMsg('Could not sync before signing out — local data will still be cleared');
+    }
+    try {
+      await clearAllData();
+      resetSyncCursor();
+      await supabase!.auth.signOut();
+    } finally {
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="card-glass p-4 mb-4 border border-primary/20 stagger-item">
       <div className="flex items-center justify-between mb-3">
@@ -153,7 +175,7 @@ function CloudSyncCard() {
           <p className="text-xs text-text-muted">{email ?? 'Signed in'}</p>
         </div>
         <button
-          onClick={() => supabase!.auth.signOut()}
+          onClick={handleSignOut}
           className="tap-target flex items-center gap-1.5 text-xs text-text-muted"
         >
           <LogOut className="w-4 h-4" /> Sign out
