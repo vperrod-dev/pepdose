@@ -138,6 +138,28 @@ await scenario('S5 rescheduled dose appears on its new calendar day', async () =
   if (!moved?.editNote?.startsWith('Rescheduled from')) throw new Error('reschedule audit note missing');
 });
 
+await scenario('S6 protocol journey shows the per-week dose summary', async () => {
+  await page.evaluate(async ({ today }) => {
+    const db = await new Promise((res) => { const r = indexedDB.open('pepdose'); r.onsuccess = () => res(r.result); });
+    await new Promise((res, rej) => {
+      const tx = db.transaction('protocols', 'readwrite');
+      tx.objectStore('protocols').put({
+        id: 'smoke-proto', owner: 'Victor', name: 'BPC-157 Smoke', peptideIds: ['bpc-157'],
+        doses: [{ peptideId: 'bpc-157', dose: 250, unit: 'mcg', frequency: 'daily', timeOfDay: '08:00' }],
+        startDate: today, durationWeeks: 1, status: 'active',
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      });
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+    db.close();
+  }, { today });
+  await page.goto(BASE + '/protocols', { waitUntil: 'networkidle' });
+  await page.getByText('BPC-157 Smoke').click();
+  await page.waitForTimeout(800);
+  if (!(await page.getByText(/due doses done/).count())) throw new Error('journey summary line missing');
+  if (!(await page.getByText('Week 1', { exact: true }).count())) throw new Error('week group row missing');
+});
+
 console.log(results.join('\n'));
 console.log(consoleErrors.length ? 'CONSOLE ERRORS:\n' + consoleErrors.join('\n') : 'console clean');
 await browser.close();

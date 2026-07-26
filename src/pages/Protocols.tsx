@@ -6,7 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import {
   getProtocols, deleteProtocol, updateProtocol,
   getScheduledDosesForProtocol, deleteUpcomingDosesFrom, saveScheduledDoses,
-  getDoseLogsForProtocol, getProtocol, getHealthMarkers,
+  getDoseLogsForProtocol, getProtocol, getHealthMarkers, getAllDoseLogs,
 } from '../db/operations';
 import { getPeptideById, type Peptide } from '../data/peptides';
 import { getCurrentWeekGuide } from '../data/experienceTimelines';
@@ -58,7 +58,10 @@ export function Protocols() {
   const [saving, setSaving] = useState(false);
   const [journeyDoses, setJourneyDoses] = useState<ScheduledDose[]>([]);
   const [journeyLogs, setJourneyLogs] = useState<DoseLog[]>([]);
+  const [journeyAdhoc, setJourneyAdhoc] = useState<DoseLog[]>([]);
   const [journeyMarkers, setJourneyMarkers] = useState<HealthMarker[]>([]);
+  // null = default (only the current week expanded); user taps override per week
+  const [openWeeks, setOpenWeeks] = useState<Set<number> | null>(null);
   const [metric, setMetric] = useState<'weight' | 'sleepQuality' | 'energy' | 'mood'>('weight');
   const [selectedDose, setSelectedDose] = useState<(ScheduledDose & { peptideName: string; color: string }) | null>(null);
   const [selectedLog, setSelectedLog] = useState<DoseLog | undefined>(undefined);
@@ -89,15 +92,25 @@ export function Protocols() {
   async function loadJourney(protocolId: string) {
     setJourneyDoses([]);
     setJourneyLogs([]);
+    setJourneyAdhoc([]);
     setJourneyMarkers([]);
-    const [doses, logs] = await Promise.all([
+    const [doses, logs, proto] = await Promise.all([
       getScheduledDosesForProtocol(protocolId),
       getDoseLogsForProtocol(protocolId),
+      getProtocol(protocolId),
     ]);
     setJourneyDoses(doses);
     setJourneyLogs(logs);
-    const proto = await getProtocol(protocolId);
     if (proto) {
+      // Ad-hoc doses of this protocol's peptides count as "doses done" too —
+      // they carry no protocolId, so the by-protocol index can't see them.
+      const all = await getAllDoseLogs();
+      setJourneyAdhoc(all.filter(l =>
+        !l.scheduledDoseId && !l.protocolId &&
+        l.owner === proto.owner &&
+        proto.peptideIds.includes(l.peptideId) &&
+        l.date >= proto.startDate,
+      ));
       const markers = await getHealthMarkers(proto.startDate, format(new Date(), 'yyyy-MM-dd'));
       setJourneyMarkers(markers);
     }
@@ -106,6 +119,7 @@ export function Protocols() {
   function openSheet(proto: UserProtocol) {
     setActiveProto(proto);
     setSheetMode('journey');
+    setOpenWeeks(null);
     loadJourney(proto.id);
     setEditDoses(proto.doses.map(d => {
       const pep = getPeptideById(d.peptideId);
@@ -329,25 +343,52 @@ export function Protocols() {
               </div>
 
               {sheetMode === 'journey' && (() => {
+                const today = format(new Date(), 'yyyy-MM-dd');
                 const sorted = [...journeyDoses].sort((a, b) =>
                   (a.date + a.time).localeCompare(b.date + b.time));
-                const logged = sorted.filter(d => d.status === 'logged').length;
                 const nowWeek = Math.max(1, differenceInWeeks(new Date(), parseISO(activeProto.startDate)) + 1);
+                const nowWeekClamped = Math.min(nowWeek, activeProto.durationWeeks);
                 const weeks = [...new Set(sorted.map(d => d.weekNumber))].sort((a, b) => a - b);
                 const logByDose = new Map(
                   journeyLogs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]));
+                // A past dose that was never logged is missed, not "upcoming" —
+                // display-only; the stored status stays untouched.
+                const displayStatus = (d: ScheduledDose) =>
+                  d.status === 'upcoming' && d.date < today ? 'missed' : d.status;
                 const STATUS: Record<string, { color: string; label: string }> = {
                   logged: { color: '#22c55e', label: 'done' },
                   upcoming: { color: '#64748b', label: 'upcoming' },
                   missed: { color: '#ef4444', label: 'missed' },
                   skipped: { color: '#f59e0b', label: 'skipped' },
                 };
+                const due = sorted.filter(d => d.date <= today);
+                const doneCount = due.filter(d => d.status === 'logged').length;
+                const missedCount = due.filter(d => displayStatus(d) === 'missed').length;
+                const skippedCount = due.filter(d => d.status === 'skipped').length;
+                const adhocByWeek = new Map<number, DoseLog[]>();
+                for (const l of journeyAdhoc) {
+                  const wk = Math.min(
+                    activeProto.durationWeeks,
+                    Math.max(1, differenceInWeeks(parseISO(l.date), parseISO(activeProto.startDate)) + 1),
+                  );
+                  adhocByWeek.set(wk, [...(adhocByWeek.get(wk) ?? []), l]);
+                }
+                const singlePeptide = activeProto.peptideIds.length === 1;
+                const isOpen = (week: number) => (openWeeks ?? new Set([nowWeekClamped])).has(week);
+                const toggleWeek = (week: number) => {
+                  const next = new Set(openWeeks ?? [nowWeekClamped]);
+                  if (next.has(week)) next.delete(week); else next.add(week);
+                  setOpenWeeks(next);
+                };
                 return (
                   <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-xs text-text-muted">
-                        <span className="text-success font-semibold">{logged}</span> of {sorted.length} doses logged
-                        {' · '}Week {Math.min(nowWeek, activeProto.durationWeeks)}/{activeProto.durationWeeks}
+                        <span className="text-success font-semibold">{doneCount}</span> of {due.length} due doses done
+                        {missedCount > 0 && <span style={{ color: STATUS.missed.color }}> · {missedCount} missed</span>}
+                        {skippedCount > 0 && <span style={{ color: STATUS.skipped.color }}> · {skippedCount} skipped</span>}
+                        {journeyAdhoc.length > 0 && <span> · {journeyAdhoc.length} ad-hoc</span>}
+                        {' · '}Week {nowWeekClamped}/{activeProto.durationWeeks}
                       </div>
                       <button
                         onClick={() => setSheetMode('actions')}
@@ -358,6 +399,9 @@ export function Protocols() {
                     </div>
 
                     {(() => {
+                      // No health markers in the whole window → skip the card
+                      // entirely; the dose list is what this sheet is for.
+                      if (journeyMarkers.length === 0) return null;
                       const METRICS: { key: typeof metric; label: string; color: string }[] = [
                         { key: 'weight', label: 'Weight', color: '#00d4aa' },
                         { key: 'sleepQuality', label: 'Sleep', color: '#6366f1' },
@@ -401,16 +445,36 @@ export function Protocols() {
                       <p className="text-sm text-text-muted text-center py-8">
                         No doses scheduled yet.
                       </p>
-                    ) : weeks.map(week => (
+                    ) : weeks.map(week => {
+                      const weekDoses = sorted.filter(d => d.weekNumber === week);
+                      const weekAdhoc = adhocByWeek.get(week) ?? [];
+                      const counts: Record<string, number> = {};
+                      for (const d of weekDoses) counts[displayStatus(d)] = (counts[displayStatus(d)] ?? 0) + 1;
+                      const open = isOpen(week);
+                      return (
                       <div key={week}>
-                        <div className="flex items-center gap-2 mb-2">
+                        <button
+                          onClick={() => toggleWeek(week)}
+                          className="w-full flex items-center gap-2 mb-2 tap-target text-left"
+                        >
                           <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Week {week}</p>
-                          {week === nowWeek && (
+                          {week === nowWeekClamped && (
                             <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-primary-dim text-primary">now</span>
                           )}
-                        </div>
-                        {(() => {
-                          const weekPeptideIds = [...new Set(sorted.filter(d => d.weekNumber === week).map(d => d.peptideId))];
+                          <span className="flex-1 text-right text-[11px] font-mono">
+                            {(['logged', 'missed', 'skipped', 'upcoming'] as const)
+                              .filter(s => counts[s])
+                              .map(s => (
+                                <span key={s} className="ml-2" style={{ color: STATUS[s].color }}>
+                                  {counts[s]} {STATUS[s].label}
+                                </span>
+                              ))}
+                            {weekAdhoc.length > 0 && <span className="ml-2 text-secondary">{weekAdhoc.length} ad-hoc</span>}
+                          </span>
+                          <span className="text-text-muted text-xs">{open ? '▾' : '▸'}</span>
+                        </button>
+                        {open && (() => {
+                          const weekPeptideIds = [...new Set(weekDoses.map(d => d.peptideId))];
                           const guides = weekPeptideIds
                             .map(pid => ({ pid, guide: getCurrentWeekGuide(pid, week) }))
                             .filter(g => g.guide);
@@ -437,13 +501,15 @@ export function Protocols() {
                             </div>
                           );
                         })()}
+                        {open && (
                         <div className="space-y-1.5">
-                          {sorted.filter(d => d.weekNumber === week).map(d => {
+                          {weekDoses.map(d => {
                             const pep = getPeptideById(d.peptideId);
-                            const st = STATUS[d.status] ?? STATUS.upcoming;
+                            const st = STATUS[displayStatus(d)] ?? STATUS.upcoming;
                             const log = logByDose.get(d.id);
                             const shownDose = d.status === 'logged' ? (log?.dose ?? d.dose) : d.dose;
                             const shownSite = d.status === 'logged' ? log?.injectionSite : d.suggestedSite;
+                            const shownTime = d.status === 'logged' ? (log?.time ?? d.time) : d.time;
                             return (
                               <button
                                 key={d.id}
@@ -455,13 +521,17 @@ export function Protocols() {
                                   : <Circle className="w-4 h-4 shrink-0" style={{ color: st.color }} />}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-sm font-medium truncate">{pep?.name ?? d.peptideId}</span>
+                                    <span className="text-sm font-medium truncate">
+                                      {format(parseISO(d.date), 'EEE MMM d')}
+                                      <span className="text-text-muted font-normal"> · {shownDose} {d.unit}</span>
+                                      {!singlePeptide && <span className="text-text-muted font-normal"> · {pep?.name ?? d.peptideId}</span>}
+                                    </span>
                                     {d.isTitrationStepUp && (
                                       <ArrowUpCircle className="w-3.5 h-3.5 text-secondary shrink-0" />
                                     )}
                                   </div>
                                   <p className="text-[11px] text-text-muted font-mono">
-                                    {format(parseISO(d.date), 'EEE MMM d')} · {shownDose} {d.unit}
+                                    {shownTime}
                                     {shownSite && (
                                       <span className="inline-flex items-center gap-0.5 ml-1.5">
                                         <MapPin className="w-3 h-3" />{shownSite}
@@ -478,9 +548,34 @@ export function Protocols() {
                               </button>
                             );
                           })}
+                          {weekAdhoc.map(l => (
+                            <div key={l.id} className="w-full flex items-center gap-3 card-glass px-3 py-2.5">
+                              <CheckCircle2 className="w-4 h-4 shrink-0 text-secondary" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium">
+                                  {format(parseISO(l.date), 'EEE MMM d')}
+                                  <span className="text-text-muted font-normal"> · {l.dose} {l.unit}</span>
+                                  {!singlePeptide && <span className="text-text-muted font-normal"> · {getPeptideById(l.peptideId)?.name ?? l.peptideId}</span>}
+                                </span>
+                                <p className="text-[11px] text-text-muted font-mono">
+                                  {l.time}
+                                  {l.injectionSite && (
+                                    <span className="inline-flex items-center gap-0.5 ml-1.5">
+                                      <MapPin className="w-3 h-3" />{l.injectionSite}
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md shrink-0 text-secondary" style={{ backgroundColor: '#6366f11a' }}>
+                                ad-hoc
+                              </span>
+                            </div>
+                          ))}
                         </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })()}
