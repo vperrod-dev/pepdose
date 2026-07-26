@@ -6,7 +6,7 @@ The validation catalog for pepdose. Three layers:
    layer, sync merge, and the regression-prone UI flows (DecimalInput, ad-hoc
    sheet error path, auth gate, import/export).
 2. **E2E smoke** — `node scripts/e2e-smoke.mjs`. Headless Chromium drives the
-   real app (own dev server, local mode) through S1–S6 below and fails on any
+   real app (own dev server, local mode) through S1–S7 below and fails on any
    console error. Run it before every deploy; point it at a deployed instance
    with `BASE=https://…/pepdose node scripts/e2e-smoke.mjs` (needs a build
    without the Supabase login gate, or a signed-in storage state).
@@ -17,14 +17,14 @@ Conventions: seed data = one active protocol with today-doses (or use the
 `smoke-*` seeds the e2e script writes). "DB" = IndexedDB `pepdose` database in
 devtools → Application. Test on mobile viewport — this is a phone-first PWA.
 
-## Dose logging (automated: S1–S5)
+## Dose logging (automated: S1–S5, S7)
 
 | # | Scenario | Steps | Expected |
 |---|----------|-------|----------|
 | S1 | Reschedule a pending dose | Dashboard/Calendar → tap pending dose → Reschedule → pick new date/time → Reschedule | Sheet closes, dose gone from old day, present on new day with "Rescheduled from…" note; survives reload |
 | S2 | Skip a dose | Tap pending dose → Skip Dose | Marked skipped, not counted as missed, adherence unaffected by later logs |
 | S3 | Log with details | Tap pending dose → Log Dose → adjust dose/time/site/symptoms → save | Log written, scheduled dose shows logged, vial draw-down by 1 |
-| S4 | Ad-hoc dose, past date | Quick Log → Ad-hoc dose → peptide + dose + yesterday's date → Log Dose | Log appears on that date (History/Calendar), never on today; sheet never sticks on "Saving…" |
+| S4 | Ad-hoc dose, past date | Quick Log → Ad-hoc dose → peptide + dose + yesterday's date → Log Dose | Log appears on that date (History/Calendar), never on today; sheet never sticks on "Saving…"; a today-dated ad-hoc dose appears immediately in Completed and on the Dashboard with an ad-hoc chip (automated: S7); every peptide (incl. oral/intranasal) is pickable |
 | S5 | Reschedule persists across views | After S1, open Calendar month view | Dose strip renders on the new day only |
 | S6 | Quick tap-log | Quick Log → tap a pending dose card | Check burst, moves to Completed, one log at current time |
 | S7 | Failed save surfaces | Devtools → simulate IndexedDB error (or fill storage quota) → try S3/S4 | Inline red error, button re-enabled, no silent loss, sheet not stuck |
@@ -69,7 +69,7 @@ devtools → Application. Test on mobile viewport — this is a phone-first PWA.
 ## Release checklist
 
 1. `npm test` — all green.
-2. `node scripts/e2e-smoke.mjs` — S1–S6 pass, console clean.
+2. `node scripts/e2e-smoke.mjs` — S1–S7 pass, console clean.
 3. Manual pass over the section(s) the change touched.
 4. `scripts/deploy.sh`, then verify **on the live URL** (fresh profile or
    hard-reload): the changed behavior is visible and works. Local success ≠ done.

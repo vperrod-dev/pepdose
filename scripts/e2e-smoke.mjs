@@ -138,6 +138,20 @@ await scenario('S5 rescheduled dose appears on its new calendar day', async () =
   if (!moved?.editNote?.startsWith('Rescheduled from')) throw new Error('reschedule audit note missing');
 });
 
+await scenario('S7 ad-hoc dose for today is visible in Completed and on the Dashboard', async () => {
+  await page.goto(BASE + '/log', { waitUntil: 'networkidle' });
+  await page.getByText('Ad-hoc dose').click();
+  await page.locator('select').selectOption({ label: 'MK-677' }); // oral — must be pickable too
+  await page.locator('input[inputmode="decimal"]').first().fill('25');
+  await page.locator('button:has-text("Log Dose")').click();
+  await page.waitForTimeout(800);
+  if (!(await page.getByText('Completed', { exact: false }).count())) throw new Error('Completed section missing');
+  if (!(await page.getByText('MK-677').count())) throw new Error('ad-hoc dose not listed in Completed');
+  await page.goto(BASE + '/', { waitUntil: 'networkidle' });
+  await page.waitForTimeout(600);
+  if (!(await page.getByText('MK-677').count())) throw new Error('ad-hoc dose not on Dashboard');
+});
+
 await scenario('S6 protocol journey shows the per-week dose summary', async () => {
   await page.evaluate(async ({ today }) => {
     const db = await new Promise((res) => { const r = indexedDB.open('pepdose'); r.onsuccess = () => res(r.result); });

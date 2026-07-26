@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Syringe, Check, MapPin, Clock, Plus, X } from 'lucide-react';
 import { getScheduledDosesForDate, getDoseLogsForDate, logDose } from '../db/operations';
 import { getPeptideById, PEPTIDES } from '../data/peptides';
-import type { ScheduledDose } from '../db/schema';
+import type { ScheduledDose, DoseLog } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
@@ -28,6 +28,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function QuickLog() {
   const [doses, setDoses] = useState<QuickDose[]>([]);
   const [logged, setLogged] = useState<Set<string>>(new Set());
+  const [todayLogs, setTodayLogs] = useState<DoseLog[]>([]);
   const [justLogged, setJustLogged] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showAdhoc, setShowAdhoc] = useState(false);
@@ -36,28 +37,28 @@ export function QuickLog() {
   const today = format(new Date(), 'yyyy-MM-dd');
   const applyOwnerFilter = useOwnerFilter();
 
-  useEffect(() => {
-    async function load() {
-      const [scheduled, logs] = await Promise.all([
-        getScheduledDosesForDate(today),
-        getDoseLogsForDate(today),
-      ]);
+  const load = useCallback(async () => {
+    const [scheduled, logs] = await Promise.all([
+      getScheduledDosesForDate(today),
+      getDoseLogsForDate(today),
+    ]);
 
-      const enriched: QuickDose[] = scheduled.map(d => {
-        const pep = getPeptideById(d.peptideId);
-        return {
-          ...d,
-          peptideName: pep?.name ?? d.peptideId,
-          categoryColor: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
-        };
-      }).sort((a, b) => a.time.localeCompare(b.time));
+    const enriched: QuickDose[] = scheduled.map(d => {
+      const pep = getPeptideById(d.peptideId);
+      return {
+        ...d,
+        peptideName: pep?.name ?? d.peptideId,
+        categoryColor: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
+      };
+    }).sort((a, b) => a.time.localeCompare(b.time));
 
-      setDoses(enriched);
-      setLogged(new Set(logs.map(l => l.scheduledDoseId).filter(Boolean) as string[]));
-      setLoading(false);
-    }
-    load();
+    setDoses(enriched);
+    setTodayLogs(logs);
+    setLogged(new Set(logs.map(l => l.scheduledDoseId).filter(Boolean) as string[]));
+    setLoading(false);
   }, [today]);
+
+  useEffect(() => { load(); }, [load]);
 
   async function handleLog(dose: QuickDose) {
     if (logged.has(dose.id) || justLogged.has(dose.id)) return;
@@ -83,6 +84,9 @@ export function QuickLog() {
   const visible = applyOwnerFilter(doses);
   const pending = visible.filter(d => !logged.has(d.id));
   const done = visible.filter(d => logged.has(d.id));
+  // Ad-hoc doses logged today: without these the page shows no trace of a
+  // just-logged ad-hoc dose, which reads as a failed save.
+  const adhocDone = applyOwnerFilter(todayLogs.filter(l => !l.scheduledDoseId));
 
   if (loading) {
     return (
@@ -157,10 +161,10 @@ export function QuickLog() {
         </section>
       )}
 
-      {done.length > 0 && (
+      {(done.length > 0 || adhocDone.length > 0) && (
         <section className="mb-6">
           <p className="text-xs text-text-muted uppercase tracking-wider font-medium mb-3">
-            Completed ({done.length})
+            Completed ({done.length + adhocDone.length})
           </p>
           <div className="space-y-2">
             {done.map(dose => (
@@ -171,6 +175,21 @@ export function QuickLog() {
                   </div>
                   <p className="text-sm text-text-secondary line-through flex-1">{dose.peptideName}</p>
                   <span className="text-xs text-text-muted font-mono">{dose.dose} {dose.unit}</span>
+                </div>
+              </div>
+            ))}
+            {adhocDone.map(log => (
+              <div key={log.id} className="card-glass p-3 opacity-70">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-secondary" />
+                  </div>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <p className="text-sm text-text-secondary truncate">{getPeptideById(log.peptideId)?.name ?? log.peptideId}</p>
+                    <UserBadge owner={log.owner} />
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary/15 text-secondary shrink-0">ad-hoc</span>
+                  </div>
+                  <span className="text-xs text-text-muted font-mono shrink-0">{log.dose} {log.unit} · {log.time}</span>
                 </div>
               </div>
             ))}
@@ -201,6 +220,7 @@ export function QuickLog() {
             setShowAdhoc(false);
             setAdhocMsg(`Logged ${name}`);
             setTimeout(() => setAdhocMsg(''), 3000);
+            load(); // a today-dose must show up in Completed immediately
           }}
         />
       )}
@@ -209,7 +229,8 @@ export function QuickLog() {
 }
 
 function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: (name: string) => void }) {
-  const injectable = PEPTIDES.filter(p => p.route !== 'oral' && p.route !== 'intranasal');
+  // Every peptide is loggable ad-hoc — the old injectable-only filter silently
+  // hid MK-677 (oral) and Semax/Selank (intranasal) from the picker.
   const [owner, setOwner] = useState<UserName>(getLastOwner());
   const [peptideId, setPeptideId] = useState('');
   const [dose, setDose] = useState(0);
@@ -276,7 +297,7 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
               className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Select peptide…</option>
-              {injectable.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {PEPTIDES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
 

@@ -33,6 +33,7 @@ export function Dashboard() {
   const [protocols, setProtocols] = useState<UserProtocol[]>([]);
   const [logged, setLogged] = useState<Set<string>>(new Set());
   const [logsByDoseId, setLogsByDoseId] = useState<Map<string, DoseLog>>(new Map());
+  const [adhocLogs, setAdhocLogs] = useState<DoseLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [coach, setCoach] = useState<NextStep | null>(null);
   const [allScheduled, setAllScheduled] = useState<ScheduledDose[]>([]);
@@ -65,6 +66,7 @@ export function Dashboard() {
       setLogsByDoseId(new Map(
         logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
       ));
+      setAdhocLogs(logs.filter(l => !l.scheduledDoseId));
       setLoading(false);
 
       // Re-arm reminders whenever today's doses change (new log, edit, reload).
@@ -88,6 +90,7 @@ export function Dashboard() {
   const visibleProtocols = applyOwnerFilter(protocols);
   const completedCount = visibleDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
   const totalCount = visibleDoses.length;
+  const visibleAdhoc = applyOwnerFilter(adhocLogs);
   const nextDose = visibleDoses.find(d => d.status === 'upcoming' && !logged.has(d.id));
 
   function getTimeUntil(timeStr: string): string {
@@ -225,22 +228,26 @@ export function Dashboard() {
         </div>
       )}
 
-      {totalCount > 0 && (
+      {(totalCount > 0 || visibleAdhoc.length > 0) && (
         <div className="mb-5 stagger-item" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-text-muted">
               Today's schedule
             </h2>
-            <span className="text-xs font-mono text-primary">
-              {completedCount}/{totalCount}
-            </span>
+            {totalCount > 0 && (
+              <span className="text-xs font-mono text-primary">
+                {completedCount}/{totalCount}
+              </span>
+            )}
           </div>
-          <div className="w-full h-1.5 rounded-full bg-border overflow-hidden mb-4">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
-            />
-          </div>
+          {totalCount > 0 && (
+            <div className="w-full h-1.5 rounded-full bg-border overflow-hidden mb-4">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             {visibleDoses.map((dose, i) => {
@@ -274,6 +281,22 @@ export function Dashboard() {
                 </button>
               );
             })}
+            {visibleAdhoc.map(log => (
+              <div key={log.id} className="card-glass w-full flex items-center gap-3 p-4">
+                <div className="w-2 h-2 rounded-full shrink-0 bg-secondary" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-text-muted">
+                      {getPeptideById(log.peptideId)?.name ?? log.peptideId}
+                    </p>
+                    <UserBadge owner={log.owner} />
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-secondary/15 text-secondary">ad-hoc</span>
+                  </div>
+                  <p className="text-xs text-text-muted font-mono">{log.dose} {log.unit}</p>
+                </div>
+                <span className="text-xs font-mono text-success">{log.time}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
