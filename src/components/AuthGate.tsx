@@ -84,22 +84,15 @@ function Splash({ label }: { label: string }) {
   );
 }
 
-/** Signup-only policy (existing accounts predate it and must still sign in):
- *  at least 10 chars, and not all one character class. */
-function passwordIssue(pw: string): string | null {
-  if (pw.length < 10) return 'Password must be at least 10 characters.';
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(pw)).length;
-  if (classes < 2) return 'Password needs a mix — add numbers, capitals, or symbols to plain letters (or vice versa).';
-  return null;
-}
-
+/** pepdose runs on a single shared Supabase account provisioned out-of-band, so
+ *  there is no self-signup — this form only signs in. Enforce it at the
+ *  Supabase project level too (disable signups / add RLS), since a client-only
+ *  gate can be bypassed by calling the API directly. */
 function LoginForm() {
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => emailRef.current?.focus(), []);
@@ -107,22 +100,10 @@ function LoginForm() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setNotice(null);
-    if (mode === 'signup') {
-      const issue = passwordIssue(password);
-      if (issue) { setError(issue); return; }
-    }
     setBusy(true);
-    const fn = mode === 'signin'
-      ? supabase!.auth.signInWithPassword({ email, password })
-      : supabase!.auth.signUp({ email, password });
-    const { data, error } = await fn;
+    const { error } = await supabase!.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) { setError(error.message); return; }
-    if (mode === 'signup' && !data.session) {
-      setNotice('Account created. Check your email to confirm, then sign in.');
-      setMode('signin');
-    }
+    if (error) setError(error.message);
   };
 
   return (
@@ -136,14 +117,7 @@ function LoginForm() {
           Sign in to sync your protocols and doses across devices.
         </p>
 
-        {mode === 'signup' && (
-          <div className="card-glass p-3 mb-3 border border-border text-xs text-text-muted">
-            A new account starts with an empty dataset. To see the existing shared
-            data, sign in with the shared account instead of creating a new one.
-          </div>
-        )}
         {error && <div className="card-glass p-3 mb-3 border border-danger/40 text-sm text-danger">{error}</div>}
-        {notice && <div className="card-glass p-3 mb-3 border border-success/40 text-sm text-success">{notice}</div>}
 
         <form onSubmit={submit} className="space-y-3">
           <input
@@ -159,8 +133,7 @@ function LoginForm() {
           <input
             type="password"
             required
-            minLength={mode === 'signup' ? 10 : 6}
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            autoComplete="current-password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -171,16 +144,13 @@ function LoginForm() {
             disabled={busy}
             className="w-full py-3 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-60"
           >
-            {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            {busy ? '…' : 'Sign in'}
           </button>
         </form>
 
-        <button
-          onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setNotice(null); }}
-          className="w-full mt-4 text-xs text-text-muted"
-        >
-          {mode === 'signin' ? 'No account yet? Create one' : 'Already have an account? Sign in'}
-        </button>
+        <p className="text-xs text-text-muted text-center mt-4">
+          pepdose uses a single shared account. Ask the owner for the credentials.
+        </p>
       </div>
     </div>
   );

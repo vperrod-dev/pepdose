@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   syncResult: { pushed: 0, pulled: 0, errors: [] as string[] },
   syncCalls: 0,
   signUpCalls: 0,
+  signInCalls: 0,
 }));
 
 vi.mock('../db/supabase', () => ({
@@ -19,6 +20,10 @@ vi.mock('../db/supabase', () => ({
     auth: {
       getSession: async () => ({ data: { session: state.session } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signInWithPassword: async () => {
+        state.signInCalls += 1;
+        return { data: { session: null }, error: null };
+      },
       signUp: async () => {
         state.signUpCalls += 1;
         return { data: { session: null }, error: null };
@@ -42,6 +47,7 @@ beforeEach(() => {
   state.syncResult = { pushed: 0, pulled: 0, errors: [] };
   state.syncCalls = 0;
   state.signUpCalls = 0;
+  state.signInCalls = 0;
 });
 
 afterEach(() => {
@@ -100,33 +106,22 @@ describe('AuthGate', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  describe('signup password policy', () => {
-    const submitSignup = async (password: string) => {
+  describe('shared-account sign-in only', () => {
+    it('offers no self-signup path', async () => {
       render(<AuthGate><p>app</p></AuthGate>);
       await flush();
-      fireEvent.click(screen.getByText('No account yet? Create one'));
+      expect(screen.queryByText('No account yet? Create one')).toBeNull();
+    });
+
+    it('signs in via signInWithPassword and never calls signUp', async () => {
+      render(<AuthGate><p>app</p></AuthGate>);
+      await flush();
       fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'v@example.com' } });
-      fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: password } });
+      fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'shared-pw' } });
       fireEvent.submit(screen.getByPlaceholderText('Password').closest('form')!);
       await flush();
-    };
-
-    it('rejects a signup password shorter than 10 characters', async () => {
-      await submitSignup('Short1!');
-      expect(screen.getByText('Password must be at least 10 characters.')).toBeTruthy();
+      expect(state.signInCalls).toBe(1);
       expect(state.signUpCalls).toBe(0);
-    });
-
-    it('rejects a signup password made of a single character class', async () => {
-      await submitSignup('aaaaaaaaaaaa');
-      expect(screen.getByText(/Password needs a mix/)).toBeTruthy();
-      expect(state.signUpCalls).toBe(0);
-    });
-
-    it('accepts a long mixed password and creates the account', async () => {
-      await submitSignup('correct-horse-battery-9');
-      expect(state.signUpCalls).toBe(1);
-      expect(screen.getByText(/Account created/)).toBeTruthy();
     });
   });
 });
