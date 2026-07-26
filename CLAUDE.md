@@ -24,6 +24,8 @@ surviving row is pushed back to repair the cloud.
 npm install
 npm run build        # tsc -b && vite build → dist/  (this is what CI gates on)
 npm test             # vitest — must pass before push
+npm run test:e2e     # headless-Chromium smoke of core user journeys (scripts/e2e-smoke.mjs);
+                     # full manual scenario catalog: docs/USER-TESTING.md
 npm run dev          # http://localhost:5173
 npm run lint         # eslint — repo has pre-existing errors; don't add new ones
 ```

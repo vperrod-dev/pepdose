@@ -15,3 +15,11 @@
   GitHub account block holds (ticket 4583559). Never say "GitHub Pages" for pepdose —
   read `scripts/deploy.sh` + CLAUDE.md before making any deploy/hosting claim. (User
   correction, twice: reading stale docs and repeating "GitHub Pages".)
+
+- **"Still failing" after a committed fix → check the deployed bundle first, then
+  reproduce like a user.** The 07-23 reschedule/ad-hoc fix (f3f3dfc) sat undeployed
+  for 3 days — committed ≠ shipped for this project (deploy is manual
+  `scripts/deploy.sh`). Every deploy must end with the live-URL check, and every
+  user-facing fix now has to pass `npm run test:e2e` (scripts/e2e-smoke.mjs) —
+  Victor's explicit ask: validate with user scenarios, not just unit tests.
+  Catalog: docs/USER-TESTING.md.

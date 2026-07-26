@@ -216,26 +216,36 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const pep = getPeptideById(peptideId);
   const unit = (pep?.dosing.unit ?? 'mg') as 'mcg' | 'mg';
   const valid = !!peptideId && dose > 0;
 
+  // A thrown IndexedDB write must never strand the sheet on "Saving…" (same
+  // guarantee DoseActionSheet gives): surface the error inline so the user can retry.
   async function handleSave() {
     if (!valid) return;
     setSaving(true);
-    await logDose({
-      owner,
-      protocolId: '',
-      peptideId,
-      date,
-      time,
-      dose,
-      unit,
-      route: pep?.route ?? 'subcutaneous',
-    });
-    setLastOwner(owner);
-    onLogged(pep?.name ?? 'dose');
+    setSaveError(null);
+    try {
+      await logDose({
+        owner,
+        protocolId: '',
+        peptideId,
+        date,
+        time,
+        dose,
+        unit,
+        route: pep?.route ?? 'subcutaneous',
+      });
+      setLastOwner(owner);
+      onLogged(pep?.name ?? 'dose');
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save — please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -249,6 +259,12 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
               <X className="w-5 h-5 text-text-muted" />
             </button>
           </div>
+
+          {saveError && (
+            <div role="alert" className="card-glass p-3 border border-danger/40 text-sm text-danger">
+              {saveError}
+            </div>
+          )}
 
           <UserPicker value={owner} onChange={setOwner} />
 
