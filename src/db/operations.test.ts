@@ -13,6 +13,7 @@ import {
   saveScheduledDoses,
   getScheduledDosesForProtocol,
   getScheduledDosesInRange,
+  getDoseLogsInRange,
   deleteProtocol,
   clearAllData,
   importData,
@@ -132,6 +133,19 @@ describe('getScheduledDosesInRange', () => {
     const inRange = await getScheduledDosesInRange('2026-07-15', '2026-07-16');
 
     expect(inRange.map((d) => d.id)).toEqual(['d2', 'd3']);
+  });
+});
+
+describe('getDoseLogsInRange', () => {
+  it('returns only logs within the inclusive date range', async () => {
+    await saveVial({ ...baseVial, dosesRemaining: 10 });
+    for (const date of ['2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17']) {
+      await logDose({ ...baseLog, date });
+    }
+
+    const inRange = await getDoseLogsInRange('2026-07-15', '2026-07-16');
+
+    expect(inRange.map((l) => l.date).sort()).toEqual(['2026-07-15', '2026-07-16']);
   });
 });
 

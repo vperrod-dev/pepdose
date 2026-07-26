@@ -4,7 +4,7 @@ import {
   isSameMonth, isSameDay, isToday, addMonths, subMonths,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { getScheduledDosesInRange, getAllDoseLogs, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
+import { getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { ProtocolTimeline } from '../components/ProtocolTimeline';
@@ -58,7 +58,7 @@ export function Calendar() {
       const rangeEnd = format(calEnd, 'yyyy-MM-dd');
       const [doses, logs, protos] = await Promise.all([
         getScheduledDosesInRange(rangeStart, rangeEnd),
-        getAllDoseLogs(),
+        getDoseLogsInRange(rangeStart, rangeEnd),
         getProtocols('active'),
       ]);
       setMonthDoses(doses);
