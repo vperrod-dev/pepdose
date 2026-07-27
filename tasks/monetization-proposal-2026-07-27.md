@@ -1,5 +1,10 @@
 # PepDose Monetization — Audit & Proposal (2026-07-27)
 
+> **STATUS: PARKED — Victor, 2026-07-27: "too risky and too costly." Do not re-propose.**
+> Audit findings remain valid reference. The Phase 0 hygiene items (false privacy claim,
+> missing disclaimers, imperative dose wording) concern the *current* app regardless of
+> monetization and were logged to the OS backlog as ordinary findings.
+
 Four-track audit (multi-tenant readiness, competitive landscape, compliance/liability, product gaps) synthesized into a phased plan. Verdict up front, detail after. Nothing here is legal advice; the compliance track is an engineering-side risk map.
 
 ---
