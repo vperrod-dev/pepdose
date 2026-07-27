@@ -23,3 +23,10 @@
   user-facing fix now has to pass `npm run test:e2e` (scripts/e2e-smoke.mjs) —
   Victor's explicit ask: validate with user scenarios, not just unit tests.
   Catalog: docs/USER-TESTING.md.
+
+- **Victor reads over a tunnel/phone — a VM file path is not a deliverable.** Writing
+  a report to `tasks/*.md` and replying "it's at ~/projects/..." is useless to him
+  (recurring correction, 2026-07-27: "cant see the markdown file - this is a tunnel!
+  you always make the same mistake"). Every report/plan/proposal must ship a readable
+  URL in the same turn: publish as a Claude artifact (private link) or serve via VM
+  Caddy. The repo copy is the record; the URL is the deliverable.
