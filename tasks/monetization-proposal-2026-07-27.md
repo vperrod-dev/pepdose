@@ -153,7 +153,61 @@ Order matters: legal/framing before money, local-tenant isolation before open si
 
 ---
 
-## 5. Open decisions — NEEDS YOU
+## 5. Costs — the full picture
+
+### Development: €0 cash
+
+All build work is Claude sessions on the existing VM. The "dev-days" in §3 are elapsed effort, not money. No contractors, no Apple dev account (web-first), no CI cost.
+
+### One-off cash costs
+
+| Item | Cost | Needed by | Notes |
+|---|---|---|---|
+| Domain (pepdose.app or .io) | €15–35/yr | Phase 5 | .app ~€15, .io ~€35; renewal same |
+| Solicitor: ToS + privacy notice + trader identity + subscription terms | €500–1,500 | before charging (Phase 3 gate) | Irish solicitor; template-based review at the low end |
+| DPIA | €0–500 | before charging | We draft it; optional solicitor review ~€300–500 |
+| MDR borderline determination (consultant, written) | €1,000–3,000 | **optional** but recommended before revenue | The "is this a medical device" letter; skippable if Phase 1 de-fang is done aggressively |
+| Ltd company formation (if chosen in decision 6) | €50–400 | optional, before charging | CRO DIY ~€50–100; formation agent ~€250–400. Accountant ~€500–1,000/yr ongoing |
+| **Total one-off, minimal path** | **~€550–2,000** | | domain + solicitor + self-DPIA |
+| **Total one-off, belt-and-braces** | **~€2,500–5,400** | | + MDR letter + ltd + reviewed DPIA |
+
+### Running costs (monthly)
+
+| Item | Bootstrap | At scale | Notes |
+|---|---|---|---|
+| Hosting (VM Caddy / Cloudflare Pages) | €0 | €0 | VM already paid by Azure credit; CF Pages free tier |
+| Supabase | €0 (free tier) | **$25/mo Pro** | Free tier pauses inactive projects + no daily backups — for strangers' Art. 9 health data, Pro from first paying customer. 500MB free DB is plenty for years (records are small JSON) |
+| Transactional email (Resend/Postmark) | €0 (free tier) | ~€10–15/mo | Reset/confirm emails via Supabase SMTP hook; receipts come from Stripe free |
+| Analytics (self-hosted Umami on VM) | €0 | €0 | Plausible cloud €9/mo only if we don't self-host |
+| Stripe | — | **~1.5% + €0.25/txn (EU cards)** + 0.7% Billing fee | Effective ~4–6% of revenue at €4.99; annual plans cut per-txn overhead |
+| **Fixed floor** | **€0/mo** | **~€25–40/mo** | |
+
+### Revenue scenarios (Pro €4.99/mo / €39.99/yr, assume 70% annual — industry norm is 68%)
+
+| Paying users | Gross/yr | Stripe ~5% | Fixed costs/yr (~€420) | **Net/yr** |
+|---|---|---|---|---|
+| 25 | ~€1,150 | −€58 | −€420 | **~€670** |
+| 100 | ~€4,600 | −€230 | −€420 | **~€3,950** |
+| 500 | ~€23,000 | −€1,150 | −€420 | **~€21,400** |
+| 1,000 | ~€46,000 | −€2,300 | −€420 | **~€43,300** |
+
+(Gross/yr per user ≈ €46 blended: 70% at €39.99 annual + 30% at €4.99×12.)
+
+### Break-even
+
+- **Infrastructure**: ~9 paying users covers the €40/mo fixed floor.
+- **Minimal one-off (~€1,200 mid-estimate)**: recouped by ~30 users in year 1.
+- **Belt-and-braces (~€4,000)**: recouped by ~90–100 users in year 1.
+
+Realistic first-year bar given zero audience and no app-store channel: **25–100 users** via calculator SEO + community presence. That pays the bills, not more. Upside case needs the free calculator page to rank and community word-of-mouth — the same motion that took GLP3 Planner and SHOTLOG to relevance. Downside is capped: worst case we're out the legal spend and own a de-risked, legally clean app.
+
+### What it costs to do nothing
+
+Not zero. Sync is live today with a false "no cloud" first-run claim and app-originated dose advice — the Phase 0/1 liability exposure exists **now**, monetized or not. Phase 0 is €0 cash and ~1 day.
+
+---
+
+## 6. Open decisions — NEEDS YOU
 
 1. **Go/no-go + scope**: full plan, or Phase 0+1 only (de-risk now, monetize later)?
 2. **Feature cuts** (Phase 1): OK to cut ladder auto-rescaling and the goal→protocol jump? Both are liked features; both are the top liability items.
