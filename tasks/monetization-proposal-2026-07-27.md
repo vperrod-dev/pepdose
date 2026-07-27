@@ -168,7 +168,8 @@ All build work is Claude sessions on the existing VM. The "dev-days" in §3 are 
 | DPIA | €0–500 | before charging | We draft it; optional solicitor review ~€300–500 |
 | MDR borderline determination (consultant, written) | €1,000–3,000 | **optional** but recommended before revenue | The "is this a medical device" letter; skippable if Phase 1 de-fang is done aggressively |
 | Ltd company formation (if chosen in decision 6) | €50–400 | optional, before charging | CRO DIY ~€50–100; formation agent ~€250–400. Accountant ~€500–1,000/yr ongoing |
-| **Total one-off, minimal path** | **~€550–2,000** | | domain + solicitor + self-DPIA |
+| **Total one-off, indie path** | **~€15–35** | | domain only — ToS/privacy/DPIA self-drafted from templates, aggressive de-fang instead of MDR letter, sole trader; paid legal deferred to a trigger (~100 paying users, funded from revenue). Higher personal liability exposure, mitigated by de-fang + labels + local-first. This is what every indie competitor in the niche does. |
+| **Total one-off, minimal path** | **~€550–2,000** | | domain + solicitor ToS/privacy + self-DPIA |
 | **Total one-off, belt-and-braces** | **~€2,500–5,400** | | + MDR letter + ltd + reviewed DPIA |
 
 ### Running costs (monthly)
