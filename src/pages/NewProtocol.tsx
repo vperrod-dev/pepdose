@@ -24,6 +24,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   cosmetic: '#ec4899',
   sexual_health: '#a855f7',
   nootropic: '#06b6d4',
+  longevity: '#14b8a6',
 };
 
 const FREQUENCY_LABELS: Record<string, string> = {

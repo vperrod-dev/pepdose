@@ -11,10 +11,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   cosmetic: '#ec4899',
   sexual_health: '#a855f7',
   nootropic: '#06b6d4',
+  longevity: '#14b8a6',
 };
 
 const CATEGORIES: ('all' | PeptideCategory)[] = [
-  'all', 'healing', 'glp1', 'gh_secretagogue', 'fat_loss', 'cosmetic', 'sexual_health', 'nootropic',
+  'all', 'healing', 'glp1', 'gh_secretagogue', 'fat_loss', 'cosmetic', 'sexual_health', 'nootropic', 'longevity',
 ];
 
 function formatFrequency(p: Peptide): string {

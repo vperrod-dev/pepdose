@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-07-27T13:26:05.806Z",
+  "mode": "headless",
+  "workerType": "testgaps",
+  "model": "sonnet",
+  "durationMs": 19144,
+  "executionId": "testgaps_1785158746662_3tq7cu",
+  "success": true,
+  "findings": {
+    "sections": [],
+    "codeBlocks": []
+  },
+  "rawOutputPreview": "Report already exist, done 3x today, same task. File complete: `tasks/test-coverage-gaps-2026-07-27.md`.\n\nSummary: pure `utils/*.ts` 24/24 tested. Gaps —\n\n1. Untested pure logic: `stackingRules.ts`, `symptoms.ts`, `ViewFilterContext.tsx` — quick wins, skeletons ready.\n2. `db/operations.ts`: 23 of 31 exports untested (`updateProtocol`, `updateFutureScheduledDoses`, `deleteUpcomingDosesFrom`, `updateDoseLog`, `exportAllData`/`clearAllData`, etc). Also missing: no test forces an IndexedDB write rejection to verify caller sees it.\n3. `DoseActionSheet.tsx` — 443 lines, zero tests, primary dose-logging write path. Full skeleton in file (log/edit/delete/reschedule/skip flows).\n4. Inventory of other untested components/pages (NewProtocol, Protocols, HealthMarkers, ReconCalculator, Calendar, Dashboard, VialInventory, BodyMapSVG, etc).\n5. Integration gaps: protocol→schedule→log→vial draw-down end to end; `schema.ts` v1→v3 upgrade path; sync `no session` early-return case.\n\nPriority order at bottom of file: stackingRules/symptoms → ViewFilterContext → operations.ts branchy functions → DoseActionSheet → integration test.\n\nNothing to change — want me to start implementing tier 1 (stackingRules/symptoms, ~20 min zero risk)?\n",
+  "rawOutputLength": 1230
+}
