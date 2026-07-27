@@ -113,6 +113,24 @@ describe('triggered (closed-app) reminders', () => {
   });
 });
 
+describe('stale trigger cancellation', () => {
+  it('closes an armed trigger whose dose no longer exists', async () => {
+    stubBrowser('America/New_York');
+    vi.stubGlobal('TimestampTrigger', vi.fn());
+    const close = vi.fn();
+    // Armed earlier for a dose meanwhile deleted; would fire in 30 minutes.
+    const stale = { tag: 'gone', title: 'old', body: 'old', showTrigger: { timestamp: Date.now() + 30 * 60_000 }, close };
+    vi.stubGlobal('navigator', {
+      serviceWorker: { ready: Promise.resolve({ showNotification, getNotifications: async () => [stale] }) },
+    });
+
+    await scheduleReminders(); // DB holds no doses -> the armed trigger is stale
+    await flush();
+
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('per-day fired dedupe', () => {
   it('does not fire the same reminder twice in one day', async () => {
     stubBrowser('America/New_York');

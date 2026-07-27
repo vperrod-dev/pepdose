@@ -77,6 +77,12 @@ function markFired(id: string) {
   localStorage.setItem(FIRED_KEY, JSON.stringify({ date: todayStr(), ids: [...set] }));
 }
 
+function unmarkFired(id: string) {
+  const set = firedSet();
+  if (!set.delete(id)) return;
+  localStorage.setItem(FIRED_KEY, JSON.stringify({ date: todayStr(), ids: [...set] }));
+}
+
 // --- scheduled (triggered) notifications for closed-app delivery -----------
 
 /** True where the Notification Triggers API lets a notification fire at a future
@@ -121,6 +127,33 @@ export async function scheduleTriggeredReminder(
   } catch {
     return false;
   }
+}
+
+/**
+ * Close armed-but-not-yet-fired OS triggers whose dose was edited or no longer
+ * exists (tag = dose id), and unmark them so the caller re-arms from current
+ * truth. Already-shown notifications are left alone. No-op where the Triggers
+ * API is absent.
+ */
+async function cancelStaleTriggers(
+  items: { dose: { id: string }; remindAt: number; title: string; body: string }[],
+  now: number,
+): Promise<void> {
+  if (!triggeredNotificationsSupported()) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    // includeTriggered lists armed-but-not-yet-shown triggered notifications.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const armed: any[] = await (reg.getNotifications as any)({ includeTriggered: true });
+    const current = new Map(items.map((i) => [i.dose.id, i]));
+    for (const n of armed) {
+      if (!n.showTrigger || n.showTrigger.timestamp <= now) continue; // shown or not triggered: leave it
+      const match = current.get(n.tag);
+      if (match && match.remindAt === n.showTrigger.timestamp && match.title === n.title && match.body === n.body) continue;
+      n.close();
+      unmarkFired(n.tag);
+    }
+  } catch { /* ignore */ }
 }
 
 async function show(title: string, body: string, tag: string, url: string) {
@@ -178,16 +211,26 @@ export async function scheduleReminders(): Promise<void> {
   const now = Date.now();
   const lead = settings.reminderMinutesBefore * 60_000;
 
-  for (const dose of pending) {
-    if (firedSet().has(dose.id)) continue;
-
+  const items = pending.flatMap((dose) => {
     const doseAt = zonedTimeToUtc(dose.date, dose.time || '08:00', settings.timezone);
-    if (Number.isNaN(doseAt)) continue;
-    const remindAt = doseAt - lead;
+    if (Number.isNaN(doseAt)) return [];
     const pep = getPeptideById(dose.peptideId);
-    const title = `${pep?.name ?? 'Dose'} reminder`;
-    const body = `${dose.dose} ${dose.unit} due at ${dose.time}${dose.owner ? ` · ${dose.owner}` : ''}`;
-    const url = import.meta.env.BASE_URL + 'log';
+    return [{
+      dose,
+      doseAt,
+      remindAt: doseAt - lead,
+      title: `${pep?.name ?? 'Dose'} reminder`,
+      body: `${dose.dose} ${dose.unit} due at ${dose.time}${dose.owner ? ` · ${dose.owner}` : ''}`,
+      url: import.meta.env.BASE_URL + 'log',
+    }];
+  });
+
+  // An OS trigger armed for a since-edited/deleted dose would still fire with
+  // the old info — close those before (re-)arming.
+  await cancelStaleTriggers(items, now);
+
+  for (const { dose, doseAt, remindAt, title, body, url } of items) {
+    if (firedSet().has(dose.id)) continue;
 
     // Window already open (reminder time passed but the dose isn't long overdue):
     // fire immediately so a reopened app still nudges you.
