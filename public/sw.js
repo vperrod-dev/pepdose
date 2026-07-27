@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pepdose-v3'; // v3: stop caching cross-origin (Supabase) responses; activate purges v2 caches that held them
+const CACHE_NAME = 'pepdose-v4'; // v4: stop caching error responses; activate purges v3 caches that may hold them
 const BASE = '/pepdose/';
 const STATIC_ASSETS = [
   BASE,
@@ -63,8 +63,12 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        // Never cache errors: a stored 404/500 would be served on later
+        // offline/network-fail requests.
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(event.request).then((r) => r || caches.match(BASE)))
