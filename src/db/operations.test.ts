@@ -233,6 +233,20 @@ describe('importData', () => {
     expect(vials).toHaveLength(1);
   });
 
+  it('stamps imported rows with a fresh updatedAt so a newer remote tombstone cannot re-delete them', async () => {
+    const log = await logDose(baseLog);
+    const exported = await exportAllData();
+    const stale = JSON.parse(exported);
+    stale.doseLogs[0].updatedAt = '2020-01-01T00:00:00.000Z';
+    const before = Date.now();
+
+    await importData(JSON.stringify(stale));
+
+    const [restored] = await getAllDoseLogs();
+    expect(restored.id).toBe(log.id);
+    expect(Date.parse(restored.updatedAt ?? '')).toBeGreaterThanOrEqual(before);
+  });
+
   it('clears a pending deletion for a re-imported record', async () => {
     await saveVial(baseVial);
     const log = await logDose(baseLog);

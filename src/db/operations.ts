@@ -394,6 +394,7 @@ export async function importData(jsonString: string): Promise<void> {
   const db = await getDB();
 
   const ownedStores = new Set(['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers']);
+  const now = new Date().toISOString();
   for (const storeName of IMPORT_STORES) {
     if (data[storeName]) {
       const tx = db.transaction([storeName, 'deletions'], 'readwrite');
@@ -402,6 +403,9 @@ export async function importData(jsonString: string): Promise<void> {
       for (const item of data[storeName] as Record<string, unknown>[]) {
         // Default owner for records from pre-two-user backups.
         if (ownedStores.has(storeName) && !item.owner) item.owner = 'Victor';
+        // Restore is an explicit resurrection: without a fresh stamp, a remote
+        // tombstone newer than the backup would LWW-delete the row on next sync.
+        item.updatedAt = now;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await store.put(item as any);
         // Restoring a record cancels any pending delete of it.
