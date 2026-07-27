@@ -26,3 +26,8 @@ dist-ssr
 
 # SDD scratch
 .superpowers/
+
+# Agent runtime state (pid files, daemon metrics, generated config)
+.claude-flow/
+.claude/proven-config.json
+.claude/.proven-config-version
