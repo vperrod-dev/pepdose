@@ -104,6 +104,47 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     category: 'Weight Loss',
   },
   {
+    id: 'mitochondrial-support',
+    name: 'Mitochondrial Support (MOTS-c)',
+    description: 'MOTS-c 5mg twice weekly as an exercise-mimetic AMPK activator. Report-only territory: there is no human efficacy data yet, a Phase 2a trial is still recruiting, and MOTS-c is WADA-prohibited at all times — do not run this if you are a tested athlete.',
+    peptides: [
+      { peptideId: 'mots-c', doseOverride: 5, unitOverride: 'mg' },
+    ],
+    durationWeeks: 6,
+    category: 'Longevity',
+  },
+  {
+    id: 'weight-management-oral',
+    name: 'Weight Management (oral GLP-1)',
+    description: 'Orforglipron daily, escalating 0.8 → 17.2mg with at least 30 days per step. The oral route with no fasting or water restriction — the practical advantage over oral semaglutide. FDA-approved April 2026; 5.5mg and 9mg are legitimate stopping points if response is adequate.',
+    peptides: [
+      { peptideId: 'orforglipron' },
+    ],
+    durationWeeks: 52,
+    category: 'Weight Loss',
+  },
+  {
+    id: 'gh-pulse-ghrp2',
+    name: 'GH Pulse (Mod GRF + GHRP-2)',
+    description: 'Mod GRF 1-29 with GHRP-2 pre-bed — a GHRH analog plus a ghrelin-receptor agonist amplify the GH pulse synergistically. Both dose at their saturation point (100mcg); going higher adds cortisol and prolactin rather than growth hormone. Inject fasted and wait 20-30 minutes before eating.',
+    peptides: [
+      { peptideId: 'cjc-1295-no-dac', doseOverride: 100, unitOverride: 'mcg' },
+      { peptideId: 'ghrp-2', doseOverride: 100, unitOverride: 'mcg' },
+    ],
+    durationWeeks: 8,
+    category: 'Performance',
+  },
+  {
+    id: 'immune-support-ta1',
+    name: 'Immune Support (Thymosin Alpha-1)',
+    description: 'Thymosin alpha-1 1.6mg twice weekly — the dose used in the hepatitis B registration trials, and the best-evidenced protocol in this library. Effects are immunological and silent, so judge over 8-12 weeks rather than days. Vials ship at 1.6mg, not the usual 5mg.',
+    peptides: [
+      { peptideId: 'thymosin-alpha-1', doseOverride: 1.6, unitOverride: 'mg' },
+    ],
+    durationWeeks: 12,
+    category: 'Healing',
+  },
+  {
     id: 'cognitive-stack',
     name: 'Cognitive Enhancement',
     description: 'Semax + Selank intranasal stack for focus, memory, and anxiety reduction.',
