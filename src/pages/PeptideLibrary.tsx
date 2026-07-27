@@ -201,6 +201,28 @@ export function PeptideLibrary() {
                               : `Pre-made · ${p.reconstitution.shelfLifeDays}d shelf life`}
                           </p>
                         </div>
+                        {p.halfLifeNote && (
+                          <div>
+                            <p className="text-text-muted mb-0.5">About the half-life</p>
+                            <p className="text-text-secondary">{p.halfLifeNote}</p>
+                          </div>
+                        )}
+                        {p.regulatoryStatus && (
+                          <div>
+                            <p className="text-text-muted mb-0.5">Regulatory status</p>
+                            <p className="text-text-secondary">{p.regulatoryStatus}</p>
+                          </div>
+                        )}
+                        {p.safetyFlags && p.safetyFlags.length > 0 && (
+                          <div className="rounded-md border border-danger/40 bg-danger/10 p-2">
+                            <p className="mb-1 font-semibold text-danger">Safety</p>
+                            <ul className="list-disc space-y-1 pl-4 text-text-secondary">
+                              {p.safetyFlags.map((flag, idx) => (
+                                <li key={idx}>{flag}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         <p className="text-text-muted italic">{p.cyclingReason}</p>
                       </div>
                     )}
