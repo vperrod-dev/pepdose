@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { planMerge, resetSyncCursor, rowTs, syncNow, type RemoteRow, type Timestamped } from './sync';
 import { getDB } from './schema';
-import { clearAllData } from './operations';
+import { clearAllData, exportAllData, getAllDoseLogs, importData, logDose } from './operations';
 
 // In-memory Supabase double so syncNow's push/tombstone/error paths are testable.
 interface Envelope { kind: string; id: string; deleted: boolean }
@@ -151,6 +151,22 @@ describe('planMerge', () => {
     const { localPut, pushTombstone, localDelete } = planMerge([], rows, []);
     expect(localPut.map((r) => r.id).sort()).toEqual(['a', 'b']);
     expect(pushTombstone).toEqual([]);
+    expect(localDelete).toEqual([]);
+  });
+});
+
+describe('backup restore vs newer tombstone (F17 regression)', () => {
+  it('a record restored from a backup survives a cloud tombstone newer than the backup', async () => {
+    await clearAllData();
+    // Backup taken long ago, record deleted (tombstone synced) after it.
+    const log = await logDose({ owner: 'Victor', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq' });
+    const backup = JSON.parse(await exportAllData());
+    backup.doseLogs[0].updatedAt = '2020-01-01T00:00:00.000Z';
+
+    await importData(JSON.stringify(backup));
+    const [restored] = await getAllDoseLogs();
+    const { localDelete } = planMerge([restored], [ledgerTombstone(log.id, '2023-01-01T00:00:00.000Z')]);
+
     expect(localDelete).toEqual([]);
   });
 });
