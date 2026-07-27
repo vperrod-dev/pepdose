@@ -35,7 +35,10 @@ now** + **Sign out** live on the Export/Import page.
 Only needed if you ever recreate the Supabase project.
 
 1. **Create project** at https://supabase.com (free tier).
-2. **Run the migration**: SQL Editor → paste `supabase/migrations/0001_init.sql` → Run.
+2. **Run the migrations in order**: SQL Editor → paste each file in
+   `supabase/migrations/` (`0001_init.sql`, then `0002_reject_extra_signups.sql`) → Run.
+   0002 enforces the single-shared-account model server-side: the first account created
+   is allowed, every later signup is rejected even if the dashboard signup toggle is on.
    (Or via Management API with a personal access token:
    `POST https://api.supabase.com/v1/projects/<ref>/database/query`.)
 3. **Keys**: Project Settings → API. Use the **publishable** key (`sb_publishable_…`) or the
@@ -56,3 +59,5 @@ Only needed if you ever recreate the Supabase project.
 - `src/db/sync.ts` — `planMerge` (pure, unit-tested in `sync.test.ts`) + `syncNow`.
 - `src/components/AuthGate.tsx` — login gate + sync triggers; wraps the app in `App.tsx`.
 - `supabase/migrations/0001_init.sql` — generic `records` table (jsonb payload) + RLS policies.
+- `supabase/migrations/0002_reject_extra_signups.sql` — `auth.users` trigger rejecting every
+  signup after the first account (server-side enforcement of the single shared account).

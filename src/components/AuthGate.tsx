@@ -85,9 +85,10 @@ function Splash({ label }: { label: string }) {
 }
 
 /** pepdose runs on a single shared Supabase account provisioned out-of-band, so
- *  there is no self-signup — this form only signs in. Enforce it at the
- *  Supabase project level too (disable signups / add RLS), since a client-only
- *  gate can be bypassed by calling the API directly. */
+ *  there is no self-signup — this form only signs in. A client-only gate can be
+ *  bypassed by calling the API directly, so the constraint is also enforced
+ *  server-side: `supabase/migrations/0002_reject_extra_signups.sql` rejects any
+ *  signup after the first account, and RLS scopes rows per account. */
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
