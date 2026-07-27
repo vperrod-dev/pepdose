@@ -70,6 +70,19 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
 - Peptide content: `data/peptides.ts` (dosing/reconstitution/titration) and
   `data/experienceTimelines.ts` (`PeptideExperience` — weekly guide + optional
   evidence/dosing/tips/mistakes/stacking sections rendered by `ExperienceGuide.tsx`).
+  39 compounds, each with an entry in BOTH files plus any relevant
+  `data/stackingRules.ts` pairs — `data/dataIntegrity.test.ts` enforces that
+  cross-referencing, so run `npm test` after touching any of them.
+  Optional `Peptide` fields carry what marketing copy usually omits:
+  `halfLifeNote` (most of these compounds have no human PK at all — say so rather
+  than presenting a vendor number as fact), `regulatoryStatus` (approval and FDA
+  compounding status, which moves — date it), and `safetyFlags` (boxed warnings,
+  trial deaths, hard contraindications). Keep the honesty when editing: state
+  what is trial-derived versus community consensus, and never invent a
+  cycling rationale or a mechanism the literature does not support.
+- GLP-1 stacking: `stackingRules.ts` generates a contraindication for every pair
+  among `GLP1_RECEPTOR_ACTIVE`. Add any new GLP-1-receptor-active compound to
+  that list, not just to `PEPTIDES`.
 - Deploy: **`scripts/deploy.sh`** — builds and rsyncs `dist/` to `/srv/pepdose`
   on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
   Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ .
