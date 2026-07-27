@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pepdose-v4'; // v4: stop caching error responses; activate purges v3 caches that may hold them
+const CACHE_NAME = 'pepdose-v5'; // v5: peptide data rewrite (39 compounds, corrected dosing) — force installed clients off the old shell
 const BASE = '/pepdose/';
 const STATIC_ASSETS = [
   BASE,
