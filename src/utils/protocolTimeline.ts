@@ -13,6 +13,8 @@ export interface WeekSegment {
   unit?: 'mcg' | 'mg';
   /** True if any dose that week is flagged as a titration step-up vs the previous on-week. */
   isStepUp: boolean;
+  /** True if this week falls within an explicitly scheduled break (off-cycle). */
+  isBreak: boolean;
   logged: number;
   missed: number;
   skipped: number;
@@ -52,7 +54,7 @@ export function weekIndexOfDose(dose: ScheduledDose, protocolStartISO: string): 
 }
 
 function blankWeek(week: number): WeekSegment {
-  return { week, count: 0, peptides: [], isStepUp: false, logged: 0, missed: 0, skipped: 0, upcoming: 0 };
+  return { week, count: 0, peptides: [], isStepUp: false, isBreak: false, logged: 0, missed: 0, skipped: 0, upcoming: 0 };
 }
 
 function buildProtocolTimeline(
@@ -82,6 +84,15 @@ function buildProtocolTimeline(
     if (seg.dose === undefined || dose.dose > seg.dose) {
       seg.dose = dose.dose;
       seg.unit = dose.unit;
+    }
+  }
+
+  // Mark explicitly scheduled break weeks.
+  if (protocol.breaks) {
+    for (const brk of protocol.breaks) {
+      for (let w = brk.weekStart; w <= brk.weekEnd; w++) {
+        if (w >= 1 && w <= protocol.durationWeeks) weeks[w - 1].isBreak = true;
+      }
     }
   }
 

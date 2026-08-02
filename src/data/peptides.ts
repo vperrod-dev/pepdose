@@ -303,6 +303,38 @@ export const PEPTIDES: Peptide[] = [
         { weekStart: 13, weekEnd: 16, dose: 9, unit: 'mg' },
         { weekStart: 17, weekEnd: 999, dose: 12, unit: 'mg' },
       ],
+      protocolVariants: [
+        {
+          id: 'clinical-trial',
+          name: 'Trial Ladder (80 weeks continuous)',
+          description: 'Phase 3 TRIUMPH-1 protocol: 2→4→6→9→12mg weekly, 4-week steps. Continuous 80-week run with no scheduled breaks. The only regimen with published trial outcomes. Community reports the full 12mg ceiling as harsh for most.',
+          phases: [
+            { weekStart: 1, weekEnd: 80, frequency: 'weekly' },
+          ],
+          source: 'https://www.nejm.org/doi/full/10.1056/NEJMoa2305668',
+        },
+        {
+          id: 'community-cycle',
+          name: 'Community 8-on / 8-off',
+          description: 'Self-reported community protocol: slower titration (0.25→4mg over 6-8 weeks), 8 weeks on at a lower peak (1.5-4mg), then 8 weeks off. Taper 50% every 2 weeks before the off-cycle. Most cited for appetite-tone recovery and to minimize receptor downregulation.',
+          phases: [
+            { weekStart: 1, weekEnd: 8, frequency: 'weekly' },
+            { weekStart: 9, weekEnd: 16, frequency: 'weekly' },
+          ],
+          doseOverride: 4,
+          source: 'https://thepeptidecatalog.com/articles/retatrutide-cycle-protocol',
+        },
+        {
+          id: 'microdose-maintenance',
+          name: 'Microdose Maintenance',
+          description: 'Low-dose maintenance (0.5-2mg weekly) for users who responded well at higher doses and want to preserve the effect with minimal side effects. Often run continuously with a 2-4 week break every 3-4 months.',
+          phases: [
+            { weekStart: 1, weekEnd: 12, frequency: 'weekly' },
+          ],
+          doseOverride: 2,
+          source: 'https://www.peptidedeck.com/peptides/microdosing-retatrutide-protocol',
+        },
+      ],
     },
     reconstitution: {
       typicalVialMg: 10,
@@ -317,7 +349,7 @@ export const PEPTIDES: Peptide[] = [
       'Discontinuation for side effects reached 11.3% at 12mg in Phase 3.',
       'Reconstitution figures here describe grey-market compounded product. No approved label exists to validate them.',
     ],
-    cyclingReason: 'Continuous therapy, not cycled — TRIUMPH-1 ran 80 weeks plus a 24-week extension without interruption. Uses the Phase 3 escalation (2→4→6→9→12mg, 4-week steps). Nausea rose 28.6% → 38.4% → 42.4% across 4/9/12mg and vomiting roughly doubled from 4mg to 9mg (10.6% → 22.8%), so slower titration is common. Monitor liver enzymes and lipids.',
+    cyclingReason: 'TRIUMPH-1 ran 80 weeks continuous, but community protocols typically cycle (8-on/8-off or 12-on/8-off). The Phase 3 ladder (2→4→6→9→12mg, 4-week steps) is the clinical baseline; community titration is slower (0.25→0.5→1→1.5→2→2-4mg over 6-8 weeks) with lower peak doses (often 4-8mg). Taper ~50% every 2 weeks before stopping to soften appetite rebound. Monitor liver enzymes and lipids.',
   },
   {
     id: 'cjc-1295-no-dac',
@@ -567,6 +599,28 @@ export const PEPTIDES: Peptide[] = [
       offCycleWeeks: 4,
       timeOfDay: 'any',
       withFood: 'either',
+      protocolVariants: [
+        {
+          id: 'daily-30d',
+          name: 'Daily 30D (Skin Protocol)',
+          description: '1-2mg daily for 30 days, then 2-4 weeks off. The most-cited standalone GHK-Cu protocol for skin quality and collagen synthesis. Take zinc 15-25mg/day to counterbalance copper.',
+          phases: [
+            { weekStart: 1, weekEnd: 4, frequency: 'daily' },
+          ],
+          doseOverride: 2,
+          source: 'https://www.reddit.com/r/Peptides/comments/1b5qg0u/what_does_a_typical_ghkcu_cycle_look_like/',
+        },
+        {
+          id: 'eod-4wk',
+          name: 'Every Other Day (Extended)',
+          description: '1.5-2mg every other day for 4-6 weeks, then 2-4 weeks off. Lower copper load than daily dosing while maintaining near-daily receptor activation. Good for long protocols.',
+          phases: [
+            { weekStart: 1, weekEnd: 6, frequency: 'eod' },
+          ],
+          doseOverride: 2,
+          source: 'https://www.reddit.com/r/Peptides/comments/1bac702/whats_your_ghkcu_protocol/',
+        },
+      ],
     },
     reconstitution: {
       typicalVialMg: 50,
@@ -843,6 +897,28 @@ export const PEPTIDES: Peptide[] = [
         { weekStart: 2, weekEnd: 2, dose: 50, unit: 'mg' },
         { weekStart: 3, weekEnd: 999, dose: 100, unit: 'mg' },
       ],
+      protocolVariants: [
+        {
+          id: 'ramp-up',
+          name: 'Start Low & Slow (4 weeks)',
+          description: 'Tolerance-building ramp: 25mg (wk1) → 50mg (wk2) → 100mg (wk3-4), 1-2x weekly. The flush and pressure reaction is rate-dependent, so inject slowly regardless of dose. Then 1-2 weeks off.',
+          phases: [
+            { weekStart: 1, weekEnd: 4, frequency: 'weekly' },
+          ],
+          doseOverride: 50,
+          source: 'https://www.peptideschedule.com/peptides/nad',
+        },
+        {
+          id: 'steady-100',
+          name: 'Steady 100mg (4 weeks)',
+          description: 'For tolerated users: 100mg 1-2x weekly for 4 weeks, then 1-2 weeks off. Split into two smaller injections if one push is too intense. No established maintenance — keep blocks short.',
+          phases: [
+            { weekStart: 1, weekEnd: 4, frequency: 'weekly' },
+          ],
+          doseOverride: 100,
+          source: 'https://www.peptideschedule.com/peptides/nad',
+        },
+      ],
     },
     reconstitution: {
       typicalVialMg: 500,
@@ -880,6 +956,28 @@ export const PEPTIDES: Peptide[] = [
       offCycleWeeks: 6,
       timeOfDay: 'morning',
       withFood: 'either',
+      protocolVariants: [
+        {
+          id: 'standard-6on-6off',
+          name: 'Standard 6-on / 6-off',
+          description: '5mg twice weekly (10mg total) for 6 weeks, then 6 weeks off. Most-cited community pattern; treats MOTS-c as an exercise mimetic rather than a daily tonic.',
+          phases: [
+            { weekStart: 1, weekEnd: 6, frequency: 'eod' },
+          ],
+          doseOverride: 5,
+          source: 'https://www.reddit.com/r/Peptides/comments/1hbwu8b/motsc_liquid_energy/',
+        },
+        {
+          id: 'weekly-single',
+          name: 'Weekly Single 5mg',
+          description: '5mg once weekly for 8 weeks, then 4 weeks off. Lower frequency, same weekly total — easier to adhere for users who forget injections.',
+          phases: [
+            { weekStart: 1, weekEnd: 8, frequency: 'weekly' },
+          ],
+          doseOverride: 5,
+          source: 'https://www.reddit.com/r/Peptides/comments/1k6h11a/ok_i_was_a_doubter_week_6_just_started_and_holy/',
+        },
+      ],
     },
     reconstitution: {
       typicalVialMg: 10,
@@ -1554,6 +1652,28 @@ export const PEPTIDES: Peptide[] = [
         { weekStart: 1, weekEnd: 1, dose: 250, unit: 'mcg' },
         { weekStart: 2, weekEnd: 999, dose: 500, unit: 'mcg' },
       ],
+      protocolVariants: [
+        {
+          id: 'loading-standard',
+          name: 'Loading (2 weeks daily)',
+          description: 'Standard community protocol: 250mcg daily for 2 weeks (pre-bed to sleep through nausea), then step down to 1-2x/week maintenance for as long as desired pigmentation holds. Reassess moles weekly.',
+          phases: [
+            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
+          ],
+          doseOverride: 250,
+          source: 'https://www.calcmypeptide.com/peptides/melanotan-2',
+        },
+        {
+          id: 'gentle-start',
+          name: 'Gentle Start (microdose ramp)',
+          description: '100mcg daily for week 1, 250mcg daily for week 2, then 1-2x/week maintenance. Minimizes the nausea/flushing that hits most people on day 1.',
+          phases: [
+            { weekStart: 1, weekEnd: 2, frequency: 'daily' },
+          ],
+          doseOverride: 100,
+          source: 'https://formblends.com/articles/peptide-hub/melanotan-ii-tanning-risks-guide',
+        },
+      ],
     },
     reconstitution: {
       typicalVialMg: 10,
@@ -1570,7 +1690,7 @@ export const PEPTIDES: Peptide[] = [
       'This does not replace sun protection. Users who tan more because of it compound the exact risk in question.',
       'Do not use with a personal or family history of melanoma, many atypical moles, or immunosuppression.',
     ],
-    cyclingReason: 'Not receptor desensitization — cycling limits cumulative melanocortin exposure. After reaching desired pigmentation, maintenance is typically 1-2 injections per week rather than daily.',
+    cyclingReason: 'Not receptor desensitization — cycling limits cumulative melanocortin exposure. After reaching desired pigmentation, maintenance is typically 1-2 injections per week rather than daily. Standard cycle: 2 weeks daily loading, then 1-2x/week maintenance, with a minimum 4-week off-cycle between courses.',
   },
   {
     id: 'igf-1-lr3',

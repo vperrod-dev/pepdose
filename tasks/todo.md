@@ -4,6 +4,22 @@
 > Cross-project backlog: claude-config/os/backlog.md
 > Full context for continuing on a laptop: see `HANDOFF.md` at the repo root.
 
+## Done — protocol library + breaks (2026-08-02)
+
+- [x] Protocol variants on peptides: Retatrutide (clinical-trial, community-cycle,
+  microdose-maintenance), NAD+ (ramp-up, steady-100), MT2 (loading-standard,
+  gentle-start), GHK-Cu (daily-30d, eod-4wk), MOTS-c (standard-6on-6off, weekly-single)
+- [x] Protocol templates with breaks: Retatrutide Community Cycle (8-on/8-off),
+  NAD+ Ramp/Steady (4-on/2-off), MT2 Loading (2-on/4-off), GHK-Cu Daily/EOD (4-on/4-off),
+  GLOW Blend (8-on/4-off), MOTS-c 6-on/6-off, Retatrutide+GLOW combo
+- [x] `ProtocolBreak` interface + `breaks` field on `ProtocolTemplate` and `UserProtocol`
+- [x] Schedule engine break-skipping logic (all frequency paths: daily, EOD, weekly,
+  biweekly, custom, phased)
+- [x] Calendar month grid break visualization (purple diagonal hatch + tooltip)
+- [x] Protocol Timeline Gantt break visualization (purple hatch, distinct from gray off-weeks)
+- [x] Tests: 3 new scheduleEngine tests for break behavior
+- [x] Documentation updated (CLAUDE.md)
+
 ## Done (shipped to `main`, live)
 
 - [x] Fix dose-quantity save bug (string-backed `DecimalInput`)

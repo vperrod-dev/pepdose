@@ -70,6 +70,7 @@ export function NewProtocol() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedTemplate, setSelectedTemplate] = useState<ProtocolTemplate | null>(null);
 
   const filteredPeptides = useMemo(() => {
     let list = PEPTIDES;
@@ -126,6 +127,7 @@ export function NewProtocol() {
   }, []);
 
   function selectTemplate(template: ProtocolTemplate) {
+    setSelectedTemplate(template);
     const configs: PeptideConfig[] = template.peptides.map(tp => {
       const pep = getPeptideById(tp.peptideId);
       const variant = pep?.dosing.protocolVariants?.[0];
@@ -193,6 +195,7 @@ export function NewProtocol() {
       durationWeeks,
       status: 'active',
       owner,
+      breaks: selectedTemplate?.breaks,
     });
 
     const allDoses = peptideConfigs.flatMap(config =>
@@ -207,6 +210,7 @@ export function NewProtocol() {
         startDate,
         durationWeeks: config.durationWeeks ?? durationWeeks,
         schedulePhases: config.schedulePhases,
+        protocolBreaks: selectedTemplate?.breaks,
         protocolId: protocol.id,
       })
     );
@@ -571,7 +575,7 @@ export function NewProtocol() {
                   <input
                     type="number"
                     value={durationWeeks}
-                    onChange={e => setDurationWeeks(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={e => { const n = parseInt(e.target.value, 10); if (!Number.isFinite(n) || n < 1) return; setDurationWeeks(n); }}
                     min={1}
                     max={52}
                     className="flex-1 bg-bg-raised border border-border rounded-l-lg px-3 py-2 text-sm font-mono text-text focus:outline-none focus:ring-2 focus:ring-primary/40"

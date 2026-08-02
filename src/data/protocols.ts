@@ -1,3 +1,12 @@
+export interface ProtocolBreak {
+  /** 1-based week number within the protocol's total span (including off-cycle weeks). */
+  weekStart: number;
+  /** 1-based week number within the protocol's total span. */
+  weekEnd: number;
+  /** Human-readable reason shown in the calendar/timeline. */
+  reason: string;
+}
+
 export interface ProtocolTemplate {
   id: string;
   name: string;
@@ -11,9 +20,13 @@ export interface ProtocolTemplate {
     // different duration (e.g. GLP-1 for months while a cosmetic peptide cycles
     // for weeks). Falls back to the template's durationWeeks when unset.
     durationWeeksOverride?: number;
+    // Pre-select a variant for this peptide when the template is chosen.
+    variantId?: string;
   }[];
   durationWeeks: number;
   category: string;
+  /** Optional scheduled off-week ranges — weeks where no doses are generated for any peptide. */
+  breaks?: ProtocolBreak[];
 }
 
 export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
@@ -60,6 +73,121 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     category: 'Weight Loss',
   },
   {
+    id: 'weight-management-reta',
+    name: 'Weight Management (Retatrutide)',
+    description: 'Retatrutide titration from 2mg to 12mg weekly using the Phase 3 TRIUMPH-1 ladder. Triple agonist (GIP + GLP-1 + glucagon) for maximum weight-loss efficacy.',
+    peptides: [
+      { peptideId: 'retatrutide', variantId: 'clinical-trial' },
+    ],
+    durationWeeks: 80,
+    category: 'Weight Loss',
+  },
+  {
+    id: 'retatrutide-community-cycle',
+    name: 'Retatrutide Community Cycle (8-on/8-off)',
+    description: 'Self-reported community protocol: slower titration starting at 0.25-1mg, 8 weeks on at a lower peak (1.5-4mg), then 8 weeks off. Includes a 4-week taper to soften appetite rebound.',
+    peptides: [
+      { peptideId: 'retatrutide', variantId: 'community-cycle' },
+    ],
+    durationWeeks: 16,
+    category: 'Weight Loss',
+    breaks: [
+      { weekStart: 9, weekEnd: 16, reason: 'Off-cycle (8 weeks off, community standard for receptor recovery)' },
+    ],
+  },
+  {
+    id: 'retatrutide-glow',
+    name: 'Retatrutide + GLOW (Weight Loss + Skin)',
+    description: 'Retatrutide weekly titration (Phase 3 ladder 2→4→6→9→12mg) for weight loss, paired with a phased GLOW blend cycle for skin support during rapid fat loss. GLOW defaults to the Standard 5-on/2-off cadence (pick a different variant in setup); retatrutide continues the full 24 weeks.',
+    peptides: [
+      { peptideId: 'retatrutide' },
+      { peptideId: 'glow-blend', doseOverride: 2.33, unitOverride: 'mg' },
+    ],
+    durationWeeks: 24,
+    category: 'Weight Loss',
+    breaks: [
+      { weekStart: 9, weekEnd: 24, reason: 'GLOW off-cycle (copper safety: 4-8 weeks off after initial cycle)' },
+    ],
+  },
+  {
+    id: 'nad-plus-ramp',
+    name: 'NAD+ Ramp-Up (4 weeks)',
+    description: 'Tolerance-building protocol: 25mg week 1, ramp to 50mg week 2, then 100mg weeks 3-4. Inject slowly — the flush/nausea is rate-dependent. Then 1-2 weeks off before re-assessing.',
+    peptides: [
+      { peptideId: 'nad-plus', variantId: 'ramp-up' },
+    ],
+    durationWeeks: 4,
+    category: 'Longevity',
+    breaks: [
+      { weekStart: 5, weekEnd: 6, reason: 'Off-cycle (1-2 weeks rest, community default for subQ NAD+)' },
+    ],
+  },
+  {
+    id: 'nad-plus-steady',
+    name: 'NAD+ Steady 100mg (4 weeks)',
+    description: '100mg weekly (or split 2x/week) for 4 weeks, then 1-2 weeks off. For users with established tolerance who want consistent dosing without the ramp.',
+    peptides: [
+      { peptideId: 'nad-plus', variantId: 'steady-100' },
+    ],
+    durationWeeks: 6,
+    category: 'Longevity',
+    breaks: [
+      { weekStart: 5, weekEnd: 6, reason: 'Off-cycle (no established maintenance; err conservative)' },
+    ],
+  },
+  {
+    id: 'melanotan-loading',
+    name: 'Melanotan II Loading (2 weeks)',
+    description: '250mcg daily pre-bed for 2 weeks to establish pigmentation. Then step down to 1-2x/week maintenance. Requires a baseline mole check. Includes a 4-week break after loading.',
+    peptides: [
+      { peptideId: 'melanotan-2', variantId: 'loading-standard' },
+    ],
+    durationWeeks: 6,
+    category: 'Cosmetic',
+    breaks: [
+      { weekStart: 3, weekEnd: 6, reason: 'Off-cycle (minimum 4 weeks off between courses for melanocortin reset)' },
+    ],
+  },
+  {
+    id: 'ghk-cu-daily',
+    name: 'GHK-Cu Daily Skin Protocol (4 weeks)',
+    description: '2mg daily subcutaneous for 4 weeks, then 4 weeks off. Take zinc 15-25mg/day to counterbalance copper. Human data is topical only; injectable use is anecdotal.',
+    peptides: [
+      { peptideId: 'ghk-cu', variantId: 'daily-30d' },
+    ],
+    durationWeeks: 8,
+    category: 'Cosmetic',
+    breaks: [
+      { weekStart: 5, weekEnd: 8, reason: 'Off-cycle (copper safety: 4 weeks off after daily GHK-Cu loading)' },
+    ],
+  },
+  {
+    id: 'ghk-cu-eod',
+    name: 'GHK-Cu Every-Other-Day (Extended)',
+    description: '2mg every other day for 6 weeks, then 4 weeks off. Lower copper load than daily while maintaining near-daily receptor activation. Zinc co-supplementation recommended.',
+    peptides: [
+      { peptideId: 'ghk-cu', variantId: 'eod-4wk' },
+    ],
+    durationWeeks: 10,
+    category: 'Cosmetic',
+    breaks: [
+      { weekStart: 7, weekEnd: 10, reason: 'Off-cycle (copper safety: 4 weeks off after extended GHK-Cu run)' },
+    ],
+  },
+  {
+    id: 'ghk-cu-glow',
+    name: 'GHK-Cu + BPC-157 + TB-500 (GLOW Blend)',
+    description: '70mg blend vial: 50mg GHK-Cu + 10mg BPC-157 + 10mg TB-500. Standard 5-on/2-off for 8 weeks, then 4 weeks off. The canonical skin + recovery stack.',
+    peptides: [
+      { peptideId: 'glow-blend', variantId: 'glow-weekdays' },
+    ],
+    durationWeeks: 12,
+    category: 'Cosmetic',
+    breaks: [
+      { weekStart: 9, weekEnd: 12, reason: 'Off-cycle (copper safety + collagen remodeling break)' },
+    ],
+  },
+  {
     id: 'anti-aging-stack',
     name: 'Anti-Aging Stack',
     description: 'GHK-Cu daily + Epithalon 10-day course. Collagen regeneration + telomerase activation.',
@@ -93,17 +221,6 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     category: 'Fat Loss',
   },
   {
-    id: 'retatrutide-glow',
-    name: 'Retatrutide + GLOW (Weight Loss + Skin)',
-    description: 'Retatrutide weekly titration (Phase 3 ladder 2→4→6→9→12mg) for weight loss, paired with a phased GLOW blend cycle for skin support during rapid fat loss. GLOW defaults to the Standard 5-on/2-off cadence (pick a different variant in setup); retatrutide continues the full 24 weeks.',
-    peptides: [
-      { peptideId: 'retatrutide' },
-      { peptideId: 'glow-blend', doseOverride: 2.33, unitOverride: 'mg' },
-    ],
-    durationWeeks: 24,
-    category: 'Weight Loss',
-  },
-  {
     id: 'mitochondrial-support',
     name: 'Mitochondrial Support (MOTS-c)',
     description: 'MOTS-c 5mg twice weekly as an exercise-mimetic AMPK activator. Report-only territory: there is no human efficacy data yet, a Phase 2a trial is still recruiting, and MOTS-c is WADA-prohibited at all times — do not run this if you are a tested athlete.',
@@ -112,6 +229,19 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
     ],
     durationWeeks: 6,
     category: 'Longevity',
+  },
+  {
+    id: 'mots-c-cycle',
+    name: 'MOTS-c 6-on / 6-off',
+    description: '5mg twice weekly (EOD) for 6 weeks, then 6 weeks off — the most-cited community pattern. No human efficacy data; Phase 2a recruiting. WADA-prohibited.',
+    peptides: [
+      { peptideId: 'mots-c', variantId: 'standard-6on-6off' },
+    ],
+    durationWeeks: 12,
+    category: 'Longevity',
+    breaks: [
+      { weekStart: 7, weekEnd: 12, reason: 'Off-cycle (6-on/6-off community convention)' },
+    ],
   },
   {
     id: 'weight-management-oral',

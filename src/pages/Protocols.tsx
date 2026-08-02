@@ -196,6 +196,7 @@ export function Protocols() {
         startDate: editStartDate,
         durationWeeks: d.durationWeeks ?? activeProto.durationWeeks,
         schedulePhases: d.schedulePhases,
+        protocolBreaks: activeProto.breaks,
         protocolId: activeProto.id,
       })
     );
@@ -769,7 +770,7 @@ export function Protocols() {
                                 min={1}
                                 max={52}
                                 value={dose.durationWeeks ?? 1}
-                                onChange={e => updateEditDose(idx, { durationWeeks: Math.max(1, parseInt(e.target.value) || 1) })}
+                                onChange={e => { const n = parseInt(e.target.value, 10); if (!Number.isFinite(n) || n < 1) return; updateEditDose(idx, { durationWeeks: n }); }}
                                 className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary outline-none"
                               />
                             </div>
@@ -795,7 +796,7 @@ export function Protocols() {
                                 type="number"
                                 min={1}
                                 value={dose.customFrequencyDays ?? 3}
-                                onChange={e => updateEditDose(idx, { customFrequencyDays: parseInt(e.target.value) || 1 })}
+                                onChange={e => { const n = parseInt(e.target.value, 10); if (!Number.isFinite(n) || n < 1) return; updateEditDose(idx, { customFrequencyDays: n }); }}
                                 className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary outline-none"
                               />
                             </div>

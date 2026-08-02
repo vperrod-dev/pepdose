@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek,
-  isSameMonth, isSameDay, isToday, addMonths, subMonths,
+  isSameMonth, isSameDay, isToday, addMonths, subMonths, addDays, addWeeks, parseISO,
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
@@ -100,6 +100,27 @@ export function Calendar() {
     }
     return map;
   }, [monthDoses, filter]);
+
+  // Compute which calendar days fall within a protocol's break windows,
+  // so the month grid can show a visual "off" indicator on those days.
+  const breakByDate = useMemo(() => {
+    const map = new Map<string, string>(); // dateKey -> break reason
+    for (const proto of protocolsById.values()) {
+      if (!proto.breaks || proto.breaks.length === 0) continue;
+      const start = parseISO(proto.startDate);
+      for (const brk of proto.breaks) {
+        for (let w = brk.weekStart; w <= brk.weekEnd; w++) {
+          const weekStart = addWeeks(start, w - 1);
+          for (let d = 0; d < 7; d++) {
+            const day = addDays(weekStart, d);
+            const key = format(day, 'yyyy-MM-dd');
+            if (!map.has(key)) map.set(key, brk.reason);
+          }
+        }
+      }
+    }
+    return map;
+  }, [protocolsById]);
 
   const adhocByDate = useMemo(() => {
     const map = new Map<string, DoseLog[]>();
@@ -259,6 +280,15 @@ export function Calendar() {
                     <span className="text-[8px] leading-none text-text-muted ml-0.5">+{dayExtra}</span>
                   )}
                 </div>
+              )}
+              {breakByDate.has(dateKey) && (
+                <div
+                  className="absolute inset-0 rounded-xl pointer-events-none"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0px, rgba(255,255,255,0.15) 3px, transparent 3px, transparent 6px)',
+                  }}
+                  title={breakByDate.get(dateKey)}
+                />
               )}
             </button>
           );

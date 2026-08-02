@@ -117,6 +117,52 @@ describe('generateSchedule frequency branches', () => {
       schedulePhases: [{ weekStart: 0, weekEnd: 0, frequency: 'daily' }],
     })).toEqual([]);
   });
+
+  it('protocolBreaks suppress dose generation during break weeks (daily)', () => {
+    const doses = generateSchedule({
+      ...PLAIN,
+      frequency: 'daily',
+      durationWeeks: 4,
+      protocolBreaks: [{ weekStart: 2, weekEnd: 3, reason: 'off-cycle' }],
+    });
+    // startDate = Jan 5 (Mon), durationWeeks = 4 → schedule runs Jan 5 – Feb 1 (28 days).
+    // Week 1 = Jan 5-11, Week 2 = Jan 12-18, Week 3 = Jan 19-25, Week 4 = Jan 22-28, Week 5 = Jan 29-Feb 1
+    // Break weeks 2-3 suppress Jan 12-25; remaining = Jan 5-11 + Jan 26-Feb 1
+    expect(doses.map(d => d.date)).toEqual([
+      '2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09', '2026-01-10', '2026-01-11',
+      '2026-01-26', '2026-01-27', '2026-01-28', '2026-01-29', '2026-01-30', '2026-01-31', '2026-02-01',
+    ]);
+  });
+
+  it('protocolBreaks suppress dose generation during break weeks (weekly)', () => {
+    const doses = generateSchedule({
+      ...PLAIN,
+      peptideId: 'no-such-peptide',
+      dose: 250,
+      unit: 'mcg',
+      frequency: 'weekly',
+      durationWeeks: 4,
+      protocolBreaks: [{ weekStart: 2, weekEnd: 2, reason: 'off-cycle' }],
+    });
+    // Week 1 (Jan 5), Week 2 break, Week 3 (Jan 19), Week 4 (Jan 26)
+    expect(doses.map(d => d.date)).toEqual([
+      '2026-01-05', '2026-01-19', '2026-01-26',
+    ]);
+  });
+
+  it('protocolBreaks suppress doses even with phased schedules', () => {
+    const doses = generateSchedule({
+      ...PLAIN,
+      frequency: 'daily',
+      schedulePhases: [{ weekStart: 1, weekEnd: 3, frequency: 'daily' }],
+      protocolBreaks: [{ weekStart: 2, weekEnd: 2, reason: 'off-cycle' }],
+    });
+    // Week 1: daily, Week 2: break, Week 3: daily
+    expect(doses.map(d => d.date)).toEqual([
+      '2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09', '2026-01-10', '2026-01-11',
+      '2026-01-19', '2026-01-20', '2026-01-21', '2026-01-22', '2026-01-23', '2026-01-24', '2026-01-25',
+    ]);
+  });
 });
 
 const scheduled = (id: string, date: string, status: ScheduledDose['status'] = 'upcoming'): ScheduledDose => ({
@@ -147,6 +193,50 @@ describe('updateFutureDoses', () => {
     const result = updateFutureDoses([scheduled('a', '2026-01-05')], '2026-01-06', { dose: 500 });
     expect(result[0].dose).toBe(250);
   });
+
+  it('updates multiple fields with an edit note', () => {
+    const result = updateFutureDoses(
+      [scheduled('a', '2026-01-06'), scheduled('b', '2026-01-07')],
+      '2026-01-06',
+      { dose: 500, time: '19:00', unit: 'mg' },
+    );
+    expect(result[0]).toMatchObject({ dose: 500, time: '19:00', unit: 'mg' });
+    expect(typeof result[0].editNote).toBe('string');
+    expect(result[1]).toMatchObject({ dose: 500, time: '19:00', unit: 'mg' });
+    expect(typeof result[1].editNote).toBe('string');
+  });
+
+  it('does not mutate logged/skipped/missed doses even after their date', () => {
+    const result = updateFutureDoses(
+      [
+        scheduled('a', '2026-01-06', 'logged'),
+        scheduled('b', '2026-01-06', 'skipped'),
+        scheduled('c', '2026-01-06', 'missed'),
+        scheduled('d', '2026-01-06', 'upcoming'),
+      ],
+      '2026-01-06',
+      { dose: 999 },
+    );
+    expect(result[0].dose).toBe(250);
+    expect(result[0].status).toBe('logged');
+    expect(result[1].dose).toBe(250);
+    expect(result[1].status).toBe('skipped');
+    expect(result[2].dose).toBe(250);
+    expect(result[2].status).toBe('missed');
+    expect(result[3].dose).toBe(999);
+    expect(result[3].status).toBe('upcoming');
+  });
+
+  it('does not modify anything when there are no future upcoming doses', () => {
+    const input = [scheduled('a', '2026-01-05', 'upcoming'), scheduled('b', '2026-01-06', 'logged')];
+    const pivot = '2026-01-10';
+    const result = updateFutureDoses(JSON.parse(JSON.stringify(input)), pivot, { dose: 1 });
+    expect(result).toEqual(input);
+    expect(result[0].dose).toBe(250);
+    expect(result[0].status).toBe('upcoming');
+    expect(result[1].dose).toBe(250);
+    expect(result[1].status).toBe('logged');
+  });
 });
 
 describe('extendSchedule', () => {
@@ -166,5 +256,30 @@ describe('extendSchedule', () => {
 
   it('returns nothing when the peptide has no existing doses', () => {
     expect(extendSchedule([], 1, { ...PLAIN, frequency: 'daily' })).toEqual([]);
+  });
+
+  it('returns no doses when extending by 0 weeks', () => {
+    const extra = extendSchedule([scheduled('a', '2026-01-05')], 0, { ...PLAIN, frequency: 'daily' });
+    expect(extra).toEqual([]);
+  });
+
+  it('ignores doses belonging to other peptides and still continues after the target peptide last dose', () => {
+    const other = scheduled('other', '2026-01-20');
+    other.peptideId = 'other-peptide';
+    const extra = extendSchedule(
+      [scheduled('a', '2026-01-05'), other],
+      1,
+      { ...PLAIN, frequency: 'daily' },
+    );
+    expect(extra[0].date).toBe('2026-01-06');
+  });
+
+  it('appends after existing upcoming doses without duplicating them', () => {
+    const existing = [scheduled('a', '2026-01-05'), scheduled('b', '2026-01-06')];
+    const extra = extendSchedule(existing, 1, { ...PLAIN, frequency: 'daily' });
+    expect(extra[0].date).toBe('2026-01-07');
+    expect(extra).toHaveLength(7);
+    expect(extra.find(d => d.date === '2026-01-05')).toBeUndefined();
+    expect(extra.find(d => d.date === '2026-01-06')).toBeUndefined();
   });
 });

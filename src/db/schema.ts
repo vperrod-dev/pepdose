@@ -1,5 +1,6 @@
 import { type DBSchema, openDB, type IDBPDatabase } from 'idb';
 import type { SchedulePhase } from '../data/peptides';
+import type { ProtocolBreak } from '../data/protocols';
 import type { UserName } from '../data/users';
 
 export interface UserProtocol {
@@ -12,6 +13,8 @@ export interface UserProtocol {
   durationWeeks: number;
   status: 'active' | 'paused' | 'completed' | 'archived';
   templateId?: string;
+  /** Explicitly scheduled off-week ranges where no doses should be generated. */
+  breaks?: ProtocolBreak[];
   createdAt: string;
   updatedAt: string;
 }

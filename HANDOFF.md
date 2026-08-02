@@ -6,8 +6,23 @@ the merge of PR #1 (features) and PR #3 (docs) into `main`.
 ## Status: what's done and live
 
 All of the following is merged to `main` and deployed at
-**https://vperrod.github.io/pepdose/** (deploy runs automatically on push to `main`):
+**https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/** (via `scripts/deploy.sh`):
 
+- **Protocol variants** — each peptide can declare multiple named, phased
+  cycling presets in `data/peptides.ts` (`DosingProtocol.protocolVariants`):
+  Retatrutide (clinical-trial, community 8-on/8-off, microdose maintenance),
+  NAD+ (ramp-up, steady-100), MT2 (loading-standard, gentle-start),
+  GHK-Cu (daily-30d, eod-4wk), MOTS-c (6-on/6-off, weekly-single). Selecting a
+  variant auto-sets phases, dose override, and duration.
+- **Protocol library + breaks** — `data/protocols.ts` defines
+  `PROTOCOL_TEMPLATES` with named protocols for single peptides and stacks
+  (Wolverine Healing, GH Boost, Retatrutide Clinical/Community, NAD+ Ramp/Steady,
+  MT2 Loading, GHK-Cu Daily/EOD, GLOW Blend, MOTS-c, Cognitive, etc.). Templates
+  can declare `breaks` (explicit off-week ranges) that the schedule engine
+  respects — no dose generation during break weeks across all frequency paths.
+  Calendar month grid shows a purple diagonal hatch on break days with a
+  tooltip; the Protocol Timeline Gantt distinguishes break weeks (purple) from
+  regular off-weeks (gray).
 - **Dose-save bug fixed** — the reported "changing the quantity doesn't save" issue.
   Root cause + fix: string-backed `src/components/DecimalInput.tsx` (see Gotchas).
 - **Dose reminders** — opt-in, fired via the service worker while the app is open/
@@ -107,9 +122,9 @@ blobs), lab/bloodwork tracking with reference ranges, cycle/washout planner.
   `.test.ts` (see `activeLevels`, `symptomTrends`, `adherence`), kept out of the
   component.
 - **Schema additions:** IndexedDB is per-record schemaless, so *optional* fields on a
-  record (e.g. `DoseLog.symptoms`) need no migration. A store/index change does — bump
-  the version in `src/db/schema.ts` and add an `upgrade` block (see the v1→v2 owner
-  backfill).
+  record (e.g. `DoseLog.symptoms`, `UserProtocol.breaks`) need no migration. A
+  store/index change does — bump the version in `src/db/schema.ts` and add an
+  `upgrade` block (see the v1→v2 owner backfill).
 - **CI runs `npm run build` only.** Lint has ~12 pre-existing errors on `main`; keep
   your diff from adding new ones, but don't expect a clean lint.
 - **Reminders limitation** is intentional and documented — don't "fix" it without a
@@ -128,6 +143,6 @@ blobs), lab/bloodwork tracking with reference ranges, cycle/washout planner.
 - Analytics helpers (pure + tested): `src/utils/{activeLevels,symptomTrends,adherence,injectionStats,titrationCoach}.ts`
 - Reminders: `src/utils/notifications.ts` + `public/sw.js`
 - Calculator: `src/pages/ReconCalculator.tsx`
-- Peptide data/content: `src/data/peptides.ts`, `src/data/experienceTimelines.ts`, `src/data/symptoms.ts`
+- Peptide data/content: `src/data/peptides.ts`, `src/data/protocols.ts`, `src/data/experienceTimelines.ts`, `src/data/symptoms.ts`
 - Dose logging UI: `src/components/DoseActionSheet.tsx`, `src/pages/QuickLog.tsx`
 - Project conventions: `CLAUDE.md`; user-facing feature list: `README.md`

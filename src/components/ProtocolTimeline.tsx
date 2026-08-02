@@ -172,15 +172,18 @@ export function ProtocolTimeline({
                 <div className="relative flex" style={{ width: trackWidth }}>
                   {pt.weeks.map((seg) => {
                     const isOff = seg.count === 0;
+                    const isBreak = seg.isBreak;
                     const adherence = seg.count > 0 ? seg.logged / seg.count : 0;
                     return (
                       <button
                         key={seg.week}
                         onClick={() => setOpenWeek({ pt, week: seg.week })}
                         title={
-                          isOff
-                            ? `Week ${seg.week}: off`
-                            : `Week ${seg.week}: ${seg.count} dose${seg.count > 1 ? 's' : ''}${seg.dose != null ? ` · ${seg.dose}${seg.unit}` : ''}${seg.isStepUp ? ' · step-up' : ''}`
+                          isBreak
+                            ? `Week ${seg.week}: break (off-cycle)`
+                            : isOff
+                              ? `Week ${seg.week}: off`
+                              : `Week ${seg.week}: ${seg.count} dose${seg.count > 1 ? 's' : ''}${seg.dose != null ? ` · ${seg.dose}${seg.unit}` : ''}${seg.isStepUp ? ' · step-up' : ''}`
                         }
                         className="relative h-7 my-auto border-r border-border/40 last:border-r-0 transition-colors tap-target"
                         style={{
@@ -188,9 +191,11 @@ export function ProtocolTimeline({
                           backgroundColor: isOff
                             ? 'transparent'
                             : hexWithAlpha(color, fillFor(seg, pt.peakPerWeek)),
-                          backgroundImage: isOff
-                            ? 'repeating-linear-gradient(45deg, #162033 0 4px, transparent 4px 8px)'
-                            : undefined,
+                          backgroundImage: isBreak
+                            ? 'repeating-linear-gradient(45deg, #a78bfa 0 3px, transparent 3px 6px)'
+                            : isOff
+                              ? 'repeating-linear-gradient(45deg, #162033 0 4px, transparent 4px 8px)'
+                              : undefined,
                         }}
                       >
                         {!isOff && seg.isStepUp && (
