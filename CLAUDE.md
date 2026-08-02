@@ -112,7 +112,10 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   MT2 Loading, GHK-Cu Daily/EOD, GLOW Blend, MOTS-c 6-on/6-off, etc.). Each
   template can declare `breaks` (off-week ranges) that the schedule engine
   respects on creation and regeneration. NewProtocol.tsx and Protocols.tsx both
-  surface template selection with one-click setup.
+  surface template selection with one-click setup. Protocols have a lifecycle:
+  active → paused / completed / archived — the actions sheet in Protocols.tsx
+  provides Pause/Resume, Finish (marks completed; future doses become skipped),
+  and Delete.
 - Deploy: **`scripts/deploy.sh`** — builds and rsyncs `dist/` to `/srv/pepdose`
   on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
   Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ .
