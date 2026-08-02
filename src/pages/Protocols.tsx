@@ -176,6 +176,13 @@ export function Protocols() {
     await loadProtocols();
   }
 
+  async function handleFinish() {
+    if (!activeProto) return;
+    await updateProtocol(activeProto.id, { status: 'completed' });
+    closeSheet();
+    await loadProtocols();
+  }
+
   async function handleSaveEdit() {
     if (!activeProto) return;
     setSaving(true);
@@ -618,6 +625,19 @@ export function Protocols() {
                           </div>
                         </>
                       )}
+                    </button>
+                  )}
+
+                  {activeProto.status !== 'completed' && activeProto.status !== 'archived' && (
+                    <button
+                      onClick={handleFinish}
+                      className="card-glass w-full p-4 tap-target flex items-center gap-3 text-left"
+                    >
+                      <CheckCircle2 className="w-5 h-5 text-success" />
+                      <div>
+                        <p className="font-medium text-sm">Finish Protocol</p>
+                        <p className="text-xs text-text-muted">Mark as completed — future doses become skipped</p>
+                      </div>
                     </button>
                   )}
 
