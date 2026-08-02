@@ -1,5 +1,5 @@
 const CACHE_NAME = 'pepdose-v5-' + Date.now();
-const BASE = '/pepdose';
+const BASE = '/pepdose/';
 const STATIC_ASSETS = [
   BASE,
   BASE + 'index.html',
