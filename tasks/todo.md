@@ -11,14 +11,23 @@
   gentle-start), GHK-Cu (daily-30d, eod-4wk), MOTS-c (standard-6on-6off, weekly-single)
 - [x] Protocol templates with breaks: Retatrutide Community Cycle (8-on/8-off),
   NAD+ Ramp/Steady (4-on/2-off), MT2 Loading (2-on/4-off), GHK-Cu Daily/EOD (4-on/4-off),
-  GLOW Blend (8-on/4-off), MOTS-c 6-on/6-off, Retatrutide+GLOW combo
+  GHK-Cu/MOTS-c stack, GLOW Blend (8-on/4-off), MOTS-c 6-on/6-off, Retatrutide+GLOW combo
 - [x] `ProtocolBreak` interface + `breaks` field on `ProtocolTemplate` and `UserProtocol`
 - [x] Schedule engine break-skipping logic (all frequency paths: daily, EOD, weekly,
   biweekly, custom, phased)
 - [x] Calendar month grid break visualization (purple diagonal hatch + tooltip)
 - [x] Protocol Timeline Gantt break visualization (purple hatch, distinct from gray off-weeks)
 - [x] Tests: 3 new scheduleEngine tests for break behavior
-- [x] Documentation updated (CLAUDE.md)
+- [x] Documentation updated (CLAUDE.md, HANDOFF.md)
+- [x] Finish Protocol button — marks active/paused protocol as completed
+
+## Done — base path fix + build clean (2026-08-02)
+
+- [x] Fix vite.config.ts base (`/` → `/pepdose/`) — was causing blank page behind Caddy
+- [x] Fix public/sw.js BASE path to `/pepdose/`
+- [x] Remove broken untracked sync.bench.test.ts
+- [x] Fix pre-existing tsc errors in AuthGate.test.tsx + notifications.test.ts
+- [x] Clean build: `npm run build` passes, `npm test` 286/286 pass
 
 ## Done (shipped to `main`, live)
 
