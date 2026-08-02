@@ -4,18 +4,22 @@ A peptide dose-tracking PWA. Plan protocols, log injections, track vials, and re
 half-lives, reconstitution, and stacking — stored locally on your device, with optional
 cloud sync across devices.
 
-**Live:** https://vperrod.github.io/pepdose/
+**Live:** https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/
 
 ## Features
 
-- **Protocols** — create from templates or any peptide, then fully edit a running protocol:
-  per-peptide dose, length, frequency, time of day, and start date. Pause/resume/delete.
+- **Protocols** — create from templates or any peptide, then fully edit a running
+  protocol: per-peptide dose, length, frequency, time of day, and start date.
+  Pause/resume/finish/delete lifecycle.
 - **Smart scheduling** — the engine auto-generates every injection. Supports:
   - **Auto-titration** — GLP-1s step the dose up on a week ladder automatically (e.g.
     retatrutide `2→4→6→9→12mg`).
   - **Phased schedules + protocol variants** — peptides like GLOW carry several selectable
     cycle protocols (e.g. *daily → 5×/week → off*); pick one and the calendar reproduces the
     exact taper, including weekday-only (`5×/week`) cadence.
+  - **Scheduled breaks** — protocol templates can declare off-week ranges (e.g. Reta
+    8-on/8-off, NAD+ 4-on/2-off). During break weeks no doses are generated; break weeks
+    show as a purple hatch on the calendar and timeline.
 - **Editing regenerates safely** — changing a protocol rebuilds its upcoming doses while
   preserving everything already logged/skipped/missed.
 - **Protocol journey** — tap a protocol (from the Protocols list or a Dashboard card) to see
@@ -134,6 +138,13 @@ Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_
 
 ## How protocol guidance works
 
+- **Protocol lifecycle** — protocols are `active`, `paused`, or `completed`. The actions
+  sheet (Protocols.tsx) provides Pause/Resume, Finish, and Delete. Finishing a
+  protocol marks it `completed` (future doses are skipped, not deleted); the
+  protocol stays in the list as a gray badge for history.
+- **Scheduled breaks** — template `breaks` (e.g. Reta 8-on/8-off) are stored on
+  `UserProtocol.breaks` and respected by the schedule engine; break weeks are
+  rendered as a purple hatch on the Calendar month grid and Protocol Timeline.
 - `src/data/experienceTimelines.ts` — `getCurrentWeekGuide(peptideId, week)` feeds the inline
   week-by-week guide in the journey.
 - `src/utils/titrationCoach.ts` — `nextTitrationStep(doses, today)` finds the next upcoming
@@ -206,8 +217,10 @@ npm run lint
 
 ## Deploy
 
-Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds and publishes to
-GitHub Pages. The Vite `base` is set to `/pepdose/` to match the Pages path.
+Deploy: run `scripts/deploy.sh` — builds and rsyncs `dist/` to `/srv/pepdose`
+on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
+Pushing to `main` does NOT auto-deploy (GitHub Actions are blocked by an
+account flag). Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/
 
 ## Disclaimer
 
