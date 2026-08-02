@@ -1,5 +1,5 @@
-const CACHE_NAME = 'pepdose-v5'; // v5: peptide data rewrite (39 compounds, corrected dosing) — force installed clients off the old shell
-const BASE = '/pepdose/';
+const CACHE_NAME = 'pepdose-v5-' + Date.now();
+const BASE = '/pepdose';
 const STATIC_ASSETS = [
   BASE,
   BASE + 'index.html',
