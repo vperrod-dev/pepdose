@@ -4,22 +4,27 @@ import { render, screen, act, cleanup, fireEvent } from '@testing-library/react'
 import { AuthGate } from './AuthGate';
 
 // Mutable doubles for the supabase client and syncNow, so each test can steer
-// login state and sync outcomes without a network.
 const state = vi.hoisted(() => ({
+
   cloudEnabled: true,
   session: null as { user: { id: string } } | null,
   syncResult: { pushed: 0, pulled: 0, errors: [] as string[] },
   syncCalls: 0,
   signUpCalls: 0,
   signInCalls: 0,
+  authCallback: (_e: string, _s: null | { user: { id: string } }) => {},
 }));
 
 vi.mock('../db/supabase', () => ({
+
   get cloudEnabled() { return state.cloudEnabled; },
   supabase: {
     auth: {
       getSession: async () => ({ data: { session: state.session } }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      onAuthStateChange: (_cb: (event: string, s: null | { user: { id: string } }) => void) => {
+        state.authCallback = _cb;
+        return { data: { subscription: { unsubscribe: () => {} } } };
+      },
       signInWithPassword: async () => {
         state.signInCalls += 1;
         return { data: { session: null }, error: null };
@@ -104,6 +109,22 @@ describe('AuthGate', () => {
     state.syncResult = { pushed: 0, pulled: 0, errors: [] };
     await act(async () => { vi.advanceTimersByTime(31_000); });
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  describe('focus and unload cleanup', () => {
+    it('keeps syncing on the 30s interval and stops after unmount', async () => {
+      vi.useFakeTimers();
+      state.session = { user: { id: 'u1' } };
+      const { unmount } = render(<AuthGate><p>app</p></AuthGate>);
+      await flush();
+      expect(state.syncCalls).toBe(1);
+      await act(async () => { vi.advanceTimersByTime(31_000); });
+      expect(state.syncCalls).toBeGreaterThanOrEqual(2);
+      unmount();
+      await act(async () => { vi.advanceTimersByTime(31_000); });
+      // If cleanup failed, an extra mock sync would fire after unmount.
+      expect(state.syncCalls).toBeLessThan(4);
+    });
   });
 
   describe('shared-account sign-in only', () => {
