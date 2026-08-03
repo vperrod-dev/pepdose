@@ -1,6 +1,6 @@
-// Pure reconstitution math for the calculator (ReconCalculator.tsx).
-// Extracted verbatim so the forward/reverse-BAC solve, unit conversion and
-// blend breakdown are unit-testable; all inputs may be NaN (empty fields).
+// Pure recon math for the calculator, extracted from ReconCalculator.tsx.
+// Covers forward/reverse solve, unit conversion, blend breakdown,
+// plus UI-specific pure checks/formatting used by the component.
 
 export type ReconMode = 'forward' | 'reverse';
 
@@ -26,7 +26,13 @@ export interface ReconResult {
   volumeMl: number;
   /** syringe units to draw per dose */
   units: number;
+  /** whole doses that fit in one vial */
   dosesPerVial: number;
+}
+
+export interface ComponentDose {
+  name: string;
+  mg: number;
 }
 
 export function doseToMg(dose: number, unit: 'mcg' | 'mg'): number {
@@ -55,10 +61,22 @@ export function computeRecon(i: ReconInput): ReconResult {
 }
 
 /** Per-component mg of one dose for a blend (ratio fixed regardless of vial size). */
-export function blendBreakdown(
-  components: { name: string; mg: number }[],
-  doseMg: number,
-): { name: string; mg: number }[] {
+export function blendBreakdown(components: { name: string; mg: number }[], doseMg: number): ComponentDose[] {
   const total = components.reduce((s, c) => s + c.mg, 0);
   return total > 0 ? components.map((c) => ({ name: c.name, mg: (c.mg / total) * doseMg })) : [];
+}
+
+/** Render-ready label for a per-component dose. */
+export function formatComponentDose(mg: number): string {
+  return mg >= 1 ? `${mg.toFixed(2)} mg` : `${(mg * 1000).toFixed(0)} mcg`;
+}
+
+/** Whether the drawn units overflow a standard 1ml syringe. */
+export function isOverfilledSyringe(iu: number, unitsPerMl: number): boolean {
+  return iu > unitsPerMl;
+}
+
+/** Reverse-mode warning: water volume is too small or too large to measure practically. */
+export function isImpracticalWater(valid: boolean, mode: ReconMode, solvedWater: number): boolean {
+  return mode === 'reverse' && valid && (solvedWater < 0.3 || solvedWater > 8);
 }

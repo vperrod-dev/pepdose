@@ -3,7 +3,14 @@ import { useSearchParams } from 'react-router-dom';
 import { Calculator, Droplets, ChevronDown } from 'lucide-react';
 import { PEPTIDES } from '../data/peptides';
 import { mgToIu } from '../utils/iuConvert';
-import { blendBreakdown, computeRecon, doseToMg } from '../utils/reconCalc';
+import {
+  blendBreakdown,
+  computeRecon,
+  doseToMg,
+  formatComponentDose,
+  isImpracticalWater,
+  isOverfilledSyringe,
+} from '../utils/reconMath';
 
 // ponytail: only injectable peptides with reconstitution data make sense here
 const RECON_PEPTIDES = PEPTIDES.filter(p => p.reconstitution.typicalVialMg > 0);
@@ -56,7 +63,7 @@ export function ReconCalculator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // shared math — pure + unit-tested in utils/reconCalc.ts
+  // shared math — pure + unit-tested in utils/reconMath.ts
   const dose = parseFloat(desiredDose);
   const doseMg = doseToMg(dose, doseUnit);
   const targetU = parseFloat(targetUnits);
@@ -73,8 +80,8 @@ export function ReconCalculator() {
 
   // syringe visual: max = uPerMl (1ml)
   const syringeFill = valid ? Math.min(iu / uPerMl, 1) : 0;
-  const syringeWarning = iu > uPerMl;
-  const waterImpractical = mode === 'reverse' && valid && (solvedWater < 0.3 || solvedWater > 8);
+  const syringeWarning = isOverfilledSyringe(iu, uPerMl);
+  const waterImpractical = isImpracticalWater(valid, mode, solvedWater);
 
   const iuResult = parseFloat(iuMg) > 0 && parseFloat(mgPerIu) > 0 ? mgToIu(parseFloat(iuMg), parseFloat(mgPerIu)) : 0;
 
@@ -279,7 +286,7 @@ export function ReconCalculator() {
                   <div key={c.name} className="flex items-center justify-between text-sm">
                     <span className="text-text-secondary">{c.name}</span>
                     <span className="font-mono text-text">
-                      {c.mg >= 1 ? `${c.mg.toFixed(2)} mg` : `${(c.mg * 1000).toFixed(0)} mcg`}
+                      {formatComponentDose(c.mg)}
                     </span>
                   </div>
                 ))}
