@@ -47,7 +47,7 @@ const TIME_LABELS: Record<string, string> = {
 interface PeptideConfig {
   peptideId: string;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   frequency: FrequencyType;
   customFrequencyDays?: number;
   timesPerDay: number;
@@ -466,11 +466,12 @@ export function NewProtocol() {
                       />
                       <select
                         value={config.unit}
-                        onChange={e => updateConfig(idx, { unit: e.target.value as 'mcg' | 'mg' })}
+                        onChange={e => updateConfig(idx, { unit: e.target.value as 'mcg' | 'mg' | 'IU' })}
                         className="bg-bg-raised border border-l-0 border-border rounded-r-lg px-2 py-2 text-xs text-text-secondary"
                       >
                         <option value="mcg">mcg</option>
                         <option value="mg">mg</option>
+                        <option value="IU">IU</option>
                       </select>
                     </div>
                     {pep && (

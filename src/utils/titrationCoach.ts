@@ -5,7 +5,7 @@ export interface NextStep {
   peptideId: string;
   weekNumber: number;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   date: string;
 }
 

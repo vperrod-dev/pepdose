@@ -40,6 +40,10 @@ describe('doseToMg', () => {
     expect(doseToMg(2.5, 'mg')).toBe(2.5);
   });
 
+  it('passes IU through unchanged (whole unit, not a mass)', () => {
+    expect(doseToMg(5000, 'IU')).toBe(5000);
+  });
+
   it('returns 0 for zero, negative or NaN doses', () => {
     expect(doseToMg(0, 'mcg')).toBe(0);
     expect(doseToMg(-5, 'mg')).toBe(0);

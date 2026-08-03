@@ -250,7 +250,7 @@ function AdhocDoseSheet({ onClose, onLogged }: { onClose: () => void; onLogged: 
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const pep = getPeptideById(peptideId);
-  const unit = (pep?.dosing.unit ?? 'mg') as 'mcg' | 'mg';
+  const unit = (pep?.dosing.unit ?? 'mg') as 'mcg' | 'mg' | 'IU';
   const valid = !!peptideId && dose > 0;
 
   // A thrown IndexedDB write must never strand the sheet on "Saving…" (same

@@ -10,7 +10,7 @@ export interface WeekSegment {
   peptides: string[];
   /** Representative dose for the week — the dose of a titration step-up if any, else the max dose. */
   dose?: number;
-  unit?: 'mcg' | 'mg';
+  unit?: 'mcg' | 'mg' | 'IU';
   /** True if any dose that week is flagged as a titration step-up vs the previous on-week. */
   isStepUp: boolean;
   /** True if this week falls within an explicitly scheduled break (off-cycle). */

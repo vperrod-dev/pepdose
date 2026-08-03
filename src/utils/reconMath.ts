@@ -35,7 +35,8 @@ export interface ComponentDose {
   mg: number;
 }
 
-export function doseToMg(dose: number, unit: 'mcg' | 'mg'): number {
+export function doseToMg(dose: number, unit: 'mcg' | 'mg' | 'IU'): number {
+  // IU is a whole unit, not a mass — it routes through unchanged like mg.
   return dose > 0 ? (unit === 'mcg' ? dose / 1000 : dose) : 0;
 }
 

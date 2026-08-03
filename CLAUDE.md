@@ -86,11 +86,15 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   `public/manifest.json` (self-contained, reads IndexedDB directly; Android/Chromium only).
 - Reconstitution calculator (`ReconCalculator.tsx`): forward + reverse-BAC solve,
   blend per-component breakdown (`Peptide.reconstitution.components`), honors the
-  U-100/U-40 setting. Deep-linkable via `/calculator?peptide=<id>`.
-- Peptide content: `data/peptides.ts` (dosing/reconstitution/titration/variants) and
+  U-100/U-40 setting, IU-aware vial/concentration labels. Deep-linkable via `/calculator?peptide=<id>`.
+- Dose units: `dosing.unit` is `'mcg' | 'mg' | 'IU'`. mcg↔mg convert by ×1000; **IU is a whole
+  unit** — all quantity math (`unit === 'mcg' ? x/1000 : x` branches in recon/vial/inventory)
+  routes IU through the else, so an IU vial field holds an IU count (e.g. HCG = 5000 IU). Don't
+  add ×1000 conversions for IU.
+- Peptide content: `data/peptides.ts` (70 peptides, 8 categories; dosing/reconstitution/titration) and
   `data/experienceTimelines.ts` (`PeptideExperience` — weekly guide + optional
   evidence/dosing/tips/mistakes/stacking sections rendered by `ExperienceGuide.tsx`).
-  39 compounds, each with an entry in BOTH files plus any relevant
+  42 compounds, each with an entry in BOTH files plus any relevant
   `data/stackingRules.ts` pairs — `data/dataIntegrity.test.ts` enforces that
   cross-referencing, so run `npm test` after touching any of them.
   Optional `Peptide` fields carry what marketing copy usually omits:

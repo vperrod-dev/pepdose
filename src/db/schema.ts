@@ -8,7 +8,7 @@ export interface UserProtocol {
   owner: UserName;
   name: string;
   peptideIds: string[];
-  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; schedulePhases?: SchedulePhase[]; variantId?: string }[];
+  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg' | 'IU'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; schedulePhases?: SchedulePhase[]; variantId?: string }[];
   startDate: string;
   durationWeeks: number;
   status: 'active' | 'paused' | 'completed' | 'archived';
@@ -27,7 +27,7 @@ export interface ScheduledDose {
   date: string;
   time: string;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   route: string;
   status: 'upcoming' | 'logged' | 'missed' | 'skipped';
   suggestedSite?: string;
@@ -46,7 +46,7 @@ export interface DoseLog {
   date: string;
   time: string;
   dose: number;
-  unit: 'mcg' | 'mg';
+  unit: 'mcg' | 'mg' | 'IU';
   route: string;
   injectionSite?: string;
   notes?: string;

@@ -56,12 +56,15 @@ cloud sync across devices.
   hatching, titration step-up arrows, and a per-protocol **dose-ramp sparkline**. Tap a lane or
   week for a summary sheet. A **Today** button jumps back to the current month (grid) or scrolls
   the today line into view (timeline).
-- **Peptide library** — peptide database with dosing data, plus stacking rules
+- **Peptide library** — a database of ~46 peptides across 7 categories (healing, GLP-1,
+  GH secretagogues, fat loss, cosmetic, sexual health, nootropic), including multi-component
+  blends (GLOW, KLOW, Tri-Heal, CagriSema, …), plus stacking rules. Doses are carried in
+  `mcg`, `mg`, or `IU` (e.g. HCG is dosed natively in IU).
 - **Reconstitution calculator** — forward (water → units) **and reverse-BAC** ("I want my dose
   on a clean 10-unit mark — how much water?"); a **blend breakdown** for GLOW-style vials
   (per-component mg from one draw); a **visual syringe** that honors your U-100/U-40 setting;
-  plus an **IU↔mg** converter for IU-dosed compounds (HGH/HCG). Reachable directly from each
-  peptide's experience guide.
+  IU-aware vial/concentration labels for IU-dosed compounds; plus a standalone **IU↔mg**
+  converter (e.g. for HGH). Reachable directly from each peptide's experience guide.
 - **Active Levels** — an Insights chart estimating how much of each compound is *in your system*
   from your actual logged doses, **projected forward through upcoming scheduled doses** past a
   "now" line (so you see the weekly trough and the next shot climb back to peak). Per-peptide
@@ -110,9 +113,10 @@ Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_
 
 ## How scheduling works
 
-- `src/data/peptides.ts` — the peptide database. A peptide's `dosing` can carry a `titration`
-  ladder (auto dose step-ups) and/or `protocolVariants` (named phased cycles, each a list of
-  `SchedulePhase` week-ranges + cadence).
+- `src/data/peptides.ts` — the peptide database. A peptide's `dosing` has a `unit`
+  (`mcg | mg | IU`) and can carry a `titration` ladder (auto dose step-ups) and/or
+  `protocolVariants` (named phased cycles, each a list of `SchedulePhase` week-ranges + cadence).
+  IU is treated as a whole unit (no ×1000 mass conversion) throughout the dose/vial/recon math.
 - `src/utils/scheduleEngine.ts` — `generateSchedule()` turns a config into dated doses. Fixed
   cadences (`daily`/`eod`/`weekly`/`biweekly`/`custom`) use per-cadence loops; peptides with
   `schedulePhases` use a day-by-day phased generator (`5x_week` = weekdays). `summarizePhases()`

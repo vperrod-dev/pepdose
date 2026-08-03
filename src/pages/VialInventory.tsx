@@ -20,7 +20,7 @@ export function VialInventory() {
   const [amountMg, setAmountMg] = useState('');
   const [bacWater, setBacWater] = useState('');
   const [perDose, setPerDose] = useState('');
-  const [perDoseUnit, setPerDoseUnit] = useState<'mcg' | 'mg'>('mg');
+  const [perDoseUnit, setPerDoseUnit] = useState<'mcg' | 'mg' | 'IU'>('mg');
   const [dosesRemaining, setDosesRemaining] = useState('');
   const [storageLocation, setStorageLocation] = useState('');
   const [owner, setOwner] = useState<UserName>(getLastOwner());
@@ -129,7 +129,7 @@ export function VialInventory() {
           <div className="flex gap-2">
             <input type="number" inputMode="decimal" placeholder="Dose per injection" value={perDose} onChange={e => setPerDose(e.target.value)} className="flex-1 bg-bg border border-border rounded-xl px-3 py-2.5 text-sm" />
             <button
-              onClick={() => setPerDoseUnit(perDoseUnit === 'mcg' ? 'mg' : 'mcg')}
+              onClick={() => setPerDoseUnit(perDoseUnit === 'mcg' ? 'mg' : perDoseUnit === 'mg' ? 'IU' : 'mcg')}
               className="bg-bg border border-border rounded-xl px-4 py-2.5 text-sm font-semibold text-primary min-w-[56px]"
             >
               {perDoseUnit}
