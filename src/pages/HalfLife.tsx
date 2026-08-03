@@ -10,6 +10,7 @@ import type { DoseLog, ScheduledDose } from '../db/schema';
 import {
   sampleLevels, currentStatus, type PeptideSeries, type DoseEvent,
 } from '../utils/activeLevels';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -61,6 +62,9 @@ export function HalfLife() {
   const activeWindow = WINDOWS[windowIdx];
   const now = Date.now();
   const windowStart = now - activeWindow.hours * 3_600_000;
+  const applyOwnerFilter = useOwnerFilter();
+  const ownedLogs = useMemo(() => applyOwnerFilter(logs), [applyOwnerFilter, logs]);
+  const ownedScheduled = useMemo(() => applyOwnerFilter(scheduled), [applyOwnerFilter, scheduled]);
 
   // Build per-peptide series from past logs + upcoming scheduled doses (projection).
   const { seriesList, meta, projectionEnd } = useMemo(() => {
@@ -78,7 +82,7 @@ export function HalfLife() {
       return byId[peptideId];
     };
 
-    for (const log of logs) {
+    for (const log of ownedLogs) {
       const pep = getPeptideById(log.peptideId);
       if (!pep) continue;
       const ts = eventTs(log.date, log.time);
@@ -90,7 +94,7 @@ export function HalfLife() {
 
     // Only project peptides that already have logged history in view.
     let soonestNext = Infinity;
-    for (const d of scheduled) {
+    for (const d of ownedScheduled) {
       if (!byId[d.peptideId]) continue;
       const ts = eventTs(d.date, d.time);
       if (ts <= now) continue;
@@ -109,7 +113,7 @@ export function HalfLife() {
       meta: byId,
       projectionEnd: now + projHours * 3_600_000,
     };
-  }, [logs, scheduled, windowStart, now]);
+  }, [ownedLogs, ownedScheduled, windowStart, now]);
 
   const peptideIds = seriesList.map(s => s.peptideId);
 

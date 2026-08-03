@@ -6,6 +6,7 @@ import { getProtocols } from '../db/operations';
 import { getExperienceForPeptide, EXPERIENCE_DATA, type PeptideExperience, type Severity, type EvidenceLevel } from '../data/experienceTimelines';
 import { getPeptideById, PEPTIDES } from '../data/peptides';
 import type { UserProtocol } from '../db/schema';
+import { useOwnerFilter } from '../context/ViewFilterContext';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -304,6 +305,7 @@ export function ExperienceGuide() {
   const [protocols, setProtocols] = useState<UserProtocol[]>([]);
   const [loading, setLoading] = useState(true);
   const [browsePeptideId, setBrowsePeptideId] = useState('');
+  const applyOwnerFilter = useOwnerFilter();
 
   useEffect(() => {
     getProtocols('active').then(p => {
@@ -312,10 +314,12 @@ export function ExperienceGuide() {
     });
   }, []);
 
+  const ownedProtocols = useMemo(() => applyOwnerFilter(protocols), [applyOwnerFilter, protocols]);
+
   // Deduplicate peptide IDs across active protocols, compute current week per peptide
   const activePeptides = useMemo(() => {
     const seen = new Map<string, number>();
-    for (const proto of protocols) {
+    for (const proto of ownedProtocols) {
       const weeksSinceStart = differenceInWeeks(new Date(), parseISO(proto.startDate));
       const currentWeek = Math.max(1, weeksSinceStart + 1);
       for (const pid of proto.peptideIds) {
@@ -325,7 +329,7 @@ export function ExperienceGuide() {
       }
     }
     return seen;
-  }, [protocols]);
+  }, [ownedProtocols]);
 
   const hasActiveGuides = activePeptides.size > 0;
 
