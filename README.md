@@ -56,8 +56,8 @@ cloud sync across devices.
   hatching, titration step-up arrows, and a per-protocol **dose-ramp sparkline**. Tap a lane or
   week for a summary sheet. A **Today** button jumps back to the current month (grid) or scrolls
   the today line into view (timeline).
-- **Peptide library** — a database of ~46 peptides across 7 categories (healing, GLP-1,
-  GH secretagogues, fat loss, cosmetic, sexual health, nootropic), including multi-component
+- **Peptide library** — a database of 70 peptides across 8 categories (healing, GLP-1,
+  GH secretagogues, fat loss, cosmetic, sexual health, nootropic, longevity), including multi-component
   blends (GLOW, KLOW, Tri-Heal, CagriSema, …), plus stacking rules. Doses are carried in
   `mcg`, `mg`, or `IU` (e.g. HCG is dosed natively in IU).
 - **Reconstitution calculator** — forward (water → units) **and reverse-BAC** ("I want my dose
