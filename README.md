@@ -200,7 +200,8 @@ Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_
   `getLastOwner`/`setLastOwner` preference (localStorage `pepdose-last-owner`).
 - Every owned record (`UserProtocol`, `ScheduledDose`, `DoseLog`, `Vial`, `HealthMarker`) carries
   an `owner`. A DB **v1→v2** migration in `src/db/schema.ts` backfills all pre-existing data to
-  `Victor`; `importData` defaults owner-less records from old backups the same way.
+  `Victor`; `importData(json, owner)` takes the owner explicitly — the Export/Import screen passes
+  `getLastOwner()`, so a legacy owner-less backup lands on whoever is using the device.
 - `saveScheduledDoses(doses, owner)` stamps owner at the save boundary, keeping `scheduleEngine`
   owner-free (it returns `DraftDose` = owner-less doses). Logged doses inherit their scheduled
   dose's owner.

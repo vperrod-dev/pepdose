@@ -388,7 +388,10 @@ export function validateImport(data: unknown): asserts data is Record<string, un
   }
 }
 
-export async function importData(jsonString: string): Promise<void> {
+/** `owner` claims records from pre-two-user backups, which carry no owner field.
+ *  The caller passes the profile active on this device — a hardcoded name would
+ *  silently mis-own the other user's restore and hide it behind owner filtering. */
+export async function importData(jsonString: string, owner: UserName): Promise<void> {
   const data = JSON.parse(jsonString);
   validateImport(data);
   const db = await getDB();
@@ -401,8 +404,7 @@ export async function importData(jsonString: string): Promise<void> {
       const store = tx.objectStore(storeName);
       const ledger = tx.objectStore('deletions');
       for (const item of data[storeName] as Record<string, unknown>[]) {
-        // Default owner for records from pre-two-user backups.
-        if (ownedStores.has(storeName) && !item.owner) item.owner = 'Victor';
+        if (ownedStores.has(storeName) && !item.owner) item.owner = owner;
         // Restore is an explicit resurrection: without a fresh stamp, a remote
         // tombstone newer than the backup would LWW-delete the row on next sync.
         item.updatedAt = now;

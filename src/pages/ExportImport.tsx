@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Upload, Trash2, CheckCircle, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { exportAllData, importData, clearAllData } from '../db/operations';
+import { getLastOwner } from '../data/users';
 import { supabase, cloudEnabled } from '../db/supabase';
 import { resetSyncCursor, syncNow } from '../db/sync';
 
@@ -37,7 +38,7 @@ export function ExportImport() {
         const text = await file.text();
         const parsed = JSON.parse(text);
         if (!parsed.version || !parsed.protocols) throw new Error('Invalid backup');
-        await importData(text);
+        await importData(text, getLastOwner());
         setStatus({ type: 'success', msg: `Imported ${parsed.protocols.length} protocols. Reloading…` });
         // Reload so every screen re-reads the restored data instead of showing stale in-memory state.
         setTimeout(() => window.location.reload(), 800);

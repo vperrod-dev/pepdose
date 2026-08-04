@@ -163,7 +163,7 @@ describe('backup restore vs newer tombstone (F17 regression)', () => {
     const backup = JSON.parse(await exportAllData());
     backup.doseLogs[0].updatedAt = '2020-01-01T00:00:00.000Z';
 
-    await importData(JSON.stringify(backup));
+    await importData(JSON.stringify(backup), 'Victor');
     const [restored] = await getAllDoseLogs();
     const { localDelete } = planMerge([restored], [ledgerTombstone(log.id, '2023-01-01T00:00:00.000Z')]);
 

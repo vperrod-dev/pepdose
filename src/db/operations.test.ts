@@ -228,7 +228,7 @@ describe('validateImport', () => {
 describe('importData', () => {
   it('rejects malformed input without touching existing state', async () => {
     await saveVial(baseVial);
-    await expect(importData(JSON.stringify({ vials: [{ notEvenClose: true }] }))).rejects.toThrow();
+    await expect(importData(JSON.stringify({ vials: [{ notEvenClose: true }] }), 'Victor')).rejects.toThrow();
     const vials = await getVials('bpc-157');
     expect(vials).toHaveLength(1);
   });
@@ -240,11 +240,19 @@ describe('importData', () => {
     stale.doseLogs[0].updatedAt = '2020-01-01T00:00:00.000Z';
     const before = Date.now();
 
-    await importData(JSON.stringify(stale));
+    await importData(JSON.stringify(stale), 'Victor');
 
     const [restored] = await getAllDoseLogs();
     expect(restored.id).toBe(log.id);
     expect(Date.parse(restored.updatedAt ?? '')).toBeGreaterThanOrEqual(before);
+  });
+
+  it('assigns owner-less legacy-backup rows to the importing profile', async () => {
+    const legacy = { version: 1, vials: [{ ...baseVial, id: 'v-legacy', owner: undefined, createdAt: '2026-01-01T00:00:00.000Z' }] };
+
+    await importData(JSON.stringify(legacy), 'Nadia');
+
+    expect((await getVials('bpc-157'))[0].owner).toBe('Nadia');
   });
 
   it('clears a pending deletion for a re-imported record', async () => {
@@ -253,7 +261,7 @@ describe('importData', () => {
     const exported = await exportAllData();
     await deleteDoseLog(log.id);
 
-    await importData(exported);
+    await importData(exported, 'Victor');
 
     const db = await getDB();
     expect(await db.get('deletions', log.id)).toBeUndefined();
