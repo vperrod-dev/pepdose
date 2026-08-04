@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { LayoutDashboard, CalendarDays, Plus, BarChart3, Menu } from 'lucide-react';
 
 const tabs = [

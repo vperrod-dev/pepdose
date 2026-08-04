@@ -20,7 +20,7 @@ vi.mock('../db/operations', () => ({
 // data-loss paths.
 vi.mock('../db/supabase', () => ({ cloudEnabled: false, supabase: null }));
 vi.mock('../db/sync', () => ({ resetSyncCursor: () => {}, syncNow: async () => null }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
 
 // Capture the throwaway <input> handleImport builds so tests can drive its
 // onchange directly instead of relying on a real file picker.

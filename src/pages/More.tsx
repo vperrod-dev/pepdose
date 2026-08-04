@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Package, Calculator, BookOpen, Settings, Download, Shield, Syringe, ClipboardList, LineChart } from 'lucide-react';
 
 const menuItems = [

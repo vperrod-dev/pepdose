@@ -34,7 +34,7 @@ vi.mock('../db/sync', () => ({
   syncNow: mocks.syncNow,
 }));
 
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }));
 
 const clickSignOut = async () => {
   await act(async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ArrowLeft, Download, Upload, Trash2, CheckCircle, AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { exportAllData, importData, clearAllData } from '../db/operations';
 import { getLastOwner } from '../data/users';

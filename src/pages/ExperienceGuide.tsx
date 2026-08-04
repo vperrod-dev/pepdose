@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { differenceInWeeks, parseISO } from 'date-fns';
 import { Shield, AlertTriangle, CheckCircle, Clock, ChevronDown, ChevronRight, BookOpen, OctagonAlert, Syringe, Lightbulb, XCircle, Layers, FlaskConical } from 'lucide-react';
 import { getProtocols } from '../db/operations';

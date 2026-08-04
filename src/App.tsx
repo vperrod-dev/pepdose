@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { BottomNav } from './components/BottomNav';
 import { Dashboard } from './pages/Dashboard';
 import { Calendar } from './pages/Calendar';

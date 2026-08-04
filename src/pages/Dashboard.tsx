@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { format, differenceInMinutes, differenceInHours, differenceInWeeks, parseISO } from 'date-fns';
 import { Syringe, TrendingUp, ChevronRight, Zap, Flame } from 'lucide-react';
 import { getScheduledDosesForDate, getProtocols, getDoseLogsForDate, getScheduledDosesForProtocol } from '../db/operations';

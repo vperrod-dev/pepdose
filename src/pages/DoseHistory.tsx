@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ArrowLeft, Calendar as CalIcon, List } from 'lucide-react';
 import { getAllDoseLogs } from '../db/operations';
 import { getPeptideById } from '../data/peptides';

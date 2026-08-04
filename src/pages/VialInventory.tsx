@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ArrowLeft, Plus, Droplets, AlertTriangle, Trash2, X } from 'lucide-react';
 import { getVials, saveVial, updateVial, getDoseLogsForPeptide } from '../db/operations';
 import { PEPTIDES, getPeptideById } from '../data/peptides';

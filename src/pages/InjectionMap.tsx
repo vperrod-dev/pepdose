@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
 import { getAllDoseLogs } from '../db/operations';
 import { zoneStats, daysSinceByLabel, type ZoneStat } from '../utils/injectionStats';

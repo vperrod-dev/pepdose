@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ChevronLeft, Sparkles, ArrowRight } from 'lucide-react';
 import { CATEGORY_LABELS, getPeptideById, type PeptideCategory } from '../data/peptides';
 import { peptidesForGoal, synergyStacksFor } from '../utils/goalPicker';

@@ -174,12 +174,14 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     >();
 
     // The per-kind plans are independent, so they go out together — one round
-    // trip's latency instead of six, on every sync tick.
+    // trip's latency instead of six, on every sync tick. Bound here because the
+    // callback loses the enclosing non-null narrowing of `supabase`.
+    const sb = supabase;
     await Promise.all(
       KINDS.map(async (kind) => {
         try {
           const allLocal: Timestamped[] = await db.getAll(kind);
-          let query = supabase
+          let query = sb
             .from('records')
             .select('id,data,updated_at,deleted')
             .eq('kind', kind);

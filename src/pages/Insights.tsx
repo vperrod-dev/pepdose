@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Activity, TrendingUp, Heart, MapPin, Thermometer } from 'lucide-react';
 
 export function Insights() {

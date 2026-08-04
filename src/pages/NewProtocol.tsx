@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router';
 import { format, addWeeks } from 'date-fns';
 import {
   ArrowLeft, ArrowRight, Check, Beaker, CalendarDays,
