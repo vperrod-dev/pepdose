@@ -9,6 +9,7 @@ import { symptomsForCategory } from '../data/symptoms';
 import { BodyMapSVG } from './BodyMapSVG';
 import { AbdomenClockDial } from './AbdomenClockDial';
 import { daysSinceByLabel, mostRestedLabel } from '../utils/injectionStats';
+import { filterByOwner } from '../context/ownerFilter';
 
 interface DoseActionSheetProps {
   dose: ScheduledDose & { peptideName: string; color: string };
@@ -65,12 +66,14 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
 
   useEffect(() => {
     getAllDoseLogs().then(logs => {
-      const ds = daysSinceByLabel(logs, new Date());
+      // Site rest times are per-body: only this dose's owner's injections count,
+      // never the other profile's (the view filter can be 'all', so it won't do).
+      const ds = daysSinceByLabel(filterByOwner(logs, dose.owner), new Date());
       setDaysMap(ds);
       // only auto-pick a rested zone when logging fresh (no existing site chosen)
       if (!log?.injectionSite && !dose.suggestedSite && !userPickedSite.current) setSite(mostRestedLabel(SITE_LABELS, ds));
     });
-  }, [log?.injectionSite, dose.suggestedSite]);
+  }, [log?.injectionSite, dose.suggestedSite, dose.owner]);
 
   const idByLabel = Object.fromEntries(INJECTION_SITES.map(s => [s.label, s.id]));
   const labelById = Object.fromEntries(INJECTION_SITES.map(s => [s.id, s.label]));
