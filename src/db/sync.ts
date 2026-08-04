@@ -161,29 +161,58 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
         ? cursor.since - CLOCK_SKEW_MS
         : null;
 
+    // --- Phase 1: compute every kind's merge plan without mutating local/remote ---
+    const plans = new Map<
+      string,
+      {
+        push: Timestamped[];
+        localPut: Timestamped[];
+        localDelete: string[];
+        pushTombstone: DeletionRecord[];
+        ledgerResolved: string[];
+      }
+    >();
+
+    // The per-kind plans are independent, so they go out together — one round
+    // trip's latency instead of six, on every sync tick.
+    await Promise.all(
+      KINDS.map(async (kind) => {
+        try {
+          const allLocal: Timestamped[] = await db.getAll(kind);
+          let query = supabase
+            .from('records')
+            .select('id,data,updated_at,deleted')
+            .eq('kind', kind);
+          if (delta !== null) query = query.gt('updated_at', new Date(delta).toISOString());
+          const { data: remoteRows, error } = await query;
+          if (error) throw error;
+
+          const remote = (remoteRows ?? []) as RemoteRow[];
+          const remoteIds = new Set(remote.map((r) => r.id));
+          const localRows =
+            delta === null
+              ? allLocal
+              : allLocal.filter((r) => rowTs(r) > delta || remoteIds.has(r.id));
+          const deletions = allDeletions.filter((d) => d.kind === kind);
+          plans.set(kind, planMerge(localRows, remote, deletions));
+        } catch (e) {
+          const msg = `${kind}: ${e instanceof Error ? e.message : String(e)}`;
+          console.error('[sync] ' + msg);
+          errors.push(msg);
+        }
+      }),
+    );
+
+    if (errors.length) {
+      return { pushed, pulled, errors };
+    }
+
+    // --- Phase 2: remote writes (pushes + tombstones). Abort the sync on first failure. ---
     for (const kind of KINDS) {
       try {
-      const allLocal: Timestamped[] = await db.getAll(kind);
-      let query = supabase
-        .from('records')
-        .select('id,data,updated_at,deleted')
-        .eq('kind', kind);
-      if (delta !== null) query = query.gt('updated_at', new Date(delta).toISOString());
-      const { data: remoteRows, error } = await query;
-      if (error) throw error;
-
-      const remote = (remoteRows ?? []) as RemoteRow[];
-      const remoteIds = new Set(remote.map((r) => r.id));
-      const localRows =
-        delta === null
-          ? allLocal
-          : allLocal.filter((r) => rowTs(r) > delta || remoteIds.has(r.id));
-      const deletions = allDeletions.filter((d) => d.kind === kind);
-      const { push, localPut, localDelete, pushTombstone, ledgerResolved } =
-        planMerge(localRows, remote, deletions);
-
-      if (push.length) {
-        const envelopes = push.map((row) => ({
+      const plan = plans.get(kind)!;
+      if (plan.push.length) {
+        const envelopes = plan.push.map((row) => ({
           user_id: userId,
           kind,
           id: row.id,
@@ -193,11 +222,11 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
         }));
         const { error: upErr } = await supabase.from('records').upsert(envelopes);
         if (upErr) throw upErr;
-        pushed += push.length;
+        pushed += plan.push.length;
       }
-      const ledgerDone = [...ledgerResolved];
-      if (pushTombstone.length) {
-        const tombstones = pushTombstone.map((d) => ({
+      const ledgerDone = [...plan.ledgerResolved];
+      if (plan.pushTombstone.length) {
+        const tombstones = plan.pushTombstone.map((d) => ({
           user_id: userId,
           kind,
           id: d.id,
@@ -207,26 +236,46 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
         }));
         const { error: delErr } = await supabase.from('records').upsert(tombstones);
         if (delErr) throw delErr;
-        pushed += pushTombstone.length;
-        ledgerDone.push(...pushTombstone.map((d) => d.id)); // prune only after the cloud has it
-      }
-      if (localPut.length || localDelete.length || ledgerDone.length) {
-        const tx = db.transaction([kind, 'deletions'], 'readwrite');
-        const store = tx.objectStore(kind);
-        for (const row of localPut) await store.put(row);
-        for (const id of localDelete) await store.delete(id);
-        const ledgerStore = tx.objectStore('deletions');
-        for (const id of ledgerDone) await ledgerStore.delete(id);
-        await tx.done;
-        pulled += localPut.length + localDelete.length;
+        pushed += plan.pushTombstone.length;
+        ledgerDone.push(...plan.pushTombstone.map((d) => d.id));
       }
       } catch (e) {
-        // One kind failing (e.g. a bad row rejected by Supabase) must not abort
-        // the remaining kinds — collect and surface instead.
         const msg = `${kind}: ${e instanceof Error ? e.message : String(e)}`;
         console.error('[sync] ' + msg);
         errors.push(msg);
+        break;
       }
+    }
+
+    if (errors.length) {
+      return { pushed, pulled, errors };
+    }
+
+    // --- Phase 3: single multi-store IDB transaction for all local mutations. ---
+    const tx = db.transaction([...KINDS, 'deletions'], 'readwrite');
+    const ledgerStore = tx.objectStore('deletions');
+    for (const kind of KINDS) {
+      const plan = plans.get(kind)!;
+      const store = tx.objectStore(kind);
+      for (const row of plan.localPut) {
+        await store.put(row);
+      }
+      for (const id of plan.localDelete) {
+        await store.delete(id);
+      }
+      const ledgerDone = [...plan.ledgerResolved];
+      if (plan.pushTombstone.length) {
+        ledgerDone.push(...plan.pushTombstone.map((d) => d.id));
+      }
+      for (const id of ledgerDone) {
+        await ledgerStore.delete(id);
+      }
+    }
+    await tx.done;
+
+    for (const kind of KINDS) {
+      const plan = plans.get(kind)!;
+      pulled += plan.localPut.length + plan.localDelete.length;
     }
 
     if (!errors.length) {

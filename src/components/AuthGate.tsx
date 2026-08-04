@@ -4,8 +4,33 @@ import { CloudCheck, CloudOff, Loader2 } from 'lucide-react';
 import { supabase, cloudEnabled } from '../db/supabase';
 import { syncNow } from '../db/sync';
 
-/** Gates the app behind a shared Supabase login when cloud sync is configured.
- *  With no Supabase env vars the app runs fully local, exactly as before. */
+// Takes the ref, not ref.current: the caller reads .current during render, when
+// the ref is still null, and the effect's [container] dependency never changes
+// afterwards — so the trap never armed and the login modal never autofocused.
+function useFocusTrap(containerRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const focusable = container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (document.activeElement !== first && document.activeElement !== last) return;
+      e.preventDefault();
+      document.activeElement === first ? last.focus() : first.focus();
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [containerRef]);
+}
+
 export function AuthGate({ children }: { children: ReactNode }) {
   if (!cloudEnabled) return <>{children}</>;
   return <CloudGate>{children}</CloudGate>;
@@ -13,9 +38,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 function CloudGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false); // resolved initial getSession
+  const [ready, setReady] = useState(false);
   const [firstSyncDone, setFirstSyncDone] = useState(false);
   const [syncIssue, setSyncIssue] = useState<string | null>(null);
+  const trapContainerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     supabase!.auth.getSession().then(({ data }) => {
@@ -23,29 +50,45 @@ function CloudGate({ children }: { children: ReactNode }) {
       setReady(true);
     });
     const { data: sub } = supabase!.auth.onAuthStateChange((_e, s) => setSession(s));
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Merge local <-> cloud on login, then keep in sync on focus / interval / unload.
+  useEffect(() => {
+    if (!session) {
+      if ((document.activeElement?.tagName ?? '') === 'BODY') {
+        triggerRef.current?.focus();
+      }
+      return;
+    }
+    triggerRef.current = document.activeElement as HTMLElement | null;
+  }, [session]);
+
   useEffect(() => {
     if (!session) return;
     let cancelled = false;
-    // Auto-syncs report failures too — quietly (indicator, not modal), same info
-    // as the manual "Sync now" button. Clears itself on the next clean sync.
+
     const runSync = () =>
       syncNow()
-        .then((res) => { if (!cancelled && res) setSyncIssue(res.errors.length ? res.errors.join('; ') : null); })
-        .catch((e) => { if (!cancelled) setSyncIssue(e instanceof Error ? e.message : 'Sync failed'); });
-    runSync().finally(() => { if (!cancelled) setFirstSyncDone(true); });
+        .then(res => {
+          if (!cancelled && res) setSyncIssue(res.errors.length ? res.errors.join('; ') : null);
+        })
+        .catch(e => {
+          if (!cancelled) setSyncIssue(e instanceof Error ? e.message : 'Sync failed');
+        });
+    runSync().finally(() => {
+      if (!cancelled) setFirstSyncDone(true);
+    });
 
     const tick = () => { void runSync(); };
-    // beforeunload is unreliable (esp. mobile); visibilitychange→hidden is the
-    // last dependable moment to flush, so sync on both.
-    const onHidden = () => { if (document.visibilityState === 'hidden') tick(); };
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') tick();
+    };
     const interval = setInterval(tick, 30_000);
     window.addEventListener('focus', tick);
     window.addEventListener('beforeunload', tick);
     document.addEventListener('visibilitychange', onHidden);
+
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -56,7 +99,7 @@ function CloudGate({ children }: { children: ReactNode }) {
   }, [session]);
 
   if (!ready) return <Splash label="Loading…" />;
-  if (!session) return <LoginForm />;
+  if (!session) return <LoginForm containerRef={trapContainerRef} />;
   if (!firstSyncDone) return <Splash label="Syncing your data…" />;
   return (
     <>
@@ -75,28 +118,18 @@ function CloudGate({ children }: { children: ReactNode }) {
   );
 }
 
-function Splash({ label }: { label: string }) {
-  return (
-    <div className="min-h-dvh flex flex-col items-center justify-center gap-3 text-text-muted">
-      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-      <p className="text-sm">{label}</p>
-    </div>
-  );
-}
+// Stable fallback so the hook's dependency identity never changes when the
+// caller passes no container.
+const emptyRef: React.RefObject<HTMLElement | null> = { current: null };
 
-/** pepdose runs on a single shared Supabase account provisioned out-of-band, so
- *  there is no self-signup — this form only signs in. A client-only gate can be
- *  bypassed by calling the API directly, so the constraint is also enforced
- *  server-side: `supabase/migrations/0002_reject_extra_signups.sql` rejects any
- *  signup after the first account, and RLS scopes rows per account. */
-function LoginForm() {
+function LoginForm({ containerRef }: { containerRef?: React.RefObject<HTMLDivElement | null> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => emailRef.current?.focus(), []);
+  useFocusTrap(containerRef ?? emptyRef);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,7 +141,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6">
+    <div ref={containerRef} className="min-h-dvh flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 mb-6 justify-center">
           <CloudCheck className="w-6 h-6 text-primary" />
@@ -153,6 +186,15 @@ function LoginForm() {
           pepdose uses a single shared account. Ask the owner for the credentials.
         </p>
       </div>
+    </div>
+  );
+}
+
+function Splash({ label }: { label: string }) {
+  return (
+    <div className="min-h-dvh flex flex-col items-center justify-center gap-3 text-text-muted">
+      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      <p className="text-sm">{label}</p>
     </div>
   );
 }
