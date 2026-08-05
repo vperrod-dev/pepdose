@@ -27,7 +27,7 @@ const STEPS = [
   {
     icon: Shield,
     title: 'Private & Local',
-    desc: 'All data stays on your device. No accounts, no cloud, no tracking. Export anytime.',
+    desc: 'Your data stays on your device unless you turn on cloud sync. No tracking. Export anytime.',
     color: '#22c55e',
   },
 ];
