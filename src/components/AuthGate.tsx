@@ -68,32 +68,44 @@ function CloudGate({ children }: { children: ReactNode }) {
     if (!session) return;
     let cancelled = false;
 
-    const runSync = () =>
-      syncNow()
+    // Coalesce: the interval, a focus and a tab-hide can land within the same
+    // second, and a full six-store sync takes longer than that — overlapping
+    // runs duplicate the work and race each other's results.
+    let inFlight: Promise<void> | null = null;
+    const runSync = () => {
+      if (inFlight) return inFlight;
+      inFlight = syncNow()
         .then(res => {
           if (!cancelled && res) setSyncIssue(res.errors.length ? res.errors.join('; ') : null);
         })
         .catch(e => {
           if (!cancelled) setSyncIssue(e instanceof Error ? e.message : 'Sync failed');
+        })
+        .finally(() => {
+          inFlight = null;
         });
+      return inFlight;
+    };
     runSync().finally(() => {
       if (!cancelled) setFirstSyncDone(true);
     });
 
     const tick = () => { void runSync(); };
+    // visibilitychange-hidden, not beforeunload: the browser aborts an unload-time
+    // fetch mid-flight, so that trigger only looked like it protected the write.
+    // Hiding fires on tab close, app switch and backgrounding, and fires early
+    // enough for the request to complete.
     const onHidden = () => {
       if (document.visibilityState === 'hidden') tick();
     };
     const interval = setInterval(tick, 30_000);
     window.addEventListener('focus', tick);
-    window.addEventListener('beforeunload', tick);
     document.addEventListener('visibilitychange', onHidden);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
       window.removeEventListener('focus', tick);
-      window.removeEventListener('beforeunload', tick);
       document.removeEventListener('visibilitychange', onHidden);
     };
   }, [session]);

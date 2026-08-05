@@ -87,8 +87,20 @@ describe('AuthGate', () => {
     state.session = { user: { id: 'u1' } };
     render(<AuthGate><p>app</p></AuthGate>);
     await flush();
-    await act(async () => { vi.advanceTimersByTime(61_000); });
+    await act(async () => { vi.advanceTimersByTime(31_000); });
+    await act(async () => { vi.advanceTimersByTime(31_000); });
     expect(state.syncCalls).toBe(3); // login + two ticks
+  });
+
+  it('coalesces triggers that land while a sync is still running', async () => {
+    vi.useFakeTimers();
+    state.session = { user: { id: 'u1' } };
+    render(<AuthGate><p>app</p></AuthGate>);
+    await flush();
+    // Two interval ticks inside one turn of the event loop: the second must
+    // join the in-flight sync instead of starting a second six-store pass.
+    await act(async () => { vi.advanceTimersByTime(61_000); });
+    expect(state.syncCalls).toBe(2); // login + one coalesced tick
   });
 
   it('surfaces auto-sync errors as a status indicator, not a modal', async () => {
