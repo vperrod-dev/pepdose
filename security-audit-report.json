@@ -1,0 +1,130 @@
+{
+  "auditDate": "2026-07-27",
+  "riskScore": 35,
+  "riskLevel": "MEDIUM-HIGH",
+  "summary": "Multi-user data isolation vulnerability in database query layer. Range queries return unfiltered data across all users. No hardcoded secrets or injection vectors detected.",
+  "vulnerabilities": [
+    {
+      "id": "AUTH-001",
+      "severity": "high",
+      "category": "authorization",
+      "file": "src/db/operations.ts",
+      "line": 85,
+      "title": "Missing Owner Filtering in getScheduledDosesInRange",
+      "description": "getScheduledDosesInRange returns all scheduled doses in a date range for ALL owners. Function signature takes only (startDate, endDate) without owner parameter. Queries db.getAllFromIndex('scheduledDoses', 'by-date', ...) without filtering by owner field.",
+      "failure_scenario": "User Victor calls getScheduledDosesInRange('2026-07-01', '2026-07-31'). Returns 150 doses: 75 for Victor + 75 for Nadia. If Victor logs these to a chart without filtering (HalfLife.tsx), he sees Nadia's injection schedule and full dose history.",
+      "remediation": "Add owner parameter to function signature. Filter by owner in database query layer. Example: getScheduledDosesInRange(startDate: string, endDate: string, owner: UserName)"
+    },
+    {
+      "id": "AUTH-002",
+      "severity": "high",
+      "category": "authorization",
+      "file": "src/db/operations.ts",
+      "line": 228,
+      "title": "Missing Owner Filtering in getDoseLogsInRange",
+      "description": "getDoseLogsInRange returns all dose logs in date range for ALL owners. Retrieves db.getAllFromIndex('doseLogs', 'by-date', ...) which crosses user boundaries without filtering.",
+      "failure_scenario": "Nadia calls getDoseLogsInRange('2026-07-01', '2026-07-31'). Returns all logs including Victor's: dates, times, doses, symptoms (rated 1-10), injection sites, and notes. Complete exposure of Victor's protocol adherence and side effects.",
+      "remediation": "Add owner parameter. Filter before returning: logs.filter(l => l.owner === owner)"
+    },
+    {
+      "id": "AUTH-003",
+      "severity": "high",
+      "category": "authorization",
+      "file": "src/db/operations.ts",
+      "line": 256,
+      "title": "Missing Owner Filtering in getVials",
+      "description": "getVials returns all vials for a peptide across all owners. Does not filter by owner field.",
+      "failure_scenario": "Victor calls getVials('semaglutide'). Receives [Vial A (owner=Victor, 10 doses), Vial B (owner=Nadia, 3 doses)]. Victor knows Nadia has only 3 doses left and infers her protocol nearing completion.",
+      "remediation": "Add owner parameter: getVials(peptideId?: string, owner?: UserName). Filter vials.filter(v => v.owner === owner)"
+    },
+    {
+      "id": "AUTH-004",
+      "severity": "high",
+      "category": "authorization",
+      "file": "src/pages/HalfLife.tsx",
+      "line": 54,
+      "title": "No Owner Filtering in Active Levels Chart",
+      "description": "HalfLife page fetches all dose logs and scheduled doses without owner filter via getScheduledDosesInRange. Does not apply filterByOwner context before charting.",
+      "failure_scenario": "Victor views HalfLife chart. Sees combined active peptide levels from both Victor's and Nadia's doses. Chart shows inflated in-system levels from both users' protocols.",
+      "remediation": "Apply useViewFilter + filterByOwner(scheduled, filter) before charting. Match Calendar.tsx pattern at line 96."
+    },
+    {
+      "id": "AUTH-005",
+      "severity": "high",
+      "category": "authorization",
+      "file": "src/pages/Symptoms.tsx",
+      "line": 24,
+      "title": "No Owner Filtering in Symptoms Analysis",
+      "description": "Symptoms page calls getScheduledDosesInRange('2000-01-01', '2999-12-31') without owner filter. Charts mixed symptom severity data from both users.",
+      "failure_scenario": "User sees symptom-vs-titration chart mixing both users' reported symptoms. Cannot determine which nausea/fatigue reports are theirs vs. the other user's.",
+      "remediation": "Apply filterByOwner to both scheduled doses and logs before rendering chart"
+    },
+    {
+      "id": "AUTH-006",
+      "severity": "medium",
+      "category": "database-design",
+      "file": "src/db/schema.ts",
+      "line": 140,
+      "title": "Missing Compound Index on (peptideId, owner)",
+      "description": "Vials index 'by-peptide' only indexes peptideId. No compound index for efficient (peptideId, owner) queries.",
+      "failure_scenario": "Query getVials('semaglutide', 'Victor') retrieves all semaglutide vials then filters in JS. Inefficient and conceptually wrong (query layer should not leak data).",
+      "remediation": "Add: vialStore.createIndex('by-peptide-owner', ['peptideId', 'owner'])"
+    },
+    {
+      "id": "DATA-001",
+      "severity": "medium",
+      "category": "data-isolation",
+      "file": "src/db/sync.ts",
+      "line": 166,
+      "title": "Cloud Sync Retrieves All Records Unfiltered",
+      "description": "syncNow calls db.getAll(kind) without owner filtering. Retrieves all records across all users before merging with cloud.",
+      "failure_scenario": "If sync logic is modified or another consumer reuses db.getAll(), unfiltered multi-user data could be processed or leaked.",
+      "remediation": "Filter db.getAll() results by current user's owner before passing to planMerge()"
+    },
+    {
+      "id": "SECRETS-001",
+      "severity": "low",
+      "category": "secrets",
+      "file": "src/db/supabase.ts",
+      "line": 4,
+      "title": "Supabase Anon Key in Client - Expected Design",
+      "description": "VITE_SUPABASE_ANON_KEY is in client code. This is correct - anon key is public by design. Supabase RLS policies enforce security.",
+      "failure_scenario": "N/A - correct design IF RLS policies are configured correctly.",
+      "remediation": "Verify supabase/migrations/0001_init.sql has RLS policies enforcing auth.uid() == user_id"
+    },
+    {
+      "id": "XSS-001",
+      "severity": "low",
+      "category": "xss",
+      "file": "src/data/experienceTimelines.ts",
+      "line": 1,
+      "title": "Experience Content Could Be Unescaped",
+      "description": "Guide tips, dosing notes, mistakes stored as strings. If rendered via dangerouslySetInnerHTML without escaping, XSS possible.",
+      "failure_scenario": "If ExperienceGuide.tsx renders: <div dangerouslySetInnerHTML={{__html: tip}} /> and tip = '<img src=x onerror=alert(1)>', XSS fires.",
+      "remediation": "Verify ExperienceGuide.tsx uses standard JSX (auto-escapes). Avoid dangerouslySetInnerHTML for user/community content."
+    },
+    {
+      "id": "DEPS-001",
+      "severity": "low",
+      "category": "dependencies",
+      "file": "package.json",
+      "line": 1,
+      "title": "No Known Vulnerable Dependencies",
+      "description": "@supabase/supabase-js, idb, date-fns, recharts, lucide-react all maintained and secure.",
+      "failure_scenario": "N/A",
+      "remediation": "Run npm audit. Pin versions in package-lock.json."
+    }
+  ],
+  "recommendations": [
+    "PRIORITY 1: Add owner parameter to getScheduledDosesInRange, getDoseLogsInRange, getVials. Filter at database abstraction layer.",
+    "PRIORITY 1: Fix HalfLife.tsx and Symptoms.tsx to apply filterByOwner() before rendering charts (follow Calendar.tsx pattern).",
+    "PRIORITY 2: Add compound indexes: [date, owner] on scheduledDoses/doseLogs; [peptideId, owner] on vials.",
+    "PRIORITY 2: Add integration tests verifying multi-user isolation. Create Victor data, query as Nadia, assert empty/filtered results.",
+    "PRIORITY 3: Verify Supabase RLS policies enforce user isolation by user_id in records table.",
+    "PRIORITY 3: Filter db.getAll() in sync.ts by current user before merging with cloud.",
+    "PRIORITY 4: Audit dangerouslySetInnerHTML usage. Confirm experience data uses standard JSX rendering.",
+    "PRIORITY 4: Document ownership model in CLAUDE.md: every record has owner field; all queries must filter by current user; UI-level filtering insufficient."
+  ],
+  "riskJustification": "Multi-user data isolation broken in database query layer. Calendar applies UI filtering; HalfLife and Symptoms do not. Users can see each other's complete dose history, symptoms, and vial inventory. Limited by threat model (1-2 trusted users per device per CLAUDE.md), but would be CRITICAL if deployed to untrusted multi-user scenarios.",
+  "completeness": "Reviewed: config, schema, operations, sync, peptides, users, three pages, tests. Did not review: all 15+ components, all pages. Additional unfiltered query usages may exist elsewhere."
+}

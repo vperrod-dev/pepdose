@@ -1,0 +1,136 @@
+{
+  "vulnerabilities": [
+    {
+      "severity": "critical",
+      "file": "src/db/operations.ts",
+      "line": 77,
+      "category": "authorization",
+      "title": "Missing Owner Filter in getScheduledDosesInRange",
+      "description": "getScheduledDosesInRange(startDate, endDate) queries all scheduled doses in a date range without filtering by owner. In a two-user app (Victor/Nadia), User A can retrieve User B's scheduled doses by calling this function directly.",
+      "short_summary": "Scheduled doses returned without owner filter",
+      "failure_scenario": "User Victor calls getScheduledDosesInRange('2026-07-01', '2026-07-31'). Returns all 200 doses in range including 120 from Nadia. Victor accesses Nadia's full injection schedule.",
+      "remediation": "Add owner parameter and filter at database level before returning results"
+    },
+    {
+      "severity": "critical",
+      "file": "src/db/operations.ts",
+      "line": 93,
+      "category": "authorization",
+      "title": "Missing Owner Filter in getDoseLogsInRange",
+      "description": "getDoseLogsInRange(startDate, endDate) retrieves all dose logs in a date range without owner filtering. User A can query and retrieve all dose logs (including symptoms, injection sites, notes) from User B.",
+      "short_summary": "Dose logs returned without owner filter",
+      "failure_scenario": "User Nadia calls getDoseLogsInRange('2026-06-01', '2026-07-31'). Receives 85 dose logs including Victor's symptom severity scores and personal notes.",
+      "remediation": "Filter by owner at query time in database operations layer"
+    },
+    {
+      "severity": "critical",
+      "file": "src/pages/Calendar.tsx",
+      "line": 63,
+      "category": "authorization",
+      "title": "Client-Side Only Data Filtering After Unrestricted Query",
+      "description": "Calendar calls getScheduledDosesInRange() and getDoseLogsInRange() without owner filters, receiving ALL data. Filtering via filterByOwner() is applied client-side AFTER data is already in React state, exposing unfiltered data to browser dev tools.",
+      "short_summary": "Filtering applied to state after unrestricted retrieval",
+      "failure_scenario": "Attacker opens React DevTools, inspects state.monthDoses directly. Sees 200 dose objects before filtering. localStorage can also be inspected to manipulate viewFilter.",
+      "remediation": "Query only current user's data at database layer, not in component filters"
+    },
+    {
+      "severity": "critical",
+      "file": "src/db/operations.ts",
+      "line": 46,
+      "category": "authorization",
+      "title": "No Validation That saveScheduledDoses Owner Matches Current User",
+      "description": "saveScheduledDoses(doses, owner) accepts an arbitrary owner parameter with no validation. A compromised client can pass owner='Nadia' even when logged in as Victor.",
+      "short_summary": "Operations accept owner parameter without auth validation",
+      "failure_scenario": "Victor is logged in. Malicious JavaScript calls saveScheduledDoses(doses, 'Nadia'). Doses are saved under Nadia's account instead of Victor's.",
+      "remediation": "Store current user in protected context, validate in every operation against authenticated user from Supabase session"
+    },
+    {
+      "severity": "high",
+      "file": "src/data/users.ts",
+      "line": 13,
+      "category": "authorization",
+      "title": "localStorage Not Cleared on User Switch",
+      "description": "getLastOwner()/setLastOwner() use localStorage for persistence. On shared devices, localStorage persists across sessions. When User B opens browser after User A, LAST_OWNER_KEY still shows User A.",
+      "short_summary": "User context persists in localStorage across device sessions",
+      "failure_scenario": "Victor uses app on shared iPad, closes Safari. Nadia opens Safari. Any dose Nadia logs has owner='Victor' due to stale localStorage value.",
+      "remediation": "Remove user identity from localStorage. Derive it from Supabase auth.getSession() only. Clear all user state on logout."
+    },
+    {
+      "severity": "high",
+      "file": "src/components/AuthGate.tsx",
+      "line": 88,
+      "category": "authorization",
+      "title": "Single Shared Supabase Account for Multiple Local Users",
+      "description": "App runs on one shared Supabase account provisioned out-of-band. Data isolation between Victor and Nadia relies entirely on RLS policies (not shown). No per-user authentication. If RLS is misconfigured, all user data is exposed.",
+      "short_summary": "Data isolation depends on RLS alone; no per-user auth",
+      "failure_scenario": "RLS policy is buggy (missing WHERE owner filter). One sync call returns ALL data from both users. Or: VITE_SUPABASE_ANON_KEY leaks, attacker calls Supabase API directly.",
+      "remediation": "Verify all RLS policies are correctly deployed. Test RLS policies with cross-user queries in test suite."
+    },
+    {
+      "severity": "high",
+      "file": "src/db/sync.ts",
+      "line": 131,
+      "category": "data-integrity",
+      "title": "Timestamp Trust in Last-Write-Wins (LWW) Sync",
+      "description": "Cloud sync uses Last-Write-Wins based on client-provided updatedAt timestamps. A client can set arbitrary timestamps, causing newer remote edits to be overwritten by local rows with fake future timestamps.",
+      "short_summary": "LWW conflict resolution trusts client-supplied timestamps",
+      "failure_scenario": "Victor's local row has updatedAt='2099-01-01'. Nadia's remote edit has updatedAt='2026-07-27'. Sync chooses Victor's row (newer timestamp), overwriting Nadia's valid edit.",
+      "remediation": "Use server-assigned timestamps from Supabase (database-generated updated_at), not client-provided fields"
+    },
+    {
+      "severity": "high",
+      "file": "src/pages/HalfLife.tsx",
+      "line": 54,
+      "category": "authorization",
+      "title": "getAllDoseLogs() Called Without Owner Filter",
+      "description": "HalfLife.tsx calls getAllDoseLogs() which returns ALL dose logs from all users. Active Levels chart displays both users' dosing history without separation.",
+      "short_summary": "All dose logs retrieved and charted without filtering",
+      "failure_scenario": "Victor opens Active Levels page. Chart displays both his and Nadia's peptide series. Victor infers Nadia's compound use, timing, and dosing patterns.",
+      "remediation": "Modify getAllDoseLogs() to filter by owner. Chart only current user's data."
+    },
+    {
+      "severity": "medium",
+      "file": "src/db/operations.ts",
+      "line": 41,
+      "category": "authorization",
+      "title": "getProtocols() Returns All Protocols Without Owner Check",
+      "description": "getProtocols(status) retrieves all protocols matching status without filtering by owner. A user can see all protocols (active/paused/completed) created by the other user.",
+      "short_summary": "Protocol queries not filtered by owner",
+      "failure_scenario": "User calls getProtocols('active'). Receives all active protocols from both Victor and Nadia, including private protocol metadata.",
+      "remediation": "Add owner filter to getProtocols query at database layer"
+    },
+    {
+      "severity": "medium",
+      "file": "src/context/ownerFilter.ts",
+      "line": 5,
+      "category": "authorization",
+      "title": "View Filter Can Be Manually Manipulated",
+      "description": "ViewFilterContext stores filter state ('all'/'Victor'/'Nadia'). User could manually set filter to another user via browser dev tools, then query database for that user's data. Filter is client-side state with no auth binding.",
+      "short_summary": "View filter not bound to authenticated user identity",
+      "failure_scenario": "Victor uses dev tools to set ViewFilterContext filter='Nadia', then manually calls getScheduledDosesInRange(). Could retrieve Nadia's data.",
+      "remediation": "Enforce owner filter at database layer only. Never allow view filter to differ from authenticated user."
+    }
+  ],
+  "riskScore": 76,
+  "riskLevel": "CRITICAL",
+  "summary": "pepdose is a multi-user medication tracking PWA with CRITICAL multi-user data isolation vulnerabilities. Database queries return unfiltered data across users. Client-side filtering after retrieval provides no protection. Owner validation is missing from operations. localStorage persists user context across sessions. A shared Supabase account with no per-user auth means RLS is the sole defense. Either user can trivially access the other's full dose history, protocols, symptoms, and injection data.",
+  "recommendations": [
+    "URGENT: Add owner parameter and filter to all database queries (getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getAllDoseLogs, getVials, getHealthMarkers). Filter at query time, not in components.",
+    "URGENT: Add mandatory owner validation in every database write. Verify owner parameter matches authenticated user from Supabase auth.getSession().",
+    "URGENT: Remove user identity from localStorage. Derive current user from Supabase auth session only. Clear all local state on logout.",
+    "HIGH: Verify and test all RLS policies in supabase/migrations/. Ensure every query filters by auth.uid(). Test with cross-user queries.",
+    "HIGH: Replace client-supplied timestamps with server timestamps. Sync should trust remote updated_at from Supabase only.",
+    "HIGH: Make ViewFilterContext read-only, derived from authenticated user. User can only view their own data.",
+    "MEDIUM: Add integration tests verifying query results are filtered by owner. Test: user A queries, confirm no user B data.",
+    "MEDIUM: Implement per-user IndexedDB namespacing to prevent cross-user leakage in browser storage.",
+    "LOW: Document RLS design in CLAUDE.md. Include threat model for shared device/browser scenarios."
+  ],
+  "audit_date": "2026-07-27",
+  "scope": [
+    "Hardcoded secrets: PASS (no secrets found)",
+    "SQL injection: N/A (IndexedDB, no SQL)",
+    "XSS vectors: PASS (no unsafe innerHTML or eval)",
+    "Insecure dependencies: PASS (legitimate packages)",
+    "Authentication/Authorization: CRITICAL FAILURES"
+  ]
+}
