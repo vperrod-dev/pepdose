@@ -11,6 +11,7 @@ const ops = vi.hoisted(() => ({
 vi.mock('../db/operations', () => ({
   getScheduledDosesForDate: async () => [],
   getDoseLogsForDate: async () => [],
+  getProtocols: async () => [],
   logDose: ops.logDose,
 }));
 vi.mock('../context/ViewFilterContext', () => ({

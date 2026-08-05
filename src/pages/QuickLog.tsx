@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { Syringe, Check, MapPin, Clock, Plus, X } from 'lucide-react';
-import { getScheduledDosesForDate, getDoseLogsForDate, logDose } from '../db/operations';
+import { getScheduledDosesForDate, getDoseLogsForDate, getProtocols, logDose } from '../db/operations';
+import { withoutInactiveUpcoming } from '../utils/doseVisibility';
 import { getPeptideById, PEPTIDES } from '../data/peptides';
 import type { ScheduledDose, DoseLog } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
@@ -40,12 +41,14 @@ export function QuickLog() {
   const applyOwnerFilter = useOwnerFilter();
 
   const load = useCallback(async () => {
-    const [scheduled, logs] = await Promise.all([
+    const [scheduled, logs, protos] = await Promise.all([
       getScheduledDosesForDate(today),
       getDoseLogsForDate(today),
+      getProtocols('active'),
     ]);
 
-    const enriched: QuickDose[] = scheduled.map(d => {
+    const visible = withoutInactiveUpcoming(scheduled, new Set(protos.map(p => p.id)));
+    const enriched: QuickDose[] = visible.map(d => {
       const pep = getPeptideById(d.peptideId);
       return {
         ...d,

@@ -11,6 +11,7 @@ import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import type { ScheduledDose, UserProtocol, DoseLog, ReconMix } from '../db/schema';
 import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
+import { withoutInactiveUpcoming } from '../utils/doseVisibility';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
 
@@ -55,7 +56,8 @@ export function Dashboard() {
         getDoseLogsForDate(today),
       ]);
 
-      const enriched: DashboardDose[] = doses.map(d => {
+      const activeIds = new Set(protos.map(p => p.id));
+      const enriched: DashboardDose[] = withoutInactiveUpcoming(doses, activeIds).map(d => {
         const pep = getPeptideById(d.peptideId);
         return {
           ...d,

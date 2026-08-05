@@ -6,6 +6,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
 import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
+import { withoutInactiveUpcoming } from '../utils/doseVisibility';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
@@ -65,7 +66,7 @@ export function Calendar() {
         getDoseLogsInRange(rangeStart, rangeEnd),
         getProtocols('active'),
       ]);
-      setMonthDoses(doses);
+      setMonthDoses(withoutInactiveUpcoming(doses, new Set(protos.map(p => p.id))));
       setLogsByDoseId(new Map(
         logs.filter(l => l.scheduledDoseId).map(l => [l.scheduledDoseId!, l]),
       ));

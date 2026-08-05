@@ -135,8 +135,13 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   respects on creation and regeneration. NewProtocol.tsx and Protocols.tsx both
   surface template selection with one-click setup. Protocols have a lifecycle:
   active → paused / completed / archived — the actions sheet in Protocols.tsx
-  provides Pause/Resume, Finish (marks completed; future doses become skipped),
-  and Delete.
+  provides Pause/Resume, Finish (marks completed) and Delete. Status changes do
+  **not** rewrite scheduled doses — the day views instead hide *upcoming* doses
+  whose protocol is no longer active (`utils/doseVisibility.ts`, applied in
+  Dashboard/Calendar/QuickLog). Before that filter, pausing or finishing a
+  protocol left its future injections on the calendar, so restarting a peptide
+  showed one row per past run. Logged/skipped/missed doses always stay visible,
+  and resuming a protocol brings its upcoming doses straight back.
 - Deploy: **`scripts/deploy.sh`** — builds and rsyncs `dist/` to `/srv/pepdose`
   on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
   Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ .
