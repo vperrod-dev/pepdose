@@ -61,10 +61,13 @@ export function Calendar() {
     async function load() {
       const rangeStart = format(calStart, 'yyyy-MM-dd');
       const rangeEnd = format(calEnd, 'yyyy-MM-dd');
-      const [doses, logs, protos] = await Promise.all([
+      // All protocols, not just active ones: a dose from a finished protocol still
+      // needs its name on the row, or rows from different runs look identical.
+      const [doses, logs, protos, allProtos] = await Promise.all([
         getScheduledDosesInRange(rangeStart, rangeEnd),
         getDoseLogsInRange(rangeStart, rangeEnd),
         getProtocols('active'),
+        getProtocols(),
       ]);
       setMonthDoses(withoutInactiveUpcoming(doses, new Set(protos.map(p => p.id))));
       setLogsByDoseId(new Map(
@@ -73,7 +76,7 @@ export function Calendar() {
       // Logs without a scheduledDoseId are ad-hoc doses — they must still
       // show on the calendar or a logged dose looks like it vanished.
       setMonthAdhoc(logs.filter(l => !l.scheduledDoseId));
-      setProtocolsById(new Map(protos.map(p => [p.id, p])));
+      setProtocolsById(new Map(allProtos.map(p => [p.id, p])));
     }
     load();
   }, [currentMonth, reloadKey]);
@@ -108,6 +111,9 @@ export function Calendar() {
   const breakByDate = useMemo(() => {
     const map = new Map<string, string>(); // dateKey -> break reason
     for (const proto of protocolsById.values()) {
+      // The map now holds every protocol so rows can be named; only a running
+      // protocol's break weeks should hatch the grid.
+      if (proto.status !== 'active') continue;
       if (!proto.breaks || proto.breaks.length === 0) continue;
       const start = parseISO(proto.startDate);
       for (const brk of proto.breaks) {

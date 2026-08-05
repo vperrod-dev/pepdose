@@ -226,7 +226,7 @@ export function Settings() {
       </div>
 
       <p className="text-center text-xs text-text-muted mt-8 stagger-item" style={{ animationDelay: '0.25s' }}>
-        PepDose v0.1.0
+        PepDose v0.1.0 · build {__BUILD_TIME__} UTC
       </p>
       <p className="text-center text-[10px] text-text-muted mt-1 stagger-item" style={{ animationDelay: '0.3s' }}>
         Educational information only. Not medical advice.
