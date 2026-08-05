@@ -89,6 +89,67 @@ describe('rowTs', () => {
   });
 });
 
+describe('a scheduled dose never times itself by its injection date', () => {
+  // A ScheduledDose carries no createdAt — only `date`, the day of the injection,
+  // which for an upcoming dose is in the future. Timing a row by it made every
+  // future dose look newer than the delete that removed it, so regenerating a
+  // protocol resurrected the previous generation on the next sync: one calendar
+  // row per past edit, each with its old dose.
+  const future = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+
+  it('does not treat the injection date as a write timestamp', () => {
+    expect(rowTs({ id: 'd1', date: future })).toBe(0);
+  });
+
+  it('honours the delete of a future dose the cloud still holds', () => {
+    const plan = planMerge(
+      [],
+      [{ id: 'd1', data: { id: 'd1', date: future }, updated_at: `${future}T08:00:00Z`, deleted: false }],
+      [{ id: 'd1', kind: 'scheduledDoses', deletedAt: new Date().toISOString() }],
+    );
+    expect(plan.pushTombstone.map(d => d.id)).toEqual(['d1']);
+    expect(plan.localPut).toEqual([]);
+  });
+
+  it('ignores a remote timestamp from the future, whatever wrote it', () => {
+    const local: Timestamped[] = [{ id: 'd1', updatedAt: '2026-08-05T10:00:00Z' }];
+    const plan = planMerge(local, [
+      { id: 'd1', data: { id: 'd1' }, updated_at: `${future}T08:00:00Z`, deleted: false },
+    ]);
+    expect(plan.localPut).toEqual([]);
+    expect(plan.push.map(r => r.id)).toEqual(['d1']);
+  });
+});
+
+describe('regenerating a schedule does not leave the old generation behind', () => {
+  // The reported symptom: one protocol, three rows on the same day (2.5, 2.5, 5).
+  // Each protocol edit deleted the old doses locally, but the cloud still held
+  // them stamped with their future injection date, so the next sync pulled them
+  // straight back — once per edit.
+  const day = new Date(Date.now() + 20 * 864e5).toISOString().slice(0, 10);
+  const cloudDose = (id: string, amount: number) => ({
+    id,
+    data: { id, date: day, dose: amount },
+    updated_at: `${day}T08:00:00Z`,
+    deleted: false,
+  });
+
+  it('deletes both stale copies instead of pulling them back', () => {
+    const now = new Date().toISOString();
+    const plan = planMerge(
+      [{ id: 'new', createdAt: now }],
+      [cloudDose('old1', 2.5), cloudDose('old2', 2.5)],
+      [
+        { id: 'old1', kind: 'scheduledDoses', deletedAt: now },
+        { id: 'old2', kind: 'scheduledDoses', deletedAt: now },
+      ],
+    );
+    expect(plan.localPut).toEqual([]);
+    expect(plan.pushTombstone.map(d => d.id).sort()).toEqual(['old1', 'old2']);
+    expect(plan.push.map(r => r.id)).toEqual(['new']);
+  });
+});
+
 describe('planMerge invariant coverage / primary merge scenarios', () => {
   it('equal timestamps: ties lose — no push, no localPut, no delete', () => {
     const local: Timestamped[] = [{ id: 'a', createdAt: '2024-01-01T00:00:00Z' }];

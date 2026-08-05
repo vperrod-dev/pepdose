@@ -23,6 +23,8 @@ export interface Timestamped {
   id: string;
   updatedAt?: string;
   createdAt?: string;
+  /** The day an injection happens — carried by scheduled doses. NOT a write
+   *  time: for an upcoming dose it lies in the future. Never merge on it. */
   date?: string;
 }
 
@@ -34,9 +36,17 @@ export interface RemoteRow {
 }
 
 export function rowTs(row: Timestamped): number {
-  const raw = row.updatedAt ?? row.createdAt ?? row.date;
+  const raw = row.updatedAt ?? row.createdAt;
   const n = raw ? Date.parse(raw) : 0;
   return Number.isNaN(n) ? 0 : n;
+}
+
+/** When the cloud says a row was written. A stamp in the future can only come
+ *  from the old bug that timed scheduled doses by their injection date, and it
+ *  would outrank every real edit and every delete — so it counts for nothing. */
+export function remoteTs(row: RemoteRow): number {
+  const n = Date.parse(row.updated_at);
+  return Number.isNaN(n) || n > Date.now() ? 0 : n;
 }
 
 /** Pure union-merge decision for one record kind. Never drops a live row from
@@ -74,7 +84,7 @@ export function planMerge(
     const r = remote.get(id);
     const d = ledger.get(id);
     const lts = l ? rowTs(l) : -1;
-    const rts = r ? Date.parse(r.updated_at) : -1;
+    const rts = r ? remoteTs(r) : -1;
 
     if (l && d) {
       // Row re-created locally after a delete — it's alive; drop the stale entry.
@@ -219,7 +229,8 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
           kind,
           id: row.id,
           data: row,
-          updated_at: new Date(rowTs(row) || Date.now()).toISOString(),
+          // Never stamp the cloud with a future time — it would outrank later edits.
+          updated_at: new Date(Math.min(rowTs(row) || Date.now(), Date.now())).toISOString(),
           deleted: false,
         }));
         const { error: upErr } = await supabase.from('records').upsert(envelopes);

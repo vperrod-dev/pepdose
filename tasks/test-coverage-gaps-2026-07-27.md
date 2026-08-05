@@ -3,54 +3,29 @@
 Scope: `src/`. Method: diffed every source file against its `.test.ts(x)` sibling,
 then read the untested files to find real (non-trivial) logic.
 
+**Updated same day:** `stackingRules.test.ts`, `users.test.ts`, `context/ownerFilter.test.ts`
+(pure filter extracted from `ViewFilterContext.tsx`), and `data/dataIntegrity.test.ts`
+(cross-file peptide/protocol/stacking-rule reference checks) landed after the first pass
+of this report and close part of gap #1 below. Everything else in this report is still open.
+
 ## Summary
 
 Pure-logic `utils/*.ts` are fully covered (24/24 have tests, good edge-case
 depth — half-life decay, tombstone LWW, adherence bridging, etc). Gaps cluster
 in three places:
 
-1. **Untested pure logic** — small, quick wins (stackingRules, symptoms, ViewFilterContext).
-2. **`db/operations.ts`** — 31 exported functions, only 8 have direct test coverage.
-3. **Component/page layer** — 1 of ~14 components tested, 3 of ~19 pages tested.
+1. **Untested pure logic** — `symptoms.ts` (small), `ViewFilterContext.tsx`
+   provider/hooks (the extracted `filterByOwner` pure fn now has its own test,
+   but the context itself — localStorage persistence, "used outside provider"
+   throw — doesn't).
+2. **`db/operations.ts`** — 33 exported functions, only 9 have direct test coverage.
+3. **Component/page layer** — 3 of ~11 components tested, 3 of ~19 pages tested.
    `DoseActionSheet.tsx` (443 lines, dose-logging + reschedule + delete-with-restore)
    has zero tests despite being the primary write path for the app.
 
 ---
 
-## 1. Untested pure functions (highest value, lowest effort)
-
-### `src/data/stackingRules.ts` — `getStackingInfo`, `getStackWarnings`
-
-Order-independence (`peptideA`/`peptideB` swapped) and the caution/contraindicated
-filter in `getStackWarnings` are real logic, currently unverified.
-
-```ts
-// src/data/stackingRules.test.ts
-import { describe, it, expect } from 'vitest';
-import { getStackingInfo, getStackWarnings } from './stackingRules';
-
-describe('getStackingInfo', () => {
-  it('finds a rule regardless of argument order', () => {
-    expect(getStackingInfo('tb-500', 'bpc-157')?.relation).toBe('synergy');
-    expect(getStackingInfo('bpc-157', 'tb-500')?.relation).toBe('synergy');
-  });
-
-  it('returns undefined for an unknown pair', () => {
-    expect(getStackingInfo('bpc-157', 'unknown-peptide')).toBeUndefined();
-  });
-});
-
-describe('getStackWarnings', () => {
-  it('surfaces only caution/contraindicated relations, not synergy/neutral', () => {
-    const warnings = getStackWarnings(['semaglutide', 'tirzepatide', 'bpc-157']);
-    expect(warnings.map(w => w.relation)).toEqual(['contraindicated']);
-  });
-
-  it('returns empty for a stack with no conflicts', () => {
-    expect(getStackWarnings(['bpc-157', 'tb-500'])).toEqual([]);
-  });
-});
-```
+## 1. Untested pure functions / context (highest value, lowest effort)
 
 ### `src/data/symptoms.ts` — `symptomsForCategory`
 
@@ -134,7 +109,7 @@ describe('useOwnerFilter', () => {
 
 ---
 
-## 2. `src/db/operations.ts` — 23 of 31 exports have no direct test
+## 2. `src/db/operations.ts` — 24 of 33 exports have no direct test
 
 Tested today: `decrementVialDose`, `incrementVialDose`, `logDose`/`deleteDoseLog`,
 `getScheduledDosesInRange`, `getDoseLogsInRange`, `deleteProtocol`, `validateImport`,
@@ -145,7 +120,13 @@ Tested today: `decrementVialDose`, `incrementVialDose`, `logDose`/`deleteDoseLog
 `deleteUpcomingDosesFrom`, `deleteScheduledDosesForProtocol`, `getDoseLogsForDate`,
 `getDoseLogsForPeptide`, `getDoseLogsForProtocol`, `updateDoseLog`, `saveVial`,
 `getVials`, `updateVial`, `saveHealthMarker`, `getHealthMarkers`, `getEditHistory`,
-`exportAllData`, `clearAllData`.
+`exportAllData`, `clearAllData`, `getAllDoseLogs`, `saveScheduledDoses`,
+`getScheduledDosesForProtocol`.
+
+(`saveVial`, `getVials`, `getAllDoseLogs`, `saveScheduledDoses`, `getScheduledDosesForProtocol`
+are exercised as setup/assertion helpers in other tests but have no describe block
+asserting their own contract — e.g. `saveVial` defaulting/validation, `getVials`
+filtering by peptide, `saveScheduledDoses` overwrite-vs-insert semantics.)
 
 Priority picks — the ones with branchy/edit-history logic, not straight CRUD passthroughs:
 
@@ -222,6 +203,23 @@ describe('updateDoseLog', () => {
     expect(updated).toMatchObject({ dose: 300, notes: 'edited' });
     const [vial] = await getVials('bpc-157');
     expect(vial.dosesRemaining).toBe(2); // unchanged by the edit
+  });
+});
+
+describe('deleteScheduledDosesForProtocol', () => {
+  it('removes every scheduled dose for the protocol and ledgers each one', async () => {
+    await saveScheduledDoses([
+      { id: 'd1', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-14', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+      { id: 'd2', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'logged', weekNumber: 1 },
+    ], 'Victor');
+    await saveScheduledDoses([
+      { id: 'd3', protocolId: 'p2', peptideId: 'tb-500', date: '2026-07-14', time: '08:00', dose: 2500, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    ], 'Victor');
+
+    await deleteScheduledDosesForProtocol('p1');
+
+    expect(await getScheduledDosesForProtocol('p1')).toEqual([]);
+    expect((await getScheduledDosesForProtocol('p2')).map(d => d.id)).toEqual(['d3']); // other protocol untouched
   });
 });
 
@@ -408,10 +406,13 @@ it('returns null when there is no active session', async () => {
 
 ## Priority order (recommend tackling in this sequence)
 
-1. `stackingRules.test.ts`, `symptoms.test.ts` — 20 min, zero risk, pure functions.
+1. `symptoms.test.ts` — 10 min, zero risk, pure function. (`stackingRules.test.ts` done.)
 2. `ViewFilterContext.test.tsx` — used by nearly every page filter; cheap to test.
+   (The extracted `ownerFilter.test.ts` covers the filtering logic itself, not the
+   provider/localStorage/hook-outside-provider paths.)
 3. `db/operations.test.ts` additions — `updateFutureScheduledDoses`/`deleteUpcomingDosesFrom`
    are the two with the most branch complexity and the highest "silently wrong" blast radius
-   (they touch every future dose in a protocol).
+   (they touch every future dose in a protocol); `deleteScheduledDosesForProtocol` is new
+   and equally untested.
 4. `DoseActionSheet.test.tsx` — highest user-facing risk of anything untested in the repo.
 5. Integration test for protocol-edit → schedule regeneration → log preservation.

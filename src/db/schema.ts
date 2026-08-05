@@ -42,6 +42,10 @@ export interface ScheduledDose {
   isTitrationStepUp?: boolean;
   weekNumber: number;
   editNote?: string;
+  /** When this row was written — not `date`, which is when the injection is due.
+   *  Sync merges on this; timing a dose by its future injection date is what let
+   *  deleted doses resurrect (see db/sync.ts rowTs). Absent on pre-fix rows. */
+  createdAt?: string;
   updatedAt?: string;
 }
 

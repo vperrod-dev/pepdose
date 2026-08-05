@@ -142,6 +142,18 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   protocol left its future injections on the calendar, so restarting a peptide
   showed one row per past run. Logged/skipped/missed doses always stay visible,
   and resuming a protocol brings its upcoming doses straight back.
+- **A scheduled dose is timed by `createdAt`, never by `date`.** `date` is the day
+  the injection is due; for an upcoming dose that is in the future. `sync.ts rowTs`
+  used to fall back to it, so every future dose outranked the delete that removed
+  it: regenerating a protocol tombstoned the old doses locally, then the next sync
+  pulled them back from the cloud. One protocol ended up drawing a calendar row
+  per past edit, each with its old dose (2.5 / 2.5 / 5 on the same day). Fixed in
+  three places — `rowTs` drops the `date` fallback, `remoteTs` treats any
+  future cloud stamp as untrustworthy (0) so pre-fix rows can't outrank a delete,
+  and pushes clamp `updated_at` to now. `saveScheduledDoses` stamps `createdAt`.
+  `repairDuplicateScheduledDoses()` (called once from App, pure planner in
+  `utils/dedupeDoses.ts`) clears schedules already duplicated; it only ever drops
+  *upcoming* rows, keeping the copy that matches the protocol's current dose.
 - Duplicate protocols: nothing stops the same peptide being started twice, and
   each run schedules its own injections — the symptom is one calendar row per
   past run on every dose day. `utils/duplicateProtocols.ts` groups the runs

@@ -1,6 +1,7 @@
 import { getDB, type UserProtocol, type ScheduledDose, type DoseLog, type Vial, type HealthMarker, type EditHistory, type DeletionRecord } from './schema';
 import type { UserName } from '../data/users';
 import { format } from 'date-fns';
+import { planDoseDedupe } from '../utils/dedupeDoses';
 
 function genId(): string {
   return crypto.randomUUID();
@@ -65,11 +66,37 @@ export async function deleteProtocol(id: string): Promise<void> {
 
 export async function saveScheduledDoses(doses: Omit<ScheduledDose, 'owner'>[], owner: UserName): Promise<void> {
   const db = await getDB();
+  // Stamp when the row was written. Without it sync had nothing to date a dose
+  // by except `date` — the injection day, which for an upcoming dose is in the
+  // future and outranked the delete that replaced it (see db/sync.ts rowTs).
+  const createdAt = new Date().toISOString();
   const tx = db.transaction('scheduledDoses', 'readwrite');
   for (const dose of doses) {
-    await tx.store.put({ ...dose, owner });
+    await tx.store.put({ createdAt, ...dose, owner });
   }
   await tx.done;
+}
+
+/** One-shot cleanup for schedules the old sync bug duplicated. Returns how many
+ *  spare rows went; deletes go through the ledger so the cloud drops them too. */
+export async function repairDuplicateScheduledDoses(): Promise<number> {
+  const db = await getDB();
+  const [doses, protocols] = await Promise.all([
+    db.getAll('scheduledDoses'),
+    db.getAll('protocols'),
+  ]);
+  const spare = planDoseDedupe(doses, protocols);
+  if (spare.length === 0) return 0;
+
+  const tx = db.transaction(['scheduledDoses', 'deletions'], 'readwrite');
+  const store = tx.objectStore('scheduledDoses');
+  const ledger = tx.objectStore('deletions');
+  for (const id of spare) {
+    await store.delete(id);
+    await ledger.put(ledgerEntry('scheduledDoses', id));
+  }
+  await tx.done;
+  return spare.length;
 }
 
 export async function getScheduledDosesForDate(date: string): Promise<ScheduledDose[]> {

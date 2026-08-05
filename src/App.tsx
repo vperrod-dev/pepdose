@@ -25,6 +25,7 @@ import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
 import { AuthGate } from './components/AuthGate';
 import { initReminders } from './utils/notifications';
+import { repairDuplicateScheduledDoses } from './db/operations';
 
 export default function App() {
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem('pepdose-onboarded') === 'true');
@@ -39,6 +40,11 @@ export default function App() {
 function AppInner({ onboarded, setOnboarded }: { onboarded: boolean; setOnboarded: (v: boolean) => void }) {
   useEffect(() => {
     if (!onboarded) return;
+    // Clear schedules the old sync bug duplicated. Idempotent: once a device is
+    // clean this finds nothing, and the fix in db/sync.ts stops it recurring.
+    void repairDuplicateScheduledDoses().then(n => {
+      if (n > 0) console.info(`[pepdose] removed ${n} duplicate scheduled dose(s)`);
+    });
     return initReminders();
   }, [onboarded]);
 
