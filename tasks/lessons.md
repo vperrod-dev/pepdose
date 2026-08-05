@@ -30,3 +30,16 @@
   you always make the same mistake"). Every report/plan/proposal must ship a readable
   URL in the same turn: publish as a Claude artifact (private link) or serve via VM
   Caddy. The repo copy is the record; the URL is the deliverable.
+
+- **Duplicate rows that survive deletion = a sync merge bug, not a UI bug.** 2026-08-05:
+  Victor reported triplicated MOTS-c calendar entries. I burned three rounds on wrong
+  hypotheses (paused-protocol leak, then duplicate protocols) because I reasoned from
+  code instead of from his data, and each "fix" shipped without touching the cause. The
+  real cause: `sync.ts rowTs` fell back to `date` — the *injection* day — so a future
+  dose outranked the delete that removed it and the cloud handed it back on every sync.
+  Rules taken from this: (1) when a delete doesn't stick, suspect LWW timestamps before
+  anything else; (2) never merge on a domain date that can be in the future; (3) when a
+  hypothesis can't be checked against the user's own data, say so and get the data —
+  don't ship a speculative fix and call it a diagnosis. Victor cannot paste console
+  output back, so diagnostics have to be reproducible locally from his described
+  symptom (dose values 2.5/2.5/5 on one day were the decisive clue).

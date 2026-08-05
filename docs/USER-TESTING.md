@@ -43,6 +43,10 @@ devtools → Application. Test on mobile viewport — this is a phone-first PWA.
 | P4 | Pause/archive protocol | No further doses on Dashboard/Quick Log; history retained |
 | P5 | Delete protocol | Its scheduled doses gone (no orphans), logs retained, deletion syncs as tombstone |
 | P6 | Weekday-only / custom-frequency cadence | Generated dates match the cadence; non-positive frequency rejected |
+| P7 | Set a vial mix (peptide mg + BAC water) on a protocol | Dashboard/Calendar/dose-sheet rows show clicks per dose; typing a different actual dose moves the clicks with it |
+| P8 | Change the Pen Click Volume setting | Existing rows recompute (0.005 doubles the clicks, 0.02 halves them) |
+| P9 | Edit a running protocol's dose twice, then reopen the calendar | Exactly ONE row per dose day, at the current dose — no copy from an earlier edit (regression: sync resurrection) |
+| P10 | Two protocols scheduling the same peptide | Protocols page shows the duplicate-runs card; deleting the extra removes its scheduled doses, keeps its logs |
 
 ## Sync & auth (cloud build only)
 
@@ -54,6 +58,8 @@ devtools → Application. Test on mobile viewport — this is a phone-first PWA.
 | C4 | Offline edit → reconnect | Edit pushed on next sync tick/focus; no error toast left behind |
 | C5 | Sign out | Local IndexedDB wiped (no cross-account leak); sign-in restores from cloud |
 | C6 | Sync failure (airplane mode mid-sync) | Status pill shows the error; app keeps working locally |
+| C7 | Regenerate a schedule on A (edit dose), sync, reopen A | Deleted future doses stay deleted — they must not return from the cloud (`rowTs` must never time a dose by its `date`) |
+| C8 | Device holding pre-fix duplicates opens the app | Startup repair drops the spare *upcoming* copies only, keeps logged/missed, and tombstones them so B clears too |
 
 ## Inventory, insights, misc
 

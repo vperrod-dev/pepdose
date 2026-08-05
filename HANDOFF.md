@@ -5,6 +5,13 @@ the merge of PR #1 (features) and PR #3 (docs) into `main`.
 
 ## Status: what's done and live
 
+**Latest (2026-08-05):** pen clicks per dose (protocol-level vial mix + `Pen Click
+Volume` setting), day views hide upcoming doses of paused/finished protocols, a
+duplicate-protocol cleanup card, and the fix for the duplicated calendar entries —
+sync was resurrecting deleted doses because `rowTs` timed them by their injection
+date. `repairDuplicateScheduledDoses()` clears schedules already duplicated. 317
+tests pass; confirmed fixed by Victor on his own data.
+
 All of the following is merged to `main` and deployed at
 **https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/** (via `scripts/deploy.sh`):
 
@@ -118,6 +125,11 @@ blobs), lab/bloodwork tracking with reference ranges, cycle/washout planner.
   bound to numeric state — the raw version snaps decimals and clears to `0` (that was
   the original dose-save bug). See also `utils` that parse strings at save time.
 - **Local-first is a hard constraint:** no backend, no external APIs, no accounts.
+- **Never merge on a domain date.** Cloud sync times a row by `createdAt`/`updatedAt`
+  only. `ScheduledDose.date` is when the injection is *due* — in the future for any
+  upcoming dose — and using it as a write time made deleted doses outlive their own
+  tombstone and return on the next sync (one calendar row per protocol edit). See
+  `rowTs`/`remoteTs` in `src/db/sync.ts` and the regression tests in `sync.test.ts`.
 - **Analytics logic** goes in a pure `src/utils/*.ts` helper with a matching
   `.test.ts` (see `activeLevels`, `symptomTrends`, `adherence`), kept out of the
   component.

@@ -10,7 +10,8 @@ cloud sync across devices.
 
 - **Protocols** — create from templates or any peptide, then fully edit a running
   protocol: per-peptide dose, length, frequency, time of day, and start date.
-  Pause/resume/finish/delete lifecycle.
+  Pause/resume/finish/delete lifecycle — pausing or finishing a protocol takes its *upcoming*
+  doses off the day views (history stays), and resuming brings them back.
 - **Smart scheduling** — the engine auto-generates every injection. Supports:
   - **Auto-titration** — GLP-1s step the dose up on a week ladder automatically (e.g.
     retatrutide `2→4→6→9→12mg`).
@@ -22,6 +23,11 @@ cloud sync across devices.
     show as a purple hatch on the calendar and timeline.
 - **Editing regenerates safely** — changing a protocol rebuilds its upcoming doses while
   preserving everything already logged/skipped/missed.
+- **Pen clicks per dose** — record how the vial was mixed (peptide amount + BAC water) on each
+  peptide in a protocol, pre-filled from that peptide's own reconstitution data. The Dashboard,
+  Calendar day list and dose sheet then show the day's dose as pen clicks (`10 clicks · 0.10 ml`),
+  live-updating as you edit the dose you actually injected. Click volume is a Setting — 0.005 /
+  0.01 (1 insulin unit, default) / 0.02 ml — because pens differ.
 - **Protocol journey** — tap a protocol (from the Protocols list or a Dashboard card) to see
   its full timeline: every dose grouped by week, status (done/upcoming/missed/skipped),
   injection site, and titration step-ups. Tap any dose to log or edit it; logged doses stay
@@ -189,7 +195,16 @@ Security isolates each account); see [docs/CLOUD_SYNC_SETUP.md](docs/CLOUD_SYNC_
   stored in Settings (`timezone`, defaulting to the device zone).
 - `src/db/sync.ts` — bidirectional union-merge (`planMerge`, LWW, never destructive). Local deletes
   are pushed as `deleted: true` tombstones and remote tombstones are applied on pull, so deletions
-  propagate across devices while a newer re-edit still wins.
+  propagate across devices while a newer re-edit still wins. **A row is timed by `createdAt` /
+  `updatedAt`, never by `date`** — `date` is when an injection is *due*, which for an upcoming dose
+  is in the future. `rowTs` used to fall back to it, so a future dose outranked the delete that
+  removed it and every protocol regeneration got its old doses pulled back from the cloud (the
+  visible symptom: one calendar row per past edit, each with its old dose). `remoteTs` now also
+  discards any cloud timestamp in the future, and pushes clamp `updated_at` to now.
+- `src/db/operations.ts` `repairDuplicateScheduledDoses()` — runs once at app start and clears
+  schedules the above bug already duplicated (planner: `src/utils/dedupeDoses.ts`). It drops only
+  *upcoming* rows, keeps the copy matching the protocol's current dose, and writes ledger entries
+  so the cloud drops them too. Logged/skipped/missed doses are never touched.
 - `public/widgets/next-dose.html` + the `widgets` member in `public/manifest.json` — a self-contained
   PWA home-screen widget that reads the `pepdose` IndexedDB store directly to show the next dose
   (Android/Chromium widget hosts; ignored on iOS).

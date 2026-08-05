@@ -4,6 +4,29 @@
 > Cross-project backlog: claude-config/os/backlog.md
 > Full context for continuing on a laptop: see `HANDOFF.md` at the repo root.
 
+## Done — pen clicks + duplicate-dose root cause (2026-08-05)
+
+- [x] `ReconMix` on each protocol dose (vial amount + BAC water), pre-filled from the
+  peptide's own reconstitution data, edited via `components/ReconMixFields.tsx` on both
+  the create and edit protocol screens
+- [x] `utils/penClicks.ts` — clicks per dose from the mix; shown on Dashboard, Calendar
+  day list and the dose sheet (live against the dose you type)
+- [x] Pen Click Volume setting (0.005 / 0.01 / 0.02 ml) — pens differ
+- [x] `utils/doseVisibility.ts` — paused/finished protocols no longer put upcoming doses
+  on the day views (history still shows)
+- [x] Calendar names every dose row by its protocol; Settings shows the build timestamp
+- [x] `utils/duplicateProtocols.ts` + Protocols cleanup card for genuinely duplicated runs
+- [x] **Root cause of the triplicated calendar entries**: `sync.ts rowTs` fell back to
+  `date` (the injection day), so an upcoming dose outranked the delete that removed it
+  and every regeneration pulled the old doses back from the cloud. Fixed in `rowTs`,
+  new `remoteTs` (future cloud stamps count as 0), push clamps `updated_at` to now,
+  `saveScheduledDoses` stamps `createdAt`
+- [x] `repairDuplicateScheduledDoses()` at app start clears already-duplicated schedules
+  (`utils/dedupeDoses.ts`) — upcoming rows only, keeps the copy matching the current dose
+- [x] Tests: 317 passing, incl. 3 that fail against the old `rowTs` + a regression test
+  for the 2.5/2.5/5 stack; verified live by Victor ("the triple is gone")
+- [x] Docs: README, CLAUDE.md, docs/USER-TESTING.md (P7–P10, C7–C8), tasks/lessons.md
+
 ## Done — protocol library + breaks (2026-08-02)
 
 - [x] Protocol variants on peptides: Retatrutide (clinical-trial, community-cycle,
