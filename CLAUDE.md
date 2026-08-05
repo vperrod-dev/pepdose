@@ -142,6 +142,12 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   protocol left its future injections on the calendar, so restarting a peptide
   showed one row per past run. Logged/skipped/missed doses always stay visible,
   and resuming a protocol brings its upcoming doses straight back.
+- Duplicate protocols: nothing stops the same peptide being started twice, and
+  each run schedules its own injections — the symptom is one calendar row per
+  past run on every dose day. `utils/duplicateProtocols.ts` groups the runs
+  (keeper = most recently logged, then newest start date) and the Protocols page
+  shows a cleanup card that deletes the extras through `deleteProtocol`, so the
+  deletion ledger and cloud sync stay correct. Logged doses survive the delete.
 - Deploy: **`scripts/deploy.sh`** — builds and rsyncs `dist/` to `/srv/pepdose`
   on this VM, served by **Caddy** at `/pepdose*` (see `/etc/caddy/Caddyfile`).
   Live: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/ .

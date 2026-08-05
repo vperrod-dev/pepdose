@@ -16,6 +16,7 @@ import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { DecimalInput } from '../components/DecimalInput';
 import { ReconMixFields } from '../components/ReconMixFields';
 import { defaultRecon } from '../utils/penClicks';
+import { findDuplicateProtocols, type DuplicateGroup } from '../utils/duplicateProtocols';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
@@ -53,6 +54,9 @@ export function Protocols() {
   const navigate = useNavigate();
   const location = useLocation();
   const [protocols, setProtocols] = useState<UserProtocol[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [removingDup, setRemovingDup] = useState<string | null>(null);
+  const [confirmDupId, setConfirmDupId] = useState<string | null>(null);
   const applyOwnerFilter = useOwnerFilter();
   const [loading, setLoading] = useState(true);
   const [activeProto, setActiveProto] = useState<UserProtocol | null>(null);
@@ -88,9 +92,17 @@ export function Protocols() {
   }, [protocols, location.state]);
 
   async function loadProtocols() {
-    const p = await getProtocols();
+    const [p, logs] = await Promise.all([getProtocols(), getAllDoseLogs()]);
     setProtocols(p);
+    setDuplicates(findDuplicateProtocols(p, logs));
     setLoading(false);
+  }
+
+  async function removeDuplicate(id: string) {
+    setRemovingDup(id);
+    await deleteProtocol(id);
+    setRemovingDup(null);
+    await loadProtocols();
   }
 
   async function loadJourney(protocolId: string) {
@@ -272,6 +284,74 @@ export function Protocols() {
           New
         </button>
       </div>
+
+      {duplicates
+        .map(g => ({ ...g, protocols: applyOwnerFilter(g.protocols) }))
+        .filter(g => g.protocols.length > 1)
+        .map(group => {
+          const pepName = getPeptideById(group.peptideId)?.name ?? group.peptideId;
+          return (
+            <div key={group.peptideId} className="card-glass p-4 mb-3 border border-warning/40 stagger-item">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+                <p className="font-semibold text-sm">
+                  {group.protocols.length} protocols schedule {pepName}
+                </p>
+              </div>
+              <p className="text-xs text-text-muted mb-3">
+                Each one adds its own injection to every dose day — that's why {pepName} appears
+                more than once on a date. Keep the one you inject from and delete the rest.
+              </p>
+              <div className="space-y-2">
+                {group.protocols.map(proto => {
+                  const lastLogged = group.lastLoggedByProtocol[proto.id];
+                  const isKeeper = proto.id === group.keepId;
+                  const doseLabel = proto.doses
+                    .filter(d => d.peptideId === group.peptideId)
+                    .map(d => `${d.dose} ${d.unit}`)
+                    .join(' + ');
+                  return (
+                    <div key={proto.id} className="flex items-center gap-3 bg-bg-raised rounded-xl px-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{proto.name}</p>
+                        <p className="text-[11px] text-text-muted font-mono">
+                          {doseLabel} · started {format(parseISO(proto.startDate), 'MMM d')}
+                          {' · '}
+                          {lastLogged
+                            ? `last logged ${format(parseISO(lastLogged), 'MMM d')}`
+                            : 'never logged'}
+                        </p>
+                      </div>
+                      {isKeeper ? (
+                        <span className="text-[10px] font-medium px-2 py-1 rounded-md bg-success/15 text-success shrink-0">
+                          Keep
+                        </span>
+                      ) : confirmDupId === proto.id ? (
+                        <button
+                          onClick={() => removeDuplicate(proto.id)}
+                          disabled={removingDup === proto.id}
+                          className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-danger text-white shrink-0 tap-target disabled:opacity-50"
+                        >
+                          {removingDup === proto.id ? 'Deleting…' : 'Confirm delete'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDupId(proto.id)}
+                          className="text-[11px] font-medium px-2.5 py-1.5 rounded-lg border border-danger/40 text-danger shrink-0 tap-target"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-text-muted mt-2">
+                Deleting a protocol removes its scheduled injections. Doses you already logged stay in your history.
+              </p>
+            </div>
+          );
+        })}
 
       {applyOwnerFilter(protocols).length === 0 ? (
         <div className="card-glass p-8 text-center stagger-item" style={{ animationDelay: '0.05s' }}>
