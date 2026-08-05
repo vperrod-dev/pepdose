@@ -18,6 +18,15 @@ and prunes; marked remote tombstones delete the local row when newer (a newer
 re-edit still wins). Legacy unmarked tombstones never delete local data — the
 surviving row is pushed back to repair the cloud.
 
+**RLS is not the boundary between Victor and Nadia.** Both profiles share one
+Supabase login, so `auth.uid()` is identical for both and the policies only
+separate this account from other accounts. Profile isolation is the client-side
+`owner` field — `src/context/ownerFilter.ts`, enforced across screens by
+`src/db/ownerFilterWiring.test.ts`, which fails if a screen reads an
+owner-bearing collection without filtering. Two real leaks came from exactly
+that omission. A DB-level fix means one login per profile plus a `user_id`
+backfill from `data->>'owner'`; that is a data-model decision, not a patch.
+
 ## Commands
 
 ```bash
