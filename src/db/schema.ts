@@ -3,12 +3,20 @@ import type { SchedulePhase } from '../data/peptides';
 import type { ProtocolBreak } from '../data/protocols';
 import type { UserName } from '../data/users';
 
+/** How this protocol's vial was mixed, so each dose can be shown as pen clicks.
+ *  `vialAmount` is in the dose's own unit family — mg for mcg/mg peptides, IU for
+ *  IU peptides (see the IU rule in CLAUDE.md). */
+export interface ReconMix {
+  vialAmount: number;
+  bacWaterMl: number;
+}
+
 export interface UserProtocol {
   id: string;
   owner: UserName;
   name: string;
   peptideIds: string[];
-  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg' | 'IU'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; schedulePhases?: SchedulePhase[]; variantId?: string }[];
+  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg' | 'IU'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; schedulePhases?: SchedulePhase[]; variantId?: string; recon?: ReconMix }[];
   startDate: string;
   durationWeeks: number;
   status: 'active' | 'paused' | 'completed' | 'archived';

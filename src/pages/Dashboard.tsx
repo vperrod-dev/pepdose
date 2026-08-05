@@ -9,13 +9,15 @@ import { nextTitrationStep, type NextStep } from '../utils/titrationCoach';
 import { adherenceStats } from '../utils/adherence';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
-import type { ScheduledDose, UserProtocol, DoseLog } from '../db/schema';
+import type { ScheduledDose, UserProtocol, DoseLog, ReconMix } from '../db/schema';
+import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
 
 interface DashboardDose extends ScheduledDose {
   peptideName: string;
   categoryColor: string;
+  recon?: ReconMix;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -59,6 +61,7 @@ export function Dashboard() {
           ...d,
           peptideName: pep?.name ?? d.peptideId,
           categoryColor: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
+          recon: protos.find(p => p.id === d.protocolId)?.doses.find(x => x.peptideId === d.peptideId)?.recon,
         };
       }).sort((a, b) => a.time.localeCompare(b.time));
 
@@ -254,6 +257,8 @@ export function Dashboard() {
           <div className="space-y-2">
             {visibleDoses.map((dose, i) => {
               const isDone = dose.status === 'logged' || logged.has(dose.id);
+              const shownDose = logsByDoseId.get(dose.id)?.dose ?? dose.dose;
+              const clicks = formatClicks(clicksForDose(shownDose, dose.unit, dose.recon, penMlPerClick()));
               return (
                 <button
                   key={dose.id}
@@ -273,8 +278,9 @@ export function Dashboard() {
                       <UserBadge owner={dose.owner} />
                     </div>
                     <p className="text-xs text-text-muted font-mono">
-                      {logsByDoseId.get(dose.id)?.dose ?? dose.dose} {dose.unit}
+                      {shownDose} {dose.unit}
                     </p>
+                    {clicks && <p className="text-[11px] text-primary font-mono">{clicks}</p>}
                   </div>
                   <span className={`text-xs font-mono ${isDone ? 'text-success' : 'text-text-secondary'}`}>
                     {isDone ? 'Logged' : dose.time}

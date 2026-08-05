@@ -5,6 +5,7 @@ import {
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getScheduledDosesInRange, getDoseLogsInRange, getProtocols, getScheduledDosesForProtocol } from '../db/operations';
+import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
 import { getPeptideById } from '../data/peptides';
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
@@ -144,6 +145,7 @@ export function Calendar() {
           ...d,
           peptideName: pep?.name ?? d.peptideId,
           protocolName: protocolsById.get(d.protocolId)?.name ?? '',
+          recon: protocolsById.get(d.protocolId)?.doses.find(x => x.peptideId === d.peptideId)?.recon,
           color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
         };
       })
@@ -310,6 +312,7 @@ export function Calendar() {
               const isDone = dose.status === 'logged';
               const isMissed = dose.status === 'missed';
               const doseLog = logsByDoseId.get(dose.id);
+              const clicks = formatClicks(clicksForDose(doseLog?.dose ?? dose.dose, dose.unit, dose.recon, penMlPerClick()));
               return (
                 <button
                   key={dose.id}
@@ -336,6 +339,7 @@ export function Calendar() {
                     <p className="text-xs text-text-muted font-mono">
                       {doseLog?.dose ?? dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
                     </p>
+                    {clicks && <p className="text-[11px] text-primary font-mono">{clicks}</p>}
                   </div>
                   <span className={`text-xs font-medium px-2 py-1 rounded-md ${
                     isDone ? 'bg-success/15 text-success' :

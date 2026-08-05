@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Bell, Moon, Ruler, Clock } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Ruler, Clock, Syringe } from 'lucide-react';
+import { DEFAULT_ML_PER_CLICK } from '../utils/penClicks';
 import { requestNotificationPermission, scheduleReminders, showTestNotification, notificationsSupported, triggeredNotificationsSupported } from '../utils/notifications';
 
 interface AppSettings {
@@ -8,6 +9,8 @@ interface AppSettings {
   reminderMinutesBefore: number;
   unitSystem: 'metric' | 'imperial';
   syringeType: 'u100' | 'u40';
+  /** ml delivered per pen click — pens vary; see utils/penClicks.ts */
+  penMlPerClick: number;
   darkMode: boolean;
   defaultInjectionTime: string;
   timezone: string;
@@ -18,6 +21,7 @@ const DEFAULTS: AppSettings = {
   reminderMinutesBefore: 15,
   unitSystem: 'metric',
   syringeType: 'u100',
+  penMlPerClick: DEFAULT_ML_PER_CLICK,
   darkMode: true,
   defaultInjectionTime: '08:00',
   timezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC',
@@ -195,6 +199,27 @@ export function Settings() {
             >
               <option value="u100">U-100 Insulin</option>
               <option value="u40">U-40</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Pen */}
+        <div className="card-glass p-4 stagger-item" style={{ animationDelay: '0.22s' }}>
+          <div className="flex items-center gap-3">
+            <Syringe className="w-5 h-5 text-text-muted" />
+            <div className="flex-1">
+              <p className="font-medium text-sm">Pen Click Volume</p>
+              <p className="text-xs text-text-muted">Used to show clicks per dose</p>
+            </div>
+            <select
+              value={settings.penMlPerClick}
+              onChange={e => update('penMlPerClick', parseFloat(e.target.value))}
+              className="bg-bg border border-border rounded-lg px-3 py-1.5 text-sm"
+              aria-label="Pen click volume"
+            >
+              <option value={0.005}>0.005 ml (½ unit)</option>
+              <option value={0.01}>0.01 ml (1 unit)</option>
+              <option value={0.02}>0.02 ml (2 units)</option>
             </select>
           </div>
         </div>

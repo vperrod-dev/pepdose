@@ -14,6 +14,8 @@ import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/sc
 import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { DecimalInput } from '../components/DecimalInput';
+import { ReconMixFields } from '../components/ReconMixFields';
+import { defaultRecon } from '../utils/penClicks';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
@@ -133,6 +135,7 @@ export function Protocols() {
         schedulePhases: phases,
         variantId: d.variantId ?? (phases ? fallbackVariant?.id : undefined),
         durationWeeks: phases ? phasesTotalWeeks(phases) : (d.durationWeeks ?? proto.durationWeeks),
+        recon: d.recon ?? defaultRecon(pep),
         timesPerDay: d.timesPerDay ?? pep?.dosing.timesPerDay ?? 1,
         customFrequencyDays: d.customFrequencyDays ?? pep?.dosing.customFrequencyDays,
       };
@@ -823,6 +826,13 @@ export function Protocols() {
                             </div>
                           )}
                         </div>
+
+                        <ReconMixFields
+                          value={dose.recon}
+                          dose={dose.dose}
+                          unit={dose.unit}
+                          onChange={mix => updateEditDose(idx, { recon: mix })}
+                        />
                       </div>
                     );
                   })}

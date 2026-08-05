@@ -93,6 +93,14 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   weeks via the `isBreak` flag on each `WeekSegment`.
 - PWA "Next Dose" widget: `public/widgets/next-dose.html` + `widgets` member in
   `public/manifest.json` (self-contained, reads IndexedDB directly; Android/Chromium only).
+- Pen clicks per dose: a protocol's dose entry carries an optional `recon`
+  (`ReconMix` in `db/schema.ts` — `vialAmount` + `bacWaterMl`, pre-filled from the
+  peptide's `reconstitution` and editable via `components/ReconMixFields.tsx` on
+  both protocol screens). `utils/penClicks.ts` turns that mix plus the day's dose
+  into clicks (`clicksForDose`/`formatClicks`), which the Dashboard, Calendar day
+  list and `DoseActionSheet` render under the mg line. Click volume is a setting
+  (`penMlPerClick`, default 0.01 ml = 1 insulin unit) since pens differ.
+  `vialAmount` follows the IU rule above: mg for mcg/mg peptides, IU for IU ones.
 - Reconstitution calculator (`ReconCalculator.tsx`): forward + reverse-BAC solve,
   blend per-component breakdown (`Peptide.reconstitution.components`), honors the
   U-100/U-40 setting, IU-aware vial/concentration labels. Deep-linkable via `/calculator?peptide=<id>`.

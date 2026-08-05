@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { X, Check, Clock, MapPin, CalendarDays, SkipForward, Pencil, Trash2 } from 'lucide-react';
-import { logDose, updateScheduledDose, updateDoseLog, getAllDoseLogs, deleteDoseLog } from '../db/operations';
-import type { ScheduledDose, DoseLog } from '../db/schema';
+import { logDose, updateScheduledDose, updateDoseLog, getAllDoseLogs, deleteDoseLog, getProtocol } from '../db/operations';
+import type { ScheduledDose, DoseLog, ReconMix } from '../db/schema';
+import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
 import { SITE_LABELS, INJECTION_SITES } from '../data/injectionSites';
 import { getPeptideById } from '../data/peptides';
 import { symptomsForCategory } from '../data/symptoms';
@@ -44,6 +45,20 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  // Pen clicks for this injection, tracking the dose actually typed. Loaded from
+  // the protocol's own mix so every screen that opens this sheet gets it.
+  const [recon, setRecon] = useState<ReconMix | undefined>();
+  useEffect(() => {
+    let live = true;
+    void getProtocol(dose.protocolId).then(p => {
+      if (live) setRecon(p?.doses.find(d => d.peptideId === dose.peptideId)?.recon);
+    });
+    return () => { live = false; };
+  }, [dose.protocolId, dose.peptideId]);
+  const clicks = formatClicks(
+    clicksForDose(doseValid ? actualDose : dose.dose, dose.unit, recon, penMlPerClick()),
+  );
 
   const symptomOptions = symptomsForCategory(getPeptideById(dose.peptideId)?.category);
   function toggleSymptom(name: string) {
@@ -165,6 +180,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                 <p className="text-xs text-text-muted">
                   {(log?.dose ?? dose.dose)} {dose.unit} · {log?.date ?? dose.date} · {log?.time ?? dose.time}
                 </p>
+                {clicks && <p className="text-xs text-primary font-mono">{clicks}</p>}
               </div>
             </div>
             <button onClick={onClose} className="tap-target p-2 rounded-xl hover:bg-card" aria-label="Close">

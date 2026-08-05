@@ -12,7 +12,10 @@ import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/sc
 import { saveProtocol, saveScheduledDoses } from '../db/operations';
 import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
+import { ReconMixFields } from '../components/ReconMixFields';
 import { getLastOwner, setLastOwner, type UserName } from '../data/users';
+import { defaultRecon } from '../utils/penClicks';
+import type { ReconMix } from '../db/schema';
 
 type Step = 'select' | 'configure' | 'review';
 
@@ -57,6 +60,8 @@ interface PeptideConfig {
   // Phased protocol (e.g. GLOW): when set, cadence comes from these phases.
   schedulePhases?: SchedulePhase[];
   variantId?: string;
+  // How the vial was mixed — drives the "clicks per dose" hint.
+  recon?: ReconMix;
 }
 
 export function NewProtocol() {
@@ -107,6 +112,7 @@ export function NewProtocol() {
       schedulePhases: variant?.phases,
       variantId: variant?.id,
       durationWeeks: variant ? phasesTotalWeeks(variant.phases) : undefined,
+      recon: defaultRecon(peptide),
     };
     setPeptideConfigs(prev => prev.some(c => c.peptideId === peptide.id) ? prev : [...prev, config]);
     setDurationWeeks(peptide.dosing.cycleWeeks);
@@ -142,6 +148,7 @@ export function NewProtocol() {
         schedulePhases: variant?.phases,
         variantId: variant?.id,
         durationWeeks: variant ? phasesTotalWeeks(variant.phases) : tp.durationWeeksOverride,
+        recon: defaultRecon(pep),
       };
     });
     setPeptideConfigs(configs);
@@ -190,6 +197,7 @@ export function NewProtocol() {
         durationWeeks: c.durationWeeks ?? durationWeeks,
         schedulePhases: c.schedulePhases,
         variantId: c.variantId,
+        recon: c.recon,
       })),
       startDate,
       durationWeeks,
@@ -542,6 +550,13 @@ export function NewProtocol() {
                     </div>
                   )}
                 </div>
+
+                <ReconMixFields
+                  value={config.recon}
+                  dose={config.dose}
+                  unit={config.unit}
+                  onChange={mix => updateConfig(idx, { recon: mix })}
+                />
               </div>
             );
           })}

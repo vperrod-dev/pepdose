@@ -12,6 +12,7 @@ vi.mock('../db/operations', () => ({
   updateDoseLog: vi.fn(),
   updateScheduledDose: vi.fn(),
   deleteDoseLog: vi.fn(),
+  getProtocol: vi.fn().mockResolvedValue(undefined),
 }));
 
 const today = format(new Date(), 'yyyy-MM-dd');
