@@ -14,27 +14,8 @@ import { ProtocolTimeline } from '../components/ProtocolTimeline';
 import { UserBadge } from '../components/UserBadge';
 import { useViewFilter } from '../context/ViewFilterContext';
 import { filterByOwner } from '../context/ownerFilter';
+import { penColorHex } from '../components/PenColorField';
 import type { ScheduledDose, DoseLog, UserProtocol } from '../db/schema';
-
-const CATEGORY_COLORS: Record<string, string> = {
-  healing: '#22c55e',
-  glp1: '#6366f1',
-  gh_secretagogue: '#f59e0b',
-  fat_loss: '#ef4444',
-  cosmetic: '#ec4899',
-  sexual_health: '#a855f7',
-  nootropic: '#06b6d4',
-};
-
-const CATEGORY_LABELS: { key: keyof typeof CATEGORY_COLORS; label: string }[] = [
-  { key: 'healing', label: 'Healing' },
-  { key: 'glp1', label: 'GLP-1' },
-  { key: 'gh_secretagogue', label: 'GH Secretagogue' },
-  { key: 'fat_loss', label: 'Fat Loss' },
-  { key: 'cosmetic', label: 'Cosmetic' },
-  { key: 'sexual_health', label: 'Sexual Health' },
-  { key: 'nootropic', label: 'Nootropic' },
-];
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -155,7 +136,7 @@ export function Calendar() {
           protocolName: protocolsById.get(d.protocolId)?.name ?? '',
           recon: doseConfig?.recon,
           penColor: doseConfig?.penColor,
-          color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
+          color: penColorHex(doseConfig?.penColor),
         };
       })
       .sort((a, b) => a.time.localeCompare(b.time));
@@ -220,15 +201,6 @@ export function Calendar() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3 stagger-item" style={{ animationDelay: '0.08s' }}>
-        {CATEGORY_LABELS.map(({ key, label }) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[key] }} />
-            <span className="text-[10px] text-text-muted">{label}</span>
-          </div>
-        ))}
-      </div>
-
       <div className="grid grid-cols-7 gap-0 stagger-item" style={{ animationDelay: '0.1s' }}>
         {calendarDays.map((day) => {
           const dateKey = format(day, 'yyyy-MM-dd');
@@ -240,16 +212,20 @@ export function Calendar() {
           const dayPeptides = (() => {
             const seen = new Set<string>();
             const segs: { name: string; color: string }[] = [];
-            const peptideIds = [
-              ...dayDoses.map(d => d.peptideId),
-              ...(adhocByDate.get(dateKey) ?? []).map(l => l.peptideId),
-            ];
-            for (const pid of peptideIds) {
-              const pep = getPeptideById(pid);
-              const name = pep?.name ?? pid;
+            for (const d of dayDoses) {
+              const pep = getPeptideById(d.peptideId);
+              const name = pep?.name ?? d.peptideId;
               if (seen.has(name)) continue;
               seen.add(name);
-              segs.push({ name, color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa' });
+              const penColor = protocolsById.get(d.protocolId)?.doses.find(x => x.peptideId === d.peptideId)?.penColor;
+              segs.push({ name, color: penColorHex(penColor) });
+            }
+            for (const log of adhocByDate.get(dateKey) ?? []) {
+              const pep = getPeptideById(log.peptideId);
+              const name = pep?.name ?? log.peptideId;
+              if (seen.has(name)) continue;
+              seen.add(name);
+              segs.push({ name, color: penColorHex(undefined) });
             }
             return segs;
           })();
