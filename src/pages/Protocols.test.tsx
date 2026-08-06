@@ -17,6 +17,7 @@ const ops = vi.hoisted(() => ({
   deleteUpcomingDosesFrom: vi.fn(async (_id: string, _from: string) => {}),
   saveScheduledDoses: vi.fn(async (_doses: unknown[], _owner: string) => {}),
   getDoseLogsForProtocol: vi.fn(async () => []),
+  getDoseLogsForPeptide: vi.fn(async () => []),
   getHealthMarkers: vi.fn(async () => []),
   getAllDoseLogs: vi.fn(async () => []),
 }));
@@ -69,6 +70,7 @@ beforeEach(() => {
   Object.values(ops).forEach(fn => fn.mockClear?.());
   ops.getScheduledDosesForProtocol.mockResolvedValue([]);
   ops.getDoseLogsForProtocol.mockResolvedValue([]);
+  ops.getDoseLogsForPeptide.mockResolvedValue([]);
   ops.getHealthMarkers.mockResolvedValue([]);
   ops.getAllDoseLogs.mockResolvedValue([]);
 });
