@@ -1,6 +1,6 @@
 import { useId } from 'react';
 
-export const PEN_COLOR_OPTIONS = ['Blue', 'Green', 'Yellow', 'Orange', 'Purple', 'Red', 'Gray', 'Clear'];
+export const PEN_COLOR_OPTIONS = ['Blue', 'Green', 'Yellow', 'Orange', 'Purple', 'Red', 'Gray', 'Clear', 'Silver', 'Gold', 'Pink'];
 
 interface PenColorFieldProps {
   value?: string;
