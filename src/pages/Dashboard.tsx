@@ -19,6 +19,7 @@ interface DashboardDose extends ScheduledDose {
   peptideName: string;
   categoryColor: string;
   recon?: ReconMix;
+  penColor?: string;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -59,11 +60,13 @@ export function Dashboard() {
       const activeIds = new Set(protos.map(p => p.id));
       const enriched: DashboardDose[] = withoutInactiveUpcoming(doses, activeIds).map(d => {
         const pep = getPeptideById(d.peptideId);
+        const doseConfig = protos.find(p => p.id === d.protocolId)?.doses.find(x => x.peptideId === d.peptideId);
         return {
           ...d,
           peptideName: pep?.name ?? d.peptideId,
           categoryColor: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
-          recon: protos.find(p => p.id === d.protocolId)?.doses.find(x => x.peptideId === d.peptideId)?.recon,
+          recon: doseConfig?.recon,
+          penColor: doseConfig?.penColor,
         };
       }).sort((a, b) => a.time.localeCompare(b.time));
 
@@ -283,6 +286,7 @@ export function Dashboard() {
                       {shownDose} {dose.unit}
                     </p>
                     {clicks && <p className="text-[11px] text-primary font-mono">{clicks}</p>}
+                    {dose.penColor && <p className="text-[11px] text-text-muted">Pen: {dose.penColor}</p>}
                   </div>
                   <span className={`text-xs font-mono ${isDone ? 'text-success' : 'text-text-secondary'}`}>
                     {isDone ? 'Logged' : dose.time}
