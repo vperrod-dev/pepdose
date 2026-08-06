@@ -62,6 +62,11 @@ const TIME_LABELS: Record<string, string> = {
 
 type SheetMode = 'journey' | 'actions' | 'edit' | 'delete';
 
+// Sentinel for the "Protocol" variant dropdown: lets a peptide with canned
+// phased variants (NAD+, MOTS-c, ...) drop into the flat frequency + weekday
+// picker instead, since those variants otherwise hide it entirely.
+const CUSTOM_SCHEDULE = '__custom__';
+
 export function Protocols() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -269,6 +274,16 @@ export function Protocols() {
   }
 
   function applyVariantEdit(index: number, peptide: Peptide | undefined, variantId: string) {
+    if (variantId === CUSTOM_SCHEDULE) {
+      updateEditDose(index, {
+        variantId: undefined,
+        schedulePhases: undefined,
+        durationWeeks: undefined,
+        frequency: 'weekly_days',
+        daysOfWeek: [],
+      });
+      return;
+    }
     const variant = peptide?.dosing.protocolVariants?.find(v => v.id === variantId);
     if (!variant) return;
     updateEditDose(index, {
@@ -790,6 +805,7 @@ export function Protocols() {
                     const hasTitration = !!pep?.dosing.titration && pep.dosing.titration.length > 0;
                     const variants = pep?.dosing.protocolVariants;
                     const isPhased = !!variants?.length;
+                    const usingVariant = !!dose.schedulePhases?.length;
                     const activeVariant = variants?.find(v => v.id === dose.variantId);
                     return (
                       <div key={dose.peptideId} className="card-glass p-4">
@@ -814,10 +830,11 @@ export function Protocols() {
                           <div className="mb-3">
                             <label className="text-xs text-text-muted block mb-1">Protocol</label>
                             <select
-                              value={dose.variantId ?? variants![0].id}
+                              value={usingVariant ? (dose.variantId ?? variants![0].id) : CUSTOM_SCHEDULE}
                               onChange={e => applyVariantEdit(idx, pep, e.target.value)}
                               className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm"
                             >
+                              <option value={CUSTOM_SCHEDULE}>Custom (set your own schedule)</option>
                               {variants!.map(v => (
                                 <option key={v.id} value={v.id}>{v.name}</option>
                               ))}
@@ -857,7 +874,7 @@ export function Protocols() {
                               </select>
                             </div>
                           </div>
-                          {!isPhased && (
+                          {!usingVariant && (
                             <div>
                               <label className="text-xs text-text-muted block mb-1">Frequency</label>
                               <select
@@ -883,7 +900,7 @@ export function Protocols() {
                               ))}
                             </select>
                           </div>
-                          {!isPhased && (
+                          {!usingVariant && (
                             <div>
                               <label className="text-xs text-text-muted block mb-1">Length (weeks)</label>
                               <input
@@ -896,7 +913,7 @@ export function Protocols() {
                               />
                             </div>
                           )}
-                          {dose.frequency === 'daily' && !isPhased && (
+                          {dose.frequency === 'daily' && !usingVariant && (
                             <div>
                               <label className="text-xs text-text-muted block mb-1">Times/day</label>
                               <select
@@ -910,7 +927,7 @@ export function Protocols() {
                               </select>
                             </div>
                           )}
-                          {dose.frequency === 'custom' && !isPhased && (
+                          {dose.frequency === 'custom' && !usingVariant && (
                             <div>
                               <label className="text-xs text-text-muted block mb-1">Every N days</label>
                               <input
@@ -924,7 +941,7 @@ export function Protocols() {
                           )}
                         </div>
 
-                        {dose.frequency === 'weekly_days' && !isPhased && (
+                        {dose.frequency === 'weekly_days' && !usingVariant && (
                           <WeekdayPicker
                             value={dose.daysOfWeek}
                             onChange={days => updateEditDose(idx, { daysOfWeek: days })}

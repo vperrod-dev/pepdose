@@ -21,6 +21,11 @@ import type { ReconMix } from '../db/schema';
 
 type Step = 'select' | 'configure' | 'review';
 
+// Sentinel for the "Protocol" variant dropdown: lets a peptide with canned
+// phased variants (NAD+, MOTS-c, ...) drop into the flat frequency + weekday
+// picker instead, since those variants otherwise hide it entirely.
+const CUSTOM_SCHEDULE = '__custom__';
+
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
   glp1: '#6366f1',
@@ -183,6 +188,16 @@ export function NewProtocol() {
   }
 
   function applyVariant(index: number, peptide: Peptide | undefined, variantId: string) {
+    if (variantId === CUSTOM_SCHEDULE) {
+      updateConfig(index, {
+        variantId: undefined,
+        schedulePhases: undefined,
+        durationWeeks: undefined,
+        frequency: 'weekly_days',
+        daysOfWeek: [],
+      });
+      return;
+    }
     const variant = peptide?.dosing.protocolVariants?.find(v => v.id === variantId);
     if (!variant) return;
     updateConfig(index, {
@@ -425,6 +440,7 @@ export function NewProtocol() {
             const hasTitration = pep?.dosing.titration && pep.dosing.titration.length > 0;
             const variants = pep?.dosing.protocolVariants;
             const isPhased = !!variants?.length;
+            const usingVariant = !!config.schedulePhases?.length;
             const activeVariant = variants?.find(v => v.id === config.variantId);
 
             return (
@@ -462,10 +478,11 @@ export function NewProtocol() {
                   <div className="mb-4">
                     <label className="text-xs text-text-muted block mb-1">Protocol</label>
                     <select
-                      value={config.variantId ?? variants![0].id}
+                      value={usingVariant ? (config.variantId ?? variants![0].id) : CUSTOM_SCHEDULE}
                       onChange={e => applyVariant(idx, pep, e.target.value)}
                       className="w-full bg-bg-raised border border-border rounded-lg px-3 py-2 text-sm text-text"
                     >
+                      <option value={CUSTOM_SCHEDULE}>Custom (set your own schedule)</option>
                       {variants!.map(v => (
                         <option key={v.id} value={v.id}>{v.name}</option>
                       ))}
@@ -512,7 +529,7 @@ export function NewProtocol() {
                     )}
                   </div>
 
-                  {!isPhased && (
+                  {!usingVariant && (
                     <div>
                       <label className="text-xs text-text-muted block mb-1">Frequency</label>
                       <select
@@ -540,7 +557,7 @@ export function NewProtocol() {
                     </select>
                   </div>
 
-                  {config.frequency === 'daily' && !isPhased && (
+                  {config.frequency === 'daily' && !usingVariant && (
                     <div>
                       <label className="text-xs text-text-muted block mb-1">Times/day</label>
                       <select
@@ -555,7 +572,7 @@ export function NewProtocol() {
                     </div>
                   )}
 
-                  {config.frequency === 'custom' && !isPhased && (
+                  {config.frequency === 'custom' && !usingVariant && (
                     <div>
                       <label className="text-xs text-text-muted block mb-1">Every N days</label>
                       <input
@@ -574,7 +591,7 @@ export function NewProtocol() {
                   )}
                 </div>
 
-                {config.frequency === 'weekly_days' && !isPhased && (
+                {config.frequency === 'weekly_days' && !usingVariant && (
                   <WeekdayPicker
                     value={config.daysOfWeek}
                     onChange={days => updateConfig(idx, { daysOfWeek: days })}
