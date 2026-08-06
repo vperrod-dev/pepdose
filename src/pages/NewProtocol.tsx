@@ -13,6 +13,7 @@ import { saveProtocol, saveScheduledDoses } from '../db/operations';
 import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
 import { ReconMixFields } from '../components/ReconMixFields';
+import { PenColorField } from '../components/PenColorField';
 import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 import { defaultRecon } from '../utils/penClicks';
 import type { ReconMix } from '../db/schema';
@@ -62,6 +63,7 @@ interface PeptideConfig {
   variantId?: string;
   // How the vial was mixed — drives the "clicks per dose" hint.
   recon?: ReconMix;
+  penColor?: string;
 }
 
 export function NewProtocol() {
@@ -198,6 +200,7 @@ export function NewProtocol() {
         schedulePhases: c.schedulePhases,
         variantId: c.variantId,
         recon: c.recon,
+        penColor: c.penColor,
       })),
       startDate,
       durationWeeks,
@@ -556,6 +559,11 @@ export function NewProtocol() {
                   dose={config.dose}
                   unit={config.unit}
                   onChange={mix => updateConfig(idx, { recon: mix })}
+                />
+
+                <PenColorField
+                  value={config.penColor}
+                  onChange={color => updateConfig(idx, { penColor: color })}
                 />
               </div>
             );
