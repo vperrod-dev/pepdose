@@ -148,11 +148,13 @@ export function Calendar() {
     return (dosesByDate.get(key) || [])
       .map(d => {
         const pep = getPeptideById(d.peptideId);
+        const doseConfig = protocolsById.get(d.protocolId)?.doses.find(x => x.peptideId === d.peptideId);
         return {
           ...d,
           peptideName: pep?.name ?? d.peptideId,
           protocolName: protocolsById.get(d.protocolId)?.name ?? '',
-          recon: protocolsById.get(d.protocolId)?.doses.find(x => x.peptideId === d.peptideId)?.recon,
+          recon: doseConfig?.recon,
+          penColor: doseConfig?.penColor,
           color: CATEGORY_COLORS[pep?.category ?? 'healing'] ?? '#00d4aa',
         };
       })
@@ -347,6 +349,7 @@ export function Calendar() {
                       {doseLog?.dose ?? dose.dose} {dose.unit} · {dose.route === 'subq' ? 'SubQ' : dose.route}
                     </p>
                     {clicks && <p className="text-[11px] text-primary font-mono">{clicks}</p>}
+                    {dose.penColor && <p className="text-[11px] text-text-muted">Pen: {dose.penColor}</p>}
                   </div>
                   <span className={`text-xs font-medium px-2 py-1 rounded-md ${
                     isDone ? 'bg-success/15 text-success' :
