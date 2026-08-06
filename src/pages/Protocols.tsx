@@ -15,6 +15,7 @@ import { DoseActionSheet } from '../components/DoseActionSheet';
 import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { DecimalInput } from '../components/DecimalInput';
 import { ReconMixFields } from '../components/ReconMixFields';
+import { PenColorField } from '../components/PenColorField';
 import { defaultRecon } from '../utils/penClicks';
 import { findDuplicateProtocols, type DuplicateGroup } from '../utils/duplicateProtocols';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
@@ -916,6 +917,11 @@ export function Protocols() {
                           dose={dose.dose}
                           unit={dose.unit}
                           onChange={mix => updateEditDose(idx, { recon: mix })}
+                        />
+
+                        <PenColorField
+                          value={dose.penColor}
+                          onChange={color => updateEditDose(idx, { penColor: color })}
                         />
                       </div>
                     );
