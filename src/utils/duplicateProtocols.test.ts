@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { findDuplicateProtocols } from './duplicateProtocols';
 import type { DoseLog, UserProtocol } from '../db/schema';
 
-const proto = (id: string, startDate: string, status: UserProtocol['status'] = 'active'): UserProtocol => ({
-  id, owner: 'Victor', name: 'MOTS-c', peptideIds: ['mots-c'],
+const proto = (
+  id: string, startDate: string, status: UserProtocol['status'] = 'active', owner: UserProtocol['owner'] = 'Victor',
+): UserProtocol => ({
+  id, owner, name: 'MOTS-c', peptideIds: ['mots-c'],
   doses: [{ peptideId: 'mots-c', dose: 5, unit: 'mg', frequency: 'eod', timeOfDay: 'morning' }],
   startDate, durationWeeks: 6, status,
   createdAt: startDate, updatedAt: startDate,
@@ -44,5 +46,14 @@ describe('findDuplicateProtocols', () => {
     const protocols = [proto('a', '2026-08-01'), proto('b', '2026-07-01')];
     const groups = findDuplicateProtocols(protocols, [log('b', '2026-08-04'), log('b', '2026-07-30')]);
     expect(groups[0].lastLoggedByProtocol.b).toBe('2026-08-04');
+  });
+
+  it('never groups the same peptide across two different owners', () => {
+    const protocols = [
+      proto('victor-run', '2026-08-01', 'active', 'Victor'),
+      proto('nadia-run', '2026-07-01', 'active', 'Nadia'),
+    ];
+    const groups = findDuplicateProtocols(protocols, []);
+    expect(groups).toEqual([]);
   });
 });

@@ -6,7 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import {
   getProtocols, deleteProtocol, updateProtocol,
   getScheduledDosesForProtocol, deleteUpcomingDosesFrom, saveScheduledDoses,
-  getDoseLogsForProtocol, getProtocol, getHealthMarkers, getAllDoseLogs,
+  getDoseLogsForProtocol, getProtocol, getHealthMarkers, getDoseLogsForPeptide,
 } from '../db/operations';
 import { getPeptideById, type Peptide } from '../data/peptides';
 import { getCurrentWeekGuide } from '../data/experienceTimelines';
@@ -92,7 +92,11 @@ export function Protocols() {
   }, [protocols, location.state]);
 
   async function loadProtocols() {
-    const [p, logs] = await Promise.all([getProtocols(), getAllDoseLogs()]);
+    const p = await getProtocols();
+    // Indexed per-protocol lookup, not a full doseLogs table scan — findDuplicateProtocols
+    // only ever reads lastLogged[protocolId] for protocols in `p`, so logs for anything
+    // else (deleted protocols, ad-hoc entries) are irrelevant.
+    const logs = (await Promise.all(p.map(proto => getDoseLogsForProtocol(proto.id)))).flat();
     setProtocols(p);
     setDuplicates(findDuplicateProtocols(p, logs));
     setLoading(false);
@@ -120,11 +124,11 @@ export function Protocols() {
     if (proto) {
       // Ad-hoc doses of this protocol's peptides count as "doses done" too —
       // they carry no protocolId, so the by-protocol index can't see them.
-      const all = await getAllDoseLogs();
-      setJourneyAdhoc(all.filter(l =>
+      // Look them up by-peptide (indexed) instead of scanning the whole store.
+      const byPeptide = await Promise.all(proto.peptideIds.map(pid => getDoseLogsForPeptide(pid)));
+      setJourneyAdhoc(byPeptide.flat().filter(l =>
         !l.scheduledDoseId && !l.protocolId &&
         l.owner === proto.owner &&
-        proto.peptideIds.includes(l.peptideId) &&
         l.date >= proto.startDate,
       ));
       const markers = await getHealthMarkers(proto.startDate, format(new Date(), 'yyyy-MM-dd'));
@@ -291,7 +295,7 @@ export function Protocols() {
         .map(group => {
           const pepName = getPeptideById(group.peptideId)?.name ?? group.peptideId;
           return (
-            <div key={group.peptideId} className="card-glass p-4 mb-3 border border-warning/40 stagger-item">
+            <div key={`${group.owner}-${group.peptideId}`} className="card-glass p-4 mb-3 border border-warning/40 stagger-item">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
                 <p className="font-semibold text-sm">
