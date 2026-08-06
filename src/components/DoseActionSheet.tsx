@@ -49,10 +49,15 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
   // Pen clicks for this injection, tracking the dose actually typed. Loaded from
   // the protocol's own mix so every screen that opens this sheet gets it.
   const [recon, setRecon] = useState<ReconMix | undefined>();
+  const [penColor, setPenColor] = useState<string | undefined>();
   useEffect(() => {
     let live = true;
     void getProtocol(dose.protocolId).then(p => {
-      if (live) setRecon(p?.doses.find(d => d.peptideId === dose.peptideId)?.recon);
+      const doseConfig = p?.doses.find(d => d.peptideId === dose.peptideId);
+      if (live) {
+        setRecon(doseConfig?.recon);
+        setPenColor(doseConfig?.penColor);
+      }
     });
     return () => { live = false; };
   }, [dose.protocolId, dose.peptideId]);
@@ -181,6 +186,7 @@ export function DoseActionSheet({ dose, log, onClose, onUpdated }: DoseActionShe
                   {(log?.dose ?? dose.dose)} {dose.unit} · {log?.date ?? dose.date} · {log?.time ?? dose.time}
                 </p>
                 {clicks && <p className="text-xs text-primary font-mono">{clicks}</p>}
+                {penColor && <p className="text-xs text-text-muted">Pen: {penColor}</p>}
               </div>
             </div>
             <button onClick={onClose} className="tap-target p-2 rounded-xl hover:bg-card" aria-label="Close">
