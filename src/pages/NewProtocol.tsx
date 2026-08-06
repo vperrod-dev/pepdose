@@ -14,6 +14,7 @@ import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
 import { ReconMixFields } from '../components/ReconMixFields';
 import { PenColorField } from '../components/PenColorField';
+import { WeekdayPicker } from '../components/WeekdayPicker';
 import { getLastOwner, setLastOwner, type UserName } from '../data/users';
 import { defaultRecon } from '../utils/penClicks';
 import type { ReconMix } from '../db/schema';
@@ -36,8 +37,18 @@ const FREQUENCY_LABELS: Record<string, string> = {
   eod: 'Every other day',
   weekly: 'Once per week',
   biweekly: 'Every 2 weeks',
+  weekly_days: 'Specific days of week',
   custom: 'Custom interval',
 };
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function frequencyLabel(c: Pick<PeptideConfig, 'frequency' | 'daysOfWeek'>): string {
+  if (c.frequency === 'weekly_days' && c.daysOfWeek?.length) {
+    return c.daysOfWeek.map(d => WEEKDAY_SHORT[d]).join('/');
+  }
+  return FREQUENCY_LABELS[c.frequency] ?? c.frequency;
+}
 
 const TIME_LABELS: Record<string, string> = {
   morning_fasting: 'Morning (fasting)',
@@ -56,6 +67,8 @@ interface PeptideConfig {
   customFrequencyDays?: number;
   timesPerDay: number;
   timeOfDay: TimeOfDay;
+  // Only used when frequency is 'weekly_days': 0=Sunday..6=Saturday.
+  daysOfWeek?: number[];
   // Optional per-peptide cycle length; falls back to the protocol durationWeeks.
   durationWeeks?: number;
   // Phased protocol (e.g. GLOW): when set, cadence comes from these phases.
@@ -138,7 +151,9 @@ export function NewProtocol() {
     setSelectedTemplate(template);
     const configs: PeptideConfig[] = template.peptides.map(tp => {
       const pep = getPeptideById(tp.peptideId);
-      const variant = pep?.dosing.protocolVariants?.[0];
+      const variant = tp.variantId
+        ? pep?.dosing.protocolVariants?.find(v => v.id === tp.variantId)
+        : pep?.dosing.protocolVariants?.[0];
       return {
         peptideId: tp.peptideId,
         dose: tp.doseOverride ?? variant?.doseOverride ?? pep?.dosing.titration?.[0]?.dose ?? pep?.dosing.standard ?? 100,
@@ -194,6 +209,7 @@ export function NewProtocol() {
         unit: c.unit,
         frequency: c.frequency,
         customFrequencyDays: c.customFrequencyDays,
+        daysOfWeek: c.daysOfWeek,
         timesPerDay: c.timesPerDay,
         timeOfDay: c.timeOfDay,
         durationWeeks: c.durationWeeks ?? durationWeeks,
@@ -216,6 +232,7 @@ export function NewProtocol() {
         unit: config.unit,
         frequency: config.frequency,
         customFrequencyDays: config.customFrequencyDays,
+        daysOfWeek: config.daysOfWeek,
         timesPerDay: config.timesPerDay,
         timeOfDay: config.timeOfDay,
         startDate,
@@ -235,10 +252,12 @@ export function NewProtocol() {
   const totalDoses = useMemo(() => {
     if (peptideConfigs.length === 0) return 0;
     const PER_WEEK: Record<string, number> = { daily: 7, '5x_week': 5, eod: 3.5, weekly: 1, biweekly: 0.5, custom: 7 };
+    const perWeekForPhase = (p: SchedulePhase) =>
+      p.frequency === 'weekly_days' ? (p.daysOfWeek?.length ?? 0) : (PER_WEEK[p.frequency] ?? 7);
     return peptideConfigs.reduce((sum, config) => {
       if (config.schedulePhases?.length) {
         return sum + Math.round(config.schedulePhases.reduce(
-          (s, p) => s + (p.weekEnd - p.weekStart + 1) * (PER_WEEK[p.frequency] ?? 7), 0));
+          (s, p) => s + (p.weekEnd - p.weekStart + 1) * perWeekForPhase(p), 0));
       }
       const weeks = config.durationWeeks ?? durationWeeks;
       const daysInCycle = weeks * 7;
@@ -247,6 +266,7 @@ export function NewProtocol() {
         case 'eod': return sum + Math.ceil(daysInCycle / 2);
         case 'weekly': return sum + weeks;
         case 'biweekly': return sum + Math.ceil(weeks / 2);
+        case 'weekly_days': return sum + weeks * (config.daysOfWeek?.length ?? 0);
         default: return sum + daysInCycle;
       }
     }, 0);
@@ -554,6 +574,13 @@ export function NewProtocol() {
                   )}
                 </div>
 
+                {config.frequency === 'weekly_days' && !isPhased && (
+                  <WeekdayPicker
+                    value={config.daysOfWeek}
+                    onChange={days => updateConfig(idx, { daysOfWeek: days })}
+                  />
+                )}
+
                 <ReconMixFields
                   value={config.recon}
                   dose={config.dose}
@@ -638,11 +665,17 @@ export function NewProtocol() {
               Set "Every N days" for each custom-interval peptide to continue.
             </p>
           )}
+          {peptideConfigs.some(c => c.frequency === 'weekly_days' && !c.daysOfWeek?.length) && (
+            <p className="text-xs text-warning text-center mb-2">
+              Pick at least one day of the week for each "Specific days" peptide to continue.
+            </p>
+          )}
           <button
             onClick={() => setStep('review')}
             disabled={
               peptideConfigs.length === 0 ||
-              peptideConfigs.some(c => c.frequency === 'custom' && !c.customFrequencyDays)
+              peptideConfigs.some(c => c.frequency === 'custom' && !c.customFrequencyDays) ||
+              peptideConfigs.some(c => c.frequency === 'weekly_days' && !c.daysOfWeek?.length)
             }
             className="w-full bg-primary text-bg font-semibold py-3.5 rounded-xl tap-target flex items-center justify-center gap-2 disabled:opacity-40 stagger-item"
             style={{ animationDelay: '0.35s' }}
@@ -678,7 +711,7 @@ export function NewProtocol() {
                     <p className="font-medium text-sm">{pep?.name}</p>
                     <p className="text-xs text-text-muted font-mono">
                       {hasTitration ? 'Titration protocol' : `${config.dose} ${config.unit}`}
-                      {' · '}{config.schedulePhases?.length ? summarizePhases(config.schedulePhases) : FREQUENCY_LABELS[config.frequency]}
+                      {' · '}{config.schedulePhases?.length ? summarizePhases(config.schedulePhases) : frequencyLabel(config)}
                       {' · '}{TIME_LABELS[config.timeOfDay]}
                     </p>
                   </div>

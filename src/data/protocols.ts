@@ -125,7 +125,7 @@ export const PROTOCOL_TEMPLATES: ProtocolTemplate[] = [
   {
     id: 'nad-plus-steady',
     name: 'NAD+ Steady 100mg (4 weeks)',
-    description: '100mg weekly (or split 2x/week) for 4 weeks, then 1-2 weeks off. For users with established tolerance who want consistent dosing without the ramp.',
+    description: '100mg twice weekly (Monday & Thursday) for 4 weeks, then 1-2 weeks off. For users with established tolerance who want consistent dosing without the ramp.',
     peptides: [
       { peptideId: 'nad-plus', variantId: 'steady-100' },
     ],

@@ -9,7 +9,7 @@ export type PeptideCategory =
   | 'longevity';
 
 export type InjectionRoute = 'subq' | 'im' | 'oral' | 'intranasal' | 'topical';
-export type FrequencyType = 'daily' | '5x_week' | 'eod' | 'weekly' | 'biweekly' | 'custom';
+export type FrequencyType = 'daily' | '5x_week' | 'eod' | 'weekly' | 'biweekly' | 'weekly_days' | 'custom';
 export type TimeOfDay = 'morning_fasting' | 'morning' | 'evening' | 'pre_bed' | 'before_activity' | 'any';
 
 export interface TitrationStep {
@@ -24,6 +24,8 @@ export interface SchedulePhase {
   weekStart: number;
   weekEnd: number;
   frequency: FrequencyType;
+  // Only used when frequency is 'weekly_days': 0=Sunday..6=Saturday.
+  daysOfWeek?: number[];
 }
 
 // A named, selectable phased protocol (e.g. the several ways people cycle GLOW).
@@ -901,7 +903,7 @@ export const PEPTIDES: Peptide[] = [
         {
           id: 'ramp-up',
           name: 'Start Low & Slow (4 weeks)',
-          description: 'Tolerance-building ramp: 25mg (wk1) → 50mg (wk2) → 100mg (wk3-4), 1-2x weekly. The flush and pressure reaction is rate-dependent, so inject slowly regardless of dose. Then 1-2 weeks off.',
+          description: 'Tolerance-building ramp: 25mg (wk1) → 50mg (wk2) → 100mg (wk3-4), once weekly. The flush and pressure reaction is rate-dependent, so inject slowly regardless of dose. Then 1-2 weeks off.',
           phases: [
             { weekStart: 1, weekEnd: 4, frequency: 'weekly' },
           ],
@@ -911,9 +913,9 @@ export const PEPTIDES: Peptide[] = [
         {
           id: 'steady-100',
           name: 'Steady 100mg (4 weeks)',
-          description: 'For tolerated users: 100mg 1-2x weekly for 4 weeks, then 1-2 weeks off. Split into two smaller injections if one push is too intense. No established maintenance — keep blocks short.',
+          description: 'For tolerated users: 100mg twice weekly (Monday & Thursday) for 4 weeks, then 1-2 weeks off. Split into two smaller injections if one push is too intense. No established maintenance — keep blocks short.',
           phases: [
-            { weekStart: 1, weekEnd: 4, frequency: 'weekly' },
+            { weekStart: 1, weekEnd: 4, frequency: 'weekly_days', daysOfWeek: [1, 4] },
           ],
           doseOverride: 100,
           source: 'https://www.peptideschedule.com/peptides/nad',

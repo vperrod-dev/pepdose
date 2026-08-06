@@ -13,6 +13,8 @@ interface ScheduleConfig {
   unit: 'mcg' | 'mg' | 'IU';
   frequency: string;
   customFrequencyDays?: number;
+  // Only used when frequency is 'weekly_days': 0=Sunday..6=Saturday.
+  daysOfWeek?: number[];
   timesPerDay?: number;
   timeOfDay: string;
   startDate: string;
@@ -170,6 +172,32 @@ export function generateSchedule(config: ScheduleConfig): DraftDose[] {
       doseIndex++;
       current = addDays(current, 14);
     }
+  } else if (config.frequency === 'weekly_days' && config.daysOfWeek && config.daysOfWeek.length > 0) {
+    const days = eachDayOfInterval({ start: startDate, end: addDays(endDate, -1) });
+    for (const day of days) {
+      if (!config.daysOfWeek.includes(day.getDay())) continue;
+      const weekNum = Math.floor((day.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+      if (isInBreak(weekNum, config.protocolBreaks)) continue;
+      const currentDose = hasTitration ? getTitrationDose(peptide!, weekNum, config.dose) : config.dose;
+      const currentUnit = hasTitration ? (peptide!.dosing.titration![0].unit) : config.unit;
+      const prevWeekDose = hasTitration && weekNum > 1 ? getTitrationDose(peptide!, weekNum - 1, config.dose) : currentDose;
+
+      doses.push({
+        id: generateId(),
+        protocolId: config.protocolId,
+        peptideId: config.peptideId,
+        date: format(day, 'yyyy-MM-dd'),
+        time: timeStr,
+        dose: currentDose,
+        unit: currentUnit,
+        route: peptide?.route || 'subq',
+        status: 'upcoming',
+        suggestedSite: suggestSite(doseIndex),
+        isTitrationStepUp: hasTitration && currentDose !== prevWeekDose,
+        weekNumber: weekNum,
+      });
+      doseIndex++;
+    }
   } else if (config.frequency === 'custom' && config.customFrequencyDays && config.customFrequencyDays > 0) {
     let current = startDate;
     while (isBefore(current, endDate)) {
@@ -249,6 +277,7 @@ function generatePhasedSchedule(config: ScheduleConfig, peptide: Peptide | undef
       case '5x_week': emit = dow !== 0 && dow !== 6; break; // weekdays
       case 'eod': emit = dayOffset % 2 === 0; break;
       case 'weekly': emit = dow === startDate.getDay(); break;
+      case 'weekly_days': emit = phase.daysOfWeek?.includes(dow) ?? false; break;
       default: emit = true;
     }
     if (!emit) continue;
@@ -279,11 +308,19 @@ export function phasesTotalWeeks(phases: SchedulePhase[]): number {
 const FREQ_SHORT: Record<string, string> = {
   daily: 'Daily', '5x_week': '5×/wk', eod: 'EOD', weekly: 'Weekly', biweekly: 'Bi-weekly', custom: 'Custom',
 };
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function phaseFrequencyLabel(p: SchedulePhase): string {
+  if (p.frequency === 'weekly_days' && p.daysOfWeek?.length) {
+    return p.daysOfWeek.map(d => WEEKDAY_SHORT[d]).join('/');
+  }
+  return FREQ_SHORT[p.frequency] ?? p.frequency;
+}
 
 // "Daily ×2wk → 5×/wk ×2wk → off"
 export function summarizePhases(phases: SchedulePhase[]): string {
   if (!phases.length) return '';
-  const parts = phases.map(p => `${FREQ_SHORT[p.frequency] ?? p.frequency} ×${p.weekEnd - p.weekStart + 1}wk`);
+  const parts = phases.map(p => `${phaseFrequencyLabel(p)} ×${p.weekEnd - p.weekStart + 1}wk`);
   return `${parts.join(' → ')} → off`;
 }
 

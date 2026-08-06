@@ -16,6 +16,7 @@ import { AdhocLogSheet } from '../components/AdhocLogSheet';
 import { DecimalInput } from '../components/DecimalInput';
 import { ReconMixFields } from '../components/ReconMixFields';
 import { PenColorField } from '../components/PenColorField';
+import { WeekdayPicker } from '../components/WeekdayPicker';
 import { defaultRecon } from '../utils/penClicks';
 import { findDuplicateProtocols, type DuplicateGroup } from '../utils/duplicateProtocols';
 import type { UserProtocol, ScheduledDose, DoseLog, HealthMarker } from '../db/schema';
@@ -37,8 +38,18 @@ const FREQUENCY_LABELS: Record<string, string> = {
   eod: 'Every other day',
   weekly: 'Once per week',
   biweekly: 'Every 2 weeks',
+  weekly_days: 'Specific days of week',
   custom: 'Custom interval',
 };
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function frequencyLabel(d: { frequency: string; daysOfWeek?: number[] }): string {
+  if (d.frequency === 'weekly_days' && d.daysOfWeek?.length) {
+    return d.daysOfWeek.map(day => WEEKDAY_SHORT[day]).join('/');
+  }
+  return FREQUENCY_LABELS[d.frequency] ?? d.frequency;
+}
 
 const TIME_LABELS: Record<string, string> = {
   morning_fasting: 'Morning (fasting)',
@@ -218,6 +229,7 @@ export function Protocols() {
         unit: d.unit as 'mcg' | 'mg' | 'IU',
         frequency: d.frequency,
         customFrequencyDays: d.customFrequencyDays,
+        daysOfWeek: d.daysOfWeek,
         timesPerDay: d.timesPerDay,
         timeOfDay: d.timeOfDay,
         startDate: editStartDate,
@@ -399,7 +411,7 @@ export function Protocols() {
                     </div>
                     {mainDose && (
                       <p className="text-xs text-text-muted font-mono">
-                        {mainDose.dose} {mainDose.unit} · {mainDose.frequency}
+                        {mainDose.dose} {mainDose.unit} · {frequencyLabel(mainDose)}
                       </p>
                     )}
                   </div>
@@ -912,6 +924,13 @@ export function Protocols() {
                           )}
                         </div>
 
+                        {dose.frequency === 'weekly_days' && !isPhased && (
+                          <WeekdayPicker
+                            value={dose.daysOfWeek}
+                            onChange={days => updateEditDose(idx, { daysOfWeek: days })}
+                          />
+                        )}
+
                         <ReconMixFields
                           value={dose.recon}
                           dose={dose.dose}
@@ -932,6 +951,12 @@ export function Protocols() {
                     doses are kept.
                   </p>
 
+                  {editDoses.some(d => d.frequency === 'weekly_days' && !d.daysOfWeek?.length) && (
+                    <p className="text-xs text-warning text-center">
+                      Pick at least one day of the week for each "Specific days" peptide to continue.
+                    </p>
+                  )}
+
                   <div className="flex gap-3 pt-2 pb-4">
                     <button
                       onClick={() => setSheetMode('actions')}
@@ -941,7 +966,7 @@ export function Protocols() {
                     </button>
                     <button
                       onClick={handleSaveEdit}
-                      disabled={saving}
+                      disabled={saving || editDoses.some(d => d.frequency === 'weekly_days' && !d.daysOfWeek?.length)}
                       className="flex-1 px-4 py-3 rounded-xl bg-primary text-bg text-sm font-semibold disabled:opacity-40"
                     >
                       {saving ? 'Saving...' : 'Save Changes'}

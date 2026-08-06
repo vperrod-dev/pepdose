@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateSchedule, extendSchedule, updateFutureDoses } from './scheduleEngine';
+import { getPeptideById } from '../data/peptides';
 import type { ScheduledDose } from '../db/schema';
 
 // Retatrutide ladder: wk1-4 = 2mg, wk5-8 = 4mg, ... (see data/peptides.ts)
@@ -84,6 +85,24 @@ describe('generateSchedule frequency branches', () => {
     expect(generateSchedule({ ...PLAIN, frequency: 'custom', customFrequencyDays: -1 })).toEqual([]);
   });
 
+  it('weekly_days emits exactly on the chosen weekdays, every week, with no drift', () => {
+    // 2026-01-05 is a Monday. Choosing Mon(1) + Thu(4) must give exactly 2/week
+    // for every week of the run — the whole point vs. a custom N-day interval.
+    const doses = generateSchedule({
+      ...PLAIN, frequency: 'weekly_days', daysOfWeek: [1, 4], durationWeeks: 3,
+    });
+    expect(doses.map(d => d.date)).toEqual([
+      '2026-01-05', '2026-01-08',
+      '2026-01-12', '2026-01-15',
+      '2026-01-19', '2026-01-22',
+    ]);
+  });
+
+  it('weekly_days without any days chosen emits nothing', () => {
+    expect(generateSchedule({ ...PLAIN, frequency: 'weekly_days', daysOfWeek: [] })).toEqual([]);
+    expect(generateSchedule({ ...PLAIN, frequency: 'weekly_days' })).toEqual([]);
+  });
+
   it('phased schedules follow each phase cadence and skip off weeks', () => {
     const doses = generateSchedule({
       ...PLAIN,
@@ -97,6 +116,29 @@ describe('generateSchedule frequency branches', () => {
       '2026-01-05', '2026-01-06', '2026-01-07', '2026-01-08', '2026-01-09', '2026-01-10', '2026-01-11',
       '2026-01-19',
     ]);
+  });
+
+  it('phased weekly_days emits on the phase\'s chosen weekdays', () => {
+    const doses = generateSchedule({
+      ...PLAIN,
+      frequency: 'daily',
+      durationWeeks: 2,
+      schedulePhases: [{ weekStart: 1, weekEnd: 2, frequency: 'weekly_days', daysOfWeek: [1, 4] }],
+    });
+    expect(doses.map(d => d.date)).toEqual(['2026-01-05', '2026-01-08', '2026-01-12', '2026-01-15']);
+  });
+
+  it("NAD+ Steady 100mg variant is genuinely twice weekly, not once", () => {
+    // Regression: this variant used to hardcode frequency 'weekly' (once/week)
+    // despite its own name and description promising twice weekly.
+    const nad = getPeptideById('nad-plus')!;
+    const steady = nad.dosing.protocolVariants!.find(v => v.id === 'steady-100')!;
+    const doses = generateSchedule({
+      ...PLAIN, peptideId: 'nad-plus', dose: 100, frequency: 'daily', schedulePhases: steady.phases,
+    });
+    const perWeek = new Map<number, number>();
+    for (const d of doses) perWeek.set(d.weekNumber!, (perWeek.get(d.weekNumber!) ?? 0) + 1);
+    expect([...perWeek.values()]).toEqual([2, 2, 2, 2]);
   });
 
   it('phased 5x_week skips weekends', () => {
