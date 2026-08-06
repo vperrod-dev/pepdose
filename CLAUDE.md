@@ -49,13 +49,33 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   first step, and typing a different value shifts the whole ladder
   proportionally (see `getTitrationDose`), so a user can start e.g.
   Retatrutide at 0.5mg.
+  - **`weekly_days` frequency** (`FrequencyType` in `data/peptides.ts`): explicit
+    weekday selection (`daysOfWeek: number[]`, 0=Sun..6=Sat) for both flat dose
+    configs and phased-protocol phases (`SchedulePhase.daysOfWeek`). Calendar-
+    aligned by construction — picking Mon+Thu always yields exactly 2 doses every
+    week, no drift. Added after a user-reported bug: the only prior way to
+    approximate "N times a week" was the `custom` every-N-days interval, which
+    drifts against calendar weeks whenever N doesn't evenly divide 7 (every 3
+    days gives a repeating 3/2/2-per-week pattern, not a steady 2). UI:
+    `components/WeekdayPicker.tsx`, wired into both `NewProtocol.tsx` and the
+    `Protocols.tsx` edit sheet next to the Frequency dropdown.
   - **Protocol variants** (`data/peptides.ts` → `DosingProtocol.protocolVariants`):
     each peptide can declare multiple named, phased protocol variants (e.g.
     Retatrutide: clinical-trial ladder vs community 8-on/8-off vs microdose
-    maintenance). The `selectTemplate` / `applyVariant` flows in `NewProtocol.tsx`
-    and `Protocols.tsx` auto-pick the first variant, set its phases as the dose
-    config's `schedulePhases`, and override the dose. The schedule engine reads
-    `schedulePhases` to emit the correct cadence per week.
+    maintenance). `selectTemplate` honors the template's declared `variantId`
+    (fixed a bug where it always applied `protocolVariants[0]` regardless —
+    picking the "NAD+ Steady 100mg" template silently loaded "Start Low & Slow"
+    instead); `applyVariant`/`applyVariantEdit` set the chosen variant's phases
+    as the dose config's `schedulePhases` and override the dose. The schedule
+    engine reads `schedulePhases` to emit the correct cadence per week.
+    The "Protocol" dropdown on both screens also offers **"Custom (set your own
+    schedule)"** — since `isPhased` (does this peptide have variants at all) is
+    peptide-level, without this escape hatch any peptide with canned variants
+    (NAD+, MOTS-c, Retatrutide, GHK-Cu, GLOW-blend, Melanotan-2) could never
+    reach the flat Frequency/day-picker controls. Picking it clears
+    `schedulePhases`/`variantId` and defaults to `weekly_days`; gating in the
+    JSX uses a per-config `usingVariant = !!schedulePhases?.length` check, not
+    the peptide-level `isPhased` flag, so users can freely switch back and forth.
   - **Breaks** (`data/protocols.ts` → `ProtocolTemplate.breaks`, `db/schema.ts` →
     `UserProtocol.breaks`): explicit off-week ranges (`{ weekStart, weekEnd,
     reason }`) where no doses are generated. Templates with break-aware cycling
@@ -85,9 +105,12 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   otherwise they fall back to in-page timers fired through the service worker
   (`public/sw.js` `showNotification`), deduped per day. `triggeredNotificationsSupported()`
   gates the capability.
-- Calendar (`pages/Calendar.tsx`): month grid (per-peptide color strip + legend) with a
-  Month/Timeline toggle. Break weeks render as a purple diagonal hatch on affected
-  days with a tooltip showing the break reason. The Gantt **Protocol Timeline**
+- Calendar (`pages/Calendar.tsx`): month grid (per-peptide color strip, colored by
+  pen colour — see below) with a Month/Timeline toggle. No category legend; each
+  dose's dot/strip is the pen colour assigned to that peptide in its protocol, via
+  `penColorHex()`, falling back to neutral gray when unset or unrecognized. Break
+  weeks render as a purple diagonal hatch on affected days with a tooltip showing
+  the break reason. The Gantt **Protocol Timeline**
   (`components/ProtocolTimeline.tsx`) is driven by pure
   `utils/protocolTimeline.ts` (`buildTimeline`, unit-tested), which marks break
   weeks via the `isBreak` flag on each `WeekSegment`.
@@ -101,6 +124,15 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   list and `DoseActionSheet` render under the mg line. Click volume is a setting
   (`penMlPerClick`, default 0.01 ml = 1 insulin unit) since pens differ.
   `vialAmount` follows the IU rule above: mg for mcg/mg peptides, IU for IU ones.
+- Pen colour: a dose config also carries an optional `penColor?: string`
+  (free-typed or picked from a preset list — `components/PenColorField.tsx`,
+  a native `<input list>`/`<datalist>` combo, no custom dropdown needed) so a
+  stacked protocol can say which physical pen goes with which peptide. Wired
+  the same way as `recon`: set on `NewProtocol.tsx`/`Protocols.tsx` edit sheet,
+  read back out via the protocol's dose config in `DoseActionSheet.tsx`,
+  `Dashboard.tsx`, and `Calendar.tsx` (both the dot colour and a "Pen: <colour>"
+  label). `penColorHex()` in `PenColorField.tsx` maps the preset names to CSS
+  colours for dots/strips, defaulting to neutral gray for custom/unrecognized text.
 - Reconstitution calculator (`ReconCalculator.tsx`): forward + reverse-BAC solve,
   blend per-component breakdown (`Peptide.reconstitution.components`), honors the
   U-100/U-40 setting, IU-aware vial/concentration labels. Deep-linkable via `/calculator?peptide=<id>`.
@@ -175,6 +207,10 @@ npm run lint         # eslint — repo has pre-existing errors; don't add new on
   paths when touching protocol editing. Break-week logic has dedicated tests in
   `scheduleEngine.test.ts` (`protocolBreaks` suppresses dose generation for daily,
   weekly, and phased schedules).
+- Prefer `weekly_days` (explicit weekdays) over the `custom` every-N-days interval
+  whenever a cadence should be "N times per week" — `custom` drifts against
+  calendar weeks unless N evenly divides 7 (see `scheduleEngine.test.ts`'s
+  `weekly_days`/NAD+ regression tests for the drift this caused in practice).
 - New analytics logic goes in a **pure `utils/*.ts` helper with a `.test.ts`**, kept
   out of the component (see activeLevels/symptomTrends/adherence).
 - Numeric inputs use the string-backed `components/DecimalInput.tsx` (a raw
