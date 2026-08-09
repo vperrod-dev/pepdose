@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { format, differenceInMinutes, differenceInHours, differenceInWeeks, parseISO } from 'date-fns';
 import { Syringe, TrendingUp, ChevronRight, Zap, Flame } from 'lucide-react';
@@ -95,7 +95,10 @@ export function Dashboard() {
   }, [reloadKey]);
 
   const applyOwnerFilter = useOwnerFilter();
-  const adherence = adherenceStats(applyOwnerFilter(allScheduled));
+  const adherence = useMemo(
+    () => adherenceStats(applyOwnerFilter(allScheduled)),
+    [applyOwnerFilter, allScheduled],
+  );
   const visibleDoses = applyOwnerFilter(todayDoses);
   const visibleProtocols = applyOwnerFilter(protocols);
   const completedCount = visibleDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
