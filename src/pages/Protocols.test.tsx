@@ -6,6 +6,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
 import { Protocols } from './Protocols';
+import { getPeptideById } from '../data/peptides';
 import type { UserProtocol, ScheduledDose } from '../db/schema';
 
 const ops = vi.hoisted(() => ({
@@ -153,5 +154,34 @@ describe('Protocols schedule regeneration', () => {
   it('saves the regenerated schedule under the protocol owner', async () => {
     await saveEdit([]);
     expect(ops.saveScheduledDoses.mock.calls[0][1]).toBe('Victor');
+  });
+});
+
+describe('Protocols edit sheet — custom schedule regression', () => {
+  // Regression for a bug where openSheet backfilled a phased peptide's fallback
+  // variant into editDoses whenever schedulePhases was undefined — exactly the
+  // state a deliberate CUSTOM_SCHEDULE choice leaves the record in, so opening
+  // the edit sheet silently reverted a user's custom weekday schedule back to
+  // the canned variant. customSchedule: true (set by applyVariantEdit) is what
+  // openSheet must now check to skip that backfill.
+  const variant = getPeptideById('retatrutide')!.dosing.protocolVariants![0];
+
+  const customDose = {
+    peptideId: 'retatrutide', dose: 2, unit: 'mg', frequency: 'weekly_days',
+    daysOfWeek: [1], timeOfDay: 'morning', timesPerDay: 1,
+    customSchedule: true,
+  } as UserProtocol['doses'][0];
+
+  it('keeps a custom-scheduled protocol on Custom, not the fallback variant', async () => {
+    await openActions(protocol({ peptideIds: ['retatrutide'], doses: [customDose] }));
+    await click('Edit Protocol');
+    expect(screen.getByDisplayValue('Custom (set your own schedule)')).not.toBeNull();
+    expect(screen.queryByDisplayValue(variant.name)).toBeNull();
+  });
+
+  it('keeps the user\'s chosen weekday selected, not the variant phases', async () => {
+    await openActions(protocol({ peptideIds: ['retatrutide'], doses: [customDose] }));
+    await click('Edit Protocol');
+    expect(screen.getByLabelText('Monday').getAttribute('aria-pressed')).toBe('true');
   });
 });

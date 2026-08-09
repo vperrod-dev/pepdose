@@ -30,8 +30,13 @@ vi.mock('../components/UserPicker', () => ({
 
 const savedProtocol = () => ops.saveProtocol.mock.calls[0][0] as {
   doses: { peptideId: string; dose: number; durationWeeks?: number;
-           variantId?: string; schedulePhases?: unknown[] }[];
+           variantId?: string; schedulePhases?: unknown[]; frequency?: string;
+           daysOfWeek?: number[]; customSchedule?: boolean }[];
 };
+
+// Mirrors the CUSTOM_SCHEDULE sentinel value in NewProtocol.tsx/Protocols.tsx —
+// not exported, so tests target the <select> by its option value directly.
+const CUSTOM_SCHEDULE = '__custom__';
 const scheduledDoses = () => ops.saveScheduledDoses.mock.calls[0][0] as
   { peptideId: string; dose: number; date: string }[];
 
@@ -110,5 +115,19 @@ describe('NewProtocol', () => {
       fireEvent.change(doseField(), { target: { value: '0' } });
     });
     expect(ops.saveProtocol).not.toHaveBeenCalled();
+  });
+
+  it('picking Custom Schedule drops the canned variant and is not overwritten by variant defaults', async () => {
+    const variant = getPeptideById('retatrutide')!.dosing.protocolVariants![0];
+    await createWith(() => {
+      fireEvent.change(screen.getByDisplayValue(variant.name), { target: { value: CUSTOM_SCHEDULE } });
+      fireEvent.click(screen.getByLabelText('Monday'));
+    });
+    const dose = savedProtocol().doses[0];
+    expect(dose.schedulePhases).toBeUndefined();
+    expect(dose.variantId).toBeUndefined();
+    expect(dose.frequency).toBe('weekly_days');
+    expect(dose.daysOfWeek).toEqual([1]);
+    expect(dose.customSchedule).toBe(true);
   });
 });
