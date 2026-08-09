@@ -79,6 +79,9 @@ interface PeptideConfig {
   // Phased protocol (e.g. GLOW): when set, cadence comes from these phases.
   schedulePhases?: SchedulePhase[];
   variantId?: string;
+  // True when the user deliberately picked CUSTOM_SCHEDULE over a canned variant —
+  // see the field doc on UserProtocol.doses in db/schema.ts.
+  customSchedule?: boolean;
   // How the vial was mixed — drives the "clicks per dose" hint.
   recon?: ReconMix;
   penColor?: string;
@@ -195,6 +198,7 @@ export function NewProtocol() {
         durationWeeks: undefined,
         frequency: 'weekly_days',
         daysOfWeek: [],
+        customSchedule: true,
       });
       return;
     }
@@ -205,6 +209,7 @@ export function NewProtocol() {
       schedulePhases: variant.phases,
       durationWeeks: phasesTotalWeeks(variant.phases),
       dose: variant.doseOverride ?? peptide?.dosing.standard ?? 0,
+      customSchedule: false,
     });
   }
 
@@ -230,6 +235,7 @@ export function NewProtocol() {
         durationWeeks: c.durationWeeks ?? durationWeeks,
         schedulePhases: c.schedulePhases,
         variantId: c.variantId,
+        customSchedule: c.customSchedule,
         recon: c.recon,
         penColor: c.penColor,
       })),

@@ -160,8 +160,12 @@ export function Protocols() {
     loadJourney(proto.id);
     setEditDoses(proto.doses.map(d => {
       const pep = getPeptideById(d.peptideId);
-      // Backfill a phased variant for older records that predate variants.
-      const fallbackVariant = pep?.dosing.protocolVariants?.[0];
+      // Backfill a phased variant for older records that predate variants existing
+      // for this peptide — but never for a dose where the user deliberately chose
+      // CUSTOM_SCHEDULE (customSchedule: true), or that backfill would silently
+      // revert their custom weekday schedule back to the canned variant every time
+      // they reopen the edit sheet.
+      const fallbackVariant = d.customSchedule ? undefined : pep?.dosing.protocolVariants?.[0];
       const phases = d.schedulePhases ?? fallbackVariant?.phases;
       return {
         ...d,
@@ -281,6 +285,7 @@ export function Protocols() {
         durationWeeks: undefined,
         frequency: 'weekly_days',
         daysOfWeek: [],
+        customSchedule: true,
       });
       return;
     }
@@ -291,6 +296,7 @@ export function Protocols() {
       schedulePhases: variant.phases,
       durationWeeks: phasesTotalWeeks(variant.phases),
       dose: variant.doseOverride ?? peptide?.dosing.standard ?? 0,
+      customSchedule: false,
     });
   }
 

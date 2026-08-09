@@ -16,7 +16,13 @@ export interface UserProtocol {
   owner: UserName;
   name: string;
   peptideIds: string[];
-  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg' | 'IU'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; daysOfWeek?: number[]; schedulePhases?: SchedulePhase[]; variantId?: string; recon?: ReconMix; penColor?: string }[];
+  /** `customSchedule: true` marks a dose config where the user deliberately picked
+   *  "Custom (set your own schedule)" over a peptide's canned protocol variant —
+   *  distinct from an older record that simply predates variants existing for its
+   *  peptide. Both leave `schedulePhases`/`variantId` unset, but only the latter
+   *  should fall back to the peptide's default variant phases (see `openSheet` in
+   *  `pages/Protocols.tsx`). */
+  doses: { peptideId: string; dose: number; unit: 'mcg' | 'mg' | 'IU'; frequency: string; timesPerDay?: number; timeOfDay: string; durationWeeks?: number; customFrequencyDays?: number; daysOfWeek?: number[]; schedulePhases?: SchedulePhase[]; variantId?: string; recon?: ReconMix; penColor?: string; customSchedule?: boolean }[];
   startDate: string;
   durationWeeks: number;
   status: 'active' | 'paused' | 'completed' | 'archived';
