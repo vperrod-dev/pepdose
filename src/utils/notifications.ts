@@ -2,6 +2,17 @@ import { format } from 'date-fns';
 import { getScheduledDosesForDate, getDoseLogsForDate } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import { zonedTimeToUtc } from './tz';
+import { filterByOwner } from '../context/ownerFilter';
+
+const VIEW_FILTER_KEY = 'pepdose-view-filter';
+
+/** Mirrors ViewFilterContext's storage read — notifications.ts is a plain
+ *  module (armed from a timer/SW callback), not a component, so it can't use
+ *  the React context and reads the same localStorage key directly. */
+function activeOwnerFilter() {
+  const raw = localStorage.getItem(VIEW_FILTER_KEY);
+  return raw === 'Victor' || raw === 'Nadia' ? raw : 'all';
+}
 
 /**
  * Local-first dose reminders.
@@ -201,10 +212,13 @@ export async function scheduleReminders(): Promise<void> {
   if (!settings.notificationsEnabled || !canNotify()) return;
 
   const today = todayStr();
-  const [scheduled, logs] = await Promise.all([
+  const ownerFilter = activeOwnerFilter();
+  const [scheduledAll, logsAll] = await Promise.all([
     getScheduledDosesForDate(today),
     getDoseLogsForDate(today),
   ]);
+  const scheduled = filterByOwner(scheduledAll, ownerFilter);
+  const logs = filterByOwner(logsAll, ownerFilter);
   const loggedIds = new Set(logs.map(l => l.scheduledDoseId).filter(Boolean));
   const pending = scheduled.filter(d => d.status === 'upcoming' && !loggedIds.has(d.id));
 

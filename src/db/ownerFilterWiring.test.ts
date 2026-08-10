@@ -30,13 +30,16 @@ const OWNER_BEARING_READS = [
 // Screens allowed to read without filtering, with the reason. Keep this short:
 // every entry is a place where a future edit can leak one profile's data into
 // the other's view.
-const EXEMPT: Record<string, string> = {};
+const EXEMPT: Record<string, string> = {
+  'src/db/operations.ts': 'defines these reads (function declarations match the name regex); filtering is the caller\'s job',
+};
 
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir).flatMap((entry) => {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) return sourceFiles(path);
-    return path.endsWith('.tsx') && !path.endsWith('.test.tsx') ? [path] : [];
+    if (path.endsWith('.test.tsx') || path.endsWith('.test.ts') || path.endsWith('.d.ts')) return [];
+    return path.endsWith('.tsx') || path.endsWith('.ts') ? [path] : [];
   });
 
 const readsOwnerData = (source: string) =>
