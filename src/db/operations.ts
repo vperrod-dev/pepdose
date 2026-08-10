@@ -390,6 +390,26 @@ const IMPORT_REQUIRED: Record<(typeof IMPORT_STORES)[number], string[]> = {
   editHistory: ['protocolId'],
 };
 
+// Numeric fields per store (from schema.ts) — absent stays legal, but a present
+// value must be a finite number, or NaN/strings poison vial decrement, charts
+// and pen-click math downstream.
+const IMPORT_NUMERIC: Record<(typeof IMPORT_STORES)[number], string[]> = {
+  protocols: ['durationWeeks'],
+  scheduledDoses: ['dose', 'weekNumber'],
+  doseLogs: ['dose'],
+  vials: ['amountMg', 'bacWaterMl', 'dosesRemaining', 'totalDoses'],
+  healthMarkers: ['weight', 'bodyFatPct', 'bloodPressureSys', 'bloodPressureDia', 'restingHR', 'fastingGlucose', 'mood', 'energy', 'sleepQuality'],
+  editHistory: ['affectedDoses'],
+};
+
+function assertNumericFields(rec: Record<string, unknown>, fields: string[], label: string): void {
+  for (const field of fields) {
+    if (rec[field] !== undefined && !Number.isFinite(rec[field])) {
+      throw new Error(`${label} entry has non-numeric field: ${field}`);
+    }
+  }
+}
+
 /** Validates a parsed backup's shape. Throws (before any write) on anything
  *  that isn't a pepdose export, so a bad file can't corrupt existing state. */
 export function validateImport(data: unknown): asserts data is Record<string, unknown> {
@@ -409,6 +429,26 @@ export function validateImport(data: unknown): asserts data is Record<string, un
       for (const field of ['id', ...IMPORT_REQUIRED[storeName]]) {
         if (typeof rec[field] !== 'string' || rec[field] === '') {
           throw new Error(`${storeName} entry missing required field: ${field}`);
+        }
+      }
+      assertNumericFields(rec, IMPORT_NUMERIC[storeName], storeName);
+      // Nested numeric fields the top-level table can't reach: a protocol's
+      // per-peptide dose configs (feed pen clicks / schedule math) and a dose
+      // log's symptom severities (feed the symptom-trend charts).
+      if (storeName === 'protocols' && Array.isArray(rec.doses)) {
+        for (const d of rec.doses) {
+          if (typeof d !== 'object' || d === null) continue;
+          const cfg = d as Record<string, unknown>;
+          assertNumericFields(cfg, ['dose', 'timesPerDay', 'durationWeeks', 'customFrequencyDays'], 'protocols doses');
+          if (typeof cfg.recon === 'object' && cfg.recon !== null) {
+            assertNumericFields(cfg.recon as Record<string, unknown>, ['vialAmount', 'bacWaterMl'], 'protocols doses recon');
+          }
+        }
+      }
+      if (storeName === 'doseLogs' && Array.isArray(rec.symptoms)) {
+        for (const s of rec.symptoms) {
+          if (typeof s !== 'object' || s === null) continue;
+          assertNumericFields(s as Record<string, unknown>, ['severity'], 'doseLogs symptoms');
         }
       }
     }

@@ -218,6 +218,36 @@ describe('validateImport', () => {
       .toThrow('protocols entry missing required field: startDate');
   });
 
+  it('rejects a numeric field holding a string, naming the field', () => {
+    expect(() => validateImport({ doseLogs: [{ id: 'l1', peptideId: 'bpc-157', date: '2026-07-15', dose: 'abc' }] }))
+      .toThrow('doseLogs entry has non-numeric field: dose');
+  });
+
+  it('rejects a NaN vial count', () => {
+    expect(() => validateImport({ vials: [{ id: 'v1', peptideId: 'bpc-157', dosesRemaining: NaN }] }))
+      .toThrow('vials entry has non-numeric field: dosesRemaining');
+  });
+
+  it('rejects a non-numeric symptom severity', () => {
+    expect(() => validateImport({ doseLogs: [{ id: 'l1', peptideId: 'bpc-157', date: '2026-07-15', symptoms: [{ name: 'nausea', severity: 'bad' }] }] }))
+      .toThrow('doseLogs symptoms entry has non-numeric field: severity');
+  });
+
+  it('rejects a non-numeric dose inside a protocol dose config', () => {
+    expect(() => validateImport({ protocols: [{ id: 'p1', name: 'T', startDate: '2026-07-01', doses: [{ peptideId: 'bpc-157', dose: '250' }] }] }))
+      .toThrow('protocols doses entry has non-numeric field: dose');
+  });
+
+  it('accepts valid numbers in numeric fields', () => {
+    expect(() => validateImport({ vials: [{ id: 'v1', peptideId: 'bpc-157', amountMg: 10, bacWaterMl: 2, dosesRemaining: 20, totalDoses: 20 }] }))
+      .not.toThrow();
+  });
+
+  it('accepts an entry with optional numeric fields absent', () => {
+    expect(() => validateImport({ healthMarkers: [{ id: 'h1', date: '2026-07-15' }] }))
+      .not.toThrow();
+  });
+
   it('accepts a real export round trip', async () => {
     await saveVial(baseVial);
     const json = await exportAllData();
