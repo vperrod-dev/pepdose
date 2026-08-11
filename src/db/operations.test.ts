@@ -13,6 +13,8 @@ import {
   saveScheduledDoses,
   getScheduledDosesForProtocol,
   getScheduledDosesInRange,
+  getScheduledDosesForDate,
+  getDoseLogsForDate,
   getDoseLogsInRange,
   deleteProtocol,
   clearAllData,
@@ -20,6 +22,7 @@ import {
   validateImport,
   exportAllData,
 } from './operations';
+import { filterByOwner } from '../context/ownerFilter';
 import { predictEmptyDate } from '../utils/vialForecast';
 import { getDB } from './schema';
 import type { Vial } from './schema';
@@ -146,6 +149,34 @@ describe('getDoseLogsInRange', () => {
     const inRange = await getDoseLogsInRange('2026-07-15', '2026-07-16');
 
     expect(inRange.map((l) => l.date).sort()).toEqual(['2026-07-15', '2026-07-16']);
+  });
+});
+
+// Pins the shared-device isolation contract behind the reminder fix (ffe0ddf):
+// the per-date reads return every owner's rows, so every consumer MUST pass
+// them through filterByOwner — otherwise one profile's doses leak into the
+// other's UI or OS notifications.
+describe('per-owner isolation of per-date reads', () => {
+  it("owner-filtered scheduled doses exclude the other profile's rows", async () => {
+    await saveScheduledDoses([
+      { id: 'v-1', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    ], 'Victor');
+    await saveScheduledDoses([
+      { id: 'n-1', protocolId: 'p2', peptideId: 'tesamorelin', date: '2026-07-15', time: '21:00', dose: 1, unit: 'mg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    ], 'Nadia');
+
+    const visible = filterByOwner(await getScheduledDosesForDate('2026-07-15'), 'Victor');
+
+    expect(visible.map((d) => d.id)).toEqual(['v-1']);
+  });
+
+  it("owner-filtered dose logs exclude the other profile's rows", async () => {
+    await logDose(baseLog);
+    await logDose({ ...baseLog, owner: 'Nadia' as const, peptideId: 'tesamorelin' });
+
+    const visible = filterByOwner(await getDoseLogsForDate('2026-07-15'), 'Victor');
+
+    expect(visible.map((l) => l.owner)).toEqual(['Victor']);
   });
 });
 
