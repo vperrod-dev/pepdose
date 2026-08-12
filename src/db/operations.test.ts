@@ -17,6 +17,10 @@ import {
   getDoseLogsForDate,
   getDoseLogsInRange,
   deleteProtocol,
+  deleteUpcomingDosesFrom,
+  updateFutureScheduledDoses,
+  deleteScheduledDosesForProtocol,
+  getEditHistory,
   clearAllData,
   importData,
   validateImport,
@@ -217,6 +221,97 @@ describe('deleteProtocol', () => {
     const ledger = await db.getAll('deletions');
     expect(ledger.map((d) => `${d.kind}:${d.id}`).sort())
       .toEqual([`protocols:${protocol.id}`, 'scheduledDoses:d1'].sort());
+  });
+});
+
+describe('protocol schedule regeneration', () => {
+  const mixedDoses = [
+    { id: 'past-logged', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-10', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'logged', weekNumber: 1 },
+    { id: 'future-logged', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-20', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'logged', weekNumber: 2 },
+    { id: 'past-upcoming', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-14', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    { id: 'on-boundary', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-15', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 1 },
+    { id: 'future-upcoming', protocolId: 'p1', peptideId: 'bpc-157', date: '2026-07-20', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 2 },
+    { id: 'other-protocol', protocolId: 'p2', peptideId: 'bpc-157', date: '2026-07-20', time: '08:00', dose: 250, unit: 'mcg', route: 'subq', status: 'upcoming', weekNumber: 2 },
+  ] as const;
+
+  describe('deleteUpcomingDosesFrom', () => {
+    it('deletes only upcoming doses on/after fromDate, leaving logged and earlier rows untouched', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await deleteUpcomingDosesFrom('p1', '2026-07-15');
+
+      const remaining = (await getScheduledDosesForProtocol('p1')).map((d) => d.id).sort();
+      expect(remaining).toEqual(['future-logged', 'past-logged', 'past-upcoming'].sort());
+      expect(await getScheduledDosesForProtocol('p2')).toHaveLength(1);
+    });
+
+    it('writes a deletion-ledger entry for each row it removes, and only those rows', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await deleteUpcomingDosesFrom('p1', '2026-07-15');
+
+      const db = await getDB();
+      const ledgerIds = (await db.getAll('deletions')).map((d) => d.id).sort();
+      expect(ledgerIds).toEqual(['future-upcoming', 'on-boundary'].sort());
+    });
+  });
+
+  describe('updateFutureScheduledDoses', () => {
+    it('updates only upcoming doses on/after fromDate, leaving logged and earlier rows untouched', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await updateFutureScheduledDoses('p1', '2026-07-15', { dose: 500 }, 'dose', '250', '500');
+
+      const doses = await getScheduledDosesForProtocol('p1');
+      const byId = Object.fromEntries(doses.map((d) => [d.id, d.dose]));
+      expect(byId).toMatchObject({
+        'past-logged': 250,
+        'future-logged': 250,
+        'past-upcoming': 250,
+        'on-boundary': 500,
+        'future-upcoming': 500,
+      });
+    });
+
+    it("leaves other protocols' doses untouched", async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await updateFutureScheduledDoses('p1', '2026-07-15', { dose: 500 }, 'dose', '250', '500');
+
+      const [otherDose] = await getScheduledDosesForProtocol('p2');
+      expect(otherDose.dose).toBe(250);
+    });
+
+    it('returns the count of affected doses and records an edit-history entry', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      const count = await updateFutureScheduledDoses('p1', '2026-07-15', { dose: 500 }, 'dose', '250', '500');
+
+      expect(count).toBe(2);
+      const history = await getEditHistory('p1');
+      expect(history).toMatchObject([{ protocolId: 'p1', field: 'dose', oldValue: '250', newValue: '500', affectedDoses: 2 }]);
+    });
+  });
+
+  describe('deleteScheduledDosesForProtocol', () => {
+    it('deletes every dose for the protocol regardless of status, leaving other protocols untouched', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await deleteScheduledDosesForProtocol('p1');
+
+      expect(await getScheduledDosesForProtocol('p1')).toEqual([]);
+      expect(await getScheduledDosesForProtocol('p2')).toHaveLength(1);
+    });
+
+    it('writes a deletion-ledger entry for every deleted dose', async () => {
+      await saveScheduledDoses([...mixedDoses], 'Victor');
+
+      await deleteScheduledDosesForProtocol('p1');
+
+      const db = await getDB();
+      const ledgerIds = (await db.getAll('deletions')).map((d) => d.id).sort();
+      expect(ledgerIds).toEqual(['future-logged', 'future-upcoming', 'on-boundary', 'past-logged', 'past-upcoming'].sort());
+    });
   });
 });
 
