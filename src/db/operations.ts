@@ -72,7 +72,7 @@ export async function saveScheduledDoses(doses: Omit<ScheduledDose, 'owner'>[], 
   const createdAt = new Date().toISOString();
   const tx = db.transaction('scheduledDoses', 'readwrite');
   for (const dose of doses) {
-    await tx.store.put({ createdAt, ...dose, owner });
+    await tx.store.put({ createdAt, updatedAt: createdAt, ...dose, owner });
   }
   await tx.done;
 }
@@ -190,8 +190,8 @@ export async function deleteScheduledDosesForProtocol(protocolId: string): Promi
 
 export async function logDose(log: Omit<DoseLog, 'id' | 'createdAt'>): Promise<DoseLog> {
   const db = await getDB();
-  const full: DoseLog = { ...log, id: genId(), createdAt: new Date().toISOString() };
   const now = new Date().toISOString();
+  const full: DoseLog = { ...log, id: genId(), createdAt: now, updatedAt: now };
 
   // One transaction across all three stores so a thrown error can never leave
   // vial inventory desynced from logged history (a partial log with no draw-down).
@@ -275,7 +275,8 @@ export async function deleteDoseLog(id: string): Promise<void> {
 
 export async function saveVial(vial: Omit<Vial, 'id' | 'createdAt'>): Promise<Vial> {
   const db = await getDB();
-  const full: Vial = { ...vial, id: genId(), createdAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const full: Vial = { ...vial, id: genId(), createdAt: now, updatedAt: now };
   await db.put('vials', full);
   return full;
 }
@@ -340,7 +341,8 @@ export async function incrementVialDose(peptideId: string, owner?: UserName): Pr
 
 export async function saveHealthMarker(marker: Omit<HealthMarker, 'id' | 'createdAt'>): Promise<HealthMarker> {
   const db = await getDB();
-  const full: HealthMarker = { ...marker, id: genId(), createdAt: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const full: HealthMarker = { ...marker, id: genId(), createdAt: now, updatedAt: now };
   await db.put('healthMarkers', full);
   return full;
 }

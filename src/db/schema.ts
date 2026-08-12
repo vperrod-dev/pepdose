@@ -139,7 +139,7 @@ interface PepDoseDB extends DBSchema {
   protocols: {
     key: string;
     value: UserProtocol;
-    indexes: { 'by-status': string };
+    indexes: { 'by-status': string; 'by-updatedAt': string };
   };
   scheduledDoses: {
     key: string;
@@ -149,6 +149,7 @@ interface PepDoseDB extends DBSchema {
       'by-protocol': string;
       'by-status': string;
       'by-peptide-date': [string, string];
+      'by-updatedAt': string;
     };
   };
   doseLogs: {
@@ -158,6 +159,7 @@ interface PepDoseDB extends DBSchema {
       'by-date': string;
       'by-protocol': string;
       'by-peptide': string;
+      'by-updatedAt': string;
     };
   };
   vials: {
@@ -166,17 +168,18 @@ interface PepDoseDB extends DBSchema {
     indexes: {
       'by-peptide': string;
       'by-status': string;
+      'by-updatedAt': string;
     };
   };
   healthMarkers: {
     key: string;
     value: HealthMarker;
-    indexes: { 'by-date': string };
+    indexes: { 'by-date': string; 'by-updatedAt': string };
   };
   editHistory: {
     key: string;
     value: EditHistory;
-    indexes: { 'by-protocol': string };
+    indexes: { 'by-protocol': string; 'by-updatedAt': string };
   };
   deletions: {
     key: string;
@@ -189,7 +192,7 @@ let dbInstance: IDBPDatabase<PepDoseDB> | null = null;
 export async function getDB(): Promise<IDBPDatabase<PepDoseDB>> {
   if (dbInstance) return dbInstance;
 
-  dbInstance = await openDB<PepDoseDB>('pepdose', 3, {
+  dbInstance = await openDB<PepDoseDB>('pepdose', 4, {
     async upgrade(db, oldVersion, _newVersion, tx) {
       if (oldVersion < 1) {
         const protocolStore = db.createObjectStore('protocols', { keyPath: 'id' });
@@ -234,6 +237,17 @@ export async function getDB(): Promise<IDBPDatabase<PepDoseDB>> {
       if (oldVersion < 3) {
         // Deletion ledger only — existing stores and data are untouched.
         db.createObjectStore('deletions', { keyPath: 'id' });
+      }
+
+      if (oldVersion < 4) {
+        // Lets sync read only rows touched since its delta cursor instead of a
+        // full-table scan every 30s (see db/sync.ts syncNow). Rows without an
+        // `updatedAt` (pre-existing legacy rows) simply aren't indexed here —
+        // they're already only reachable via the periodic full sync.
+        const stores = ['protocols', 'scheduledDoses', 'doseLogs', 'vials', 'healthMarkers', 'editHistory'] as const;
+        for (const name of stores) {
+          tx.objectStore(name).createIndex('by-updatedAt', 'updatedAt');
+        }
       }
     },
   });

@@ -190,7 +190,6 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     await Promise.all(
       KINDS.map(async (kind) => {
         try {
-          const allLocal: Timestamped[] = await db.getAll(kind);
           let query = sb
             .from('records')
             .select('id,data,updated_at,deleted')
@@ -201,10 +200,30 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
 
           const remote = (remoteRows ?? []) as RemoteRow[];
           const remoteIds = new Set(remote.map((r) => r.id));
-          const localRows =
-            delta === null
-              ? allLocal
-              : allLocal.filter((r) => rowTs(r) > delta || remoteIds.has(r.id));
+
+          let localRows: Timestamped[];
+          if (delta === null) {
+            localRows = await db.getAll(kind);
+          } else {
+            // Indexed range read instead of a full-table scan: only rows
+            // touched since the cursor. A remote id the range doesn't cover
+            // (e.g. an old, locally-untouched row a tombstone now targets)
+            // still needs its local counterpart for planMerge, so those are
+            // fetched by id instead of dropped.
+            const recent: Timestamped[] = await db.getAllFromIndex(
+              kind,
+              'by-updatedAt',
+              IDBKeyRange.lowerBound(new Date(delta).toISOString()),
+            );
+            const seen = new Set(recent.map((r) => r.id));
+            const missingIds = [...remoteIds].filter((id) => !seen.has(id));
+            const extra = missingIds.length
+              ? (await Promise.all(missingIds.map((id) => db.get(kind, id)))).filter(
+                  (r: Timestamped | undefined): r is Timestamped => r != null,
+                )
+              : [];
+            localRows = [...recent, ...extra];
+          }
           const deletions = allDeletions.filter((d) => d.kind === kind);
           plans.set(kind, planMerge(localRows, remote, deletions));
         } catch (e) {

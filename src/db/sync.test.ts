@@ -569,6 +569,27 @@ describe('syncNow', () => {
     expect(cloud.upserted).toEqual([]);
   });
 
+  it('a local row created after the first sync is still pushed on the next delta pass', async () => {
+    await syncNow();
+    const db = await getDB();
+    await db.put('protocols', {
+      id: 'p2',
+      owner: 'Victor',
+      name: 'New',
+      peptideIds: [],
+      doses: [],
+      startDate: '2026-01-01',
+      durationWeeks: 4,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await syncNow();
+
+    expect(cloud.upserted.find((r) => r.id === 'p2')).toBeTruthy();
+  });
+
   it('a remote tombstone arriving in a delta still deletes the untouched local row', async () => {
     const db = await getDB();
     await db.put('protocols', {
