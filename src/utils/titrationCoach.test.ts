@@ -2,37 +2,63 @@ import { describe, it, expect } from 'vitest';
 import { nextTitrationStep } from './titrationCoach';
 import type { ScheduledDose } from '../db/schema';
 
-const today = new Date('2026-07-01T00:00:00Z');
-
-function dose(partial: Partial<ScheduledDose>): ScheduledDose {
-  return {
-    id: 'x', owner: 'Victor', protocolId: 'p', peptideId: 'reta', date: '2026-07-05', time: '09:00',
-    dose: 4, unit: 'mg', route: 'subq', status: 'upcoming', weekNumber: 4,
-    isTitrationStepUp: true, ...partial,
-  };
-}
+// Titration alerts are opt-in per protocol (UserProtocol.titrationAlerts): the
+// dashboard filters the doses it hands to nextTitrationStep down to protocols
+// that asked for them. These cases lock the coach's own contract, which the
+// filtering relies on — a step-up only surfaces when it is upcoming and dated.
+const dose = (over: Partial<ScheduledDose>): ScheduledDose => ({
+  id: 'd1',
+  owner: 'victor' as ScheduledDose['owner'],
+  protocolId: 'p1',
+  peptideId: 'reta',
+  date: '2026-09-01',
+  time: '08:00',
+  dose: 4,
+  unit: 'mg',
+  route: 'subq',
+  status: 'upcoming',
+  weekNumber: 3,
+  ...over,
+});
 
 describe('nextTitrationStep', () => {
-  it('returns the earliest upcoming step-up on/after today', () => {
-    const doses = [
-      dose({ id: 'a', date: '2026-07-12', weekNumber: 5, dose: 6 }),
-      dose({ id: 'b', date: '2026-07-05', weekNumber: 4, dose: 4 }),
-    ];
-    const r = nextTitrationStep(doses, today);
-    expect(r).toEqual({ peptideId: 'reta', weekNumber: 4, dose: 4, unit: 'mg', date: '2026-07-05' });
+  const today = new Date('2026-08-13T00:00:00Z');
+
+  it('returns nothing when no dose is flagged as a step-up', () => {
+    expect(nextTitrationStep([dose({ isTitrationStepUp: false })], today)).toBeNull();
   });
-  it('ignores past step-ups', () => {
-    const doses = [dose({ id: 'a', date: '2026-06-01', weekNumber: 1 })];
-    expect(nextTitrationStep(doses, today)).toBeNull();
-  });
-  it('ignores non-step-up and non-upcoming doses', () => {
-    const doses = [
-      dose({ id: 'a', isTitrationStepUp: false }),
-      dose({ id: 'b', status: 'logged' }),
-    ];
-    expect(nextTitrationStep(doses, today)).toBeNull();
-  });
-  it('returns null when there are no doses', () => {
+
+  it('returns nothing when the caller passes no doses at all', () => {
+    // The opt-out path: the dashboard hands over an empty list when no protocol
+    // has titrationAlerts on.
     expect(nextTitrationStep([], today)).toBeNull();
+  });
+
+  it('surfaces an upcoming step-up', () => {
+    const step = nextTitrationStep([dose({ isTitrationStepUp: true })], today);
+    expect(step?.dose).toBe(4);
+  });
+
+  it('ignores a step-up that has already been logged', () => {
+    expect(
+      nextTitrationStep([dose({ isTitrationStepUp: true, status: 'logged' })], today),
+    ).toBeNull();
+  });
+
+  it('ignores a step-up dated in the past', () => {
+    expect(
+      nextTitrationStep([dose({ isTitrationStepUp: true, date: '2026-08-01' })], today),
+    ).toBeNull();
+  });
+
+  it('picks the earliest upcoming step-up when several are pending', () => {
+    const step = nextTitrationStep(
+      [
+        dose({ id: 'later', isTitrationStepUp: true, date: '2026-10-01', dose: 6 }),
+        dose({ id: 'sooner', isTitrationStepUp: true, date: '2026-09-01', dose: 4 }),
+      ],
+      today,
+    );
+    expect(step?.dose).toBe(4);
   });
 });

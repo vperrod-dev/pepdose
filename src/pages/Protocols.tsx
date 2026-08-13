@@ -95,6 +95,7 @@ export function Protocols() {
   const [editDoses, setEditDoses] = useState<UserProtocol['doses']>([]);
   const [editStartDate, setEditStartDate] = useState('');
   const [editName, setEditName] = useState('');
+  const [editTitrationAlerts, setEditTitrationAlerts] = useState(false);
 
   useEffect(() => {
     loadProtocols();
@@ -179,6 +180,7 @@ export function Protocols() {
     }));
     setEditStartDate(proto.startDate);
     setEditName(proto.name);
+    setEditTitrationAlerts(proto.titrationAlerts === true);
   }
 
   function closeSheet() {
@@ -266,6 +268,7 @@ export function Protocols() {
       startDate: editStartDate,
       durationWeeks: protoDuration,
       doses: editDoses,
+      titrationAlerts: editTitrationAlerts,
     });
 
     setSaving(false);
@@ -968,6 +971,22 @@ export function Protocols() {
                       </div>
                     );
                   })}
+
+                  <label className="flex items-start gap-3 rounded-xl border border-border p-3">
+                    <input
+                      type="checkbox"
+                      checked={editTitrationAlerts}
+                      onChange={e => setEditTitrationAlerts(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span className="text-sm">
+                      Announce titration step-ups
+                      <span className="block text-xs text-text-muted">
+                        Off by default. The schedule steps up either way — this only controls
+                        whether the dashboard calls it out on the day.
+                      </span>
+                    </span>
+                  </label>
 
                   <p className="text-xs text-text-muted">
                     Saving rebuilds all upcoming injections from these settings. Already-logged

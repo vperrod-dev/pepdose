@@ -89,7 +89,14 @@ export function Dashboard() {
     (async () => {
       const active = await getProtocols('active');
       const allDoses = (await Promise.all(active.map(p => getScheduledDosesForProtocol(p.id)))).flat();
-      setCoach(nextTitrationStep(allDoses, new Date()));
+      // Titration alerts are opt-in per protocol (UserProtocol.titrationAlerts).
+      // Only doses from a protocol that asked for them can raise the coach card.
+      const alerting = new Set(active.filter(p => p.titrationAlerts).map(p => p.id));
+      setCoach(
+        alerting.size
+          ? nextTitrationStep(allDoses.filter(d => alerting.has(d.protocolId)), new Date())
+          : null,
+      );
       setAllScheduled(allDoses);
     })();
   }, [reloadKey]);
@@ -101,6 +108,12 @@ export function Dashboard() {
   );
   const visibleDoses = applyOwnerFilter(todayDoses);
   const visibleProtocols = applyOwnerFilter(protocols);
+  // Protocols that opted into titration alerts — nothing announces a step-up
+  // for the others, even though their schedule still steps up.
+  const alertingProtocolIds = useMemo(
+    () => new Set(protocols.filter(p => p.titrationAlerts).map(p => p.id)),
+    [protocols],
+  );
   const completedCount = visibleDoses.filter(d => d.status === 'logged' || logged.has(d.id)).length;
   const totalCount = visibleDoses.length;
   const visibleAdhoc = applyOwnerFilter(adhocLogs);
@@ -194,7 +207,7 @@ export function Dashboard() {
               </>
             )}
           </div>
-          {nextDose.isTitrationStepUp && (
+          {nextDose.isTitrationStepUp && alertingProtocolIds.has(nextDose.protocolId) && (
             <div className="mt-3 flex items-center gap-2 text-warning text-xs font-medium bg-warning-dim rounded-lg px-3 py-2">
               <TrendingUp className="w-4 h-4" />
               Dose increase — titration step-up today

@@ -29,6 +29,10 @@ export interface UserProtocol {
   templateId?: string;
   /** Explicitly scheduled off-week ranges where no doses should be generated. */
   breaks?: ProtocolBreak[];
+  /** Opt-in titration alerts: the dashboard's step-up coach card and the
+   *  "dose increase today" chip. Off unless the protocol turns them on —
+   *  the schedule still contains the step-ups, they just stop being announced. */
+  titrationAlerts?: boolean;
   createdAt: string;
   updatedAt: string;
 }
