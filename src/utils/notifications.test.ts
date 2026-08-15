@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { scheduleReminders } from './notifications';
 import { zonedTimeToUtc, tzOffsetMs } from './tz';
 import { saveScheduledDoses, clearAllData } from '../db/operations';
+import type { UserName } from '../data/users';
 
 const showNotification = vi.fn();
 
@@ -38,7 +39,7 @@ function stubBrowser(timezone: string, overrides: any = {}) {
   return store;
 }
 
-async function seedDose(id: string, time: string, date = '2026-01-05') {
+async function seedDose(id: string, time: string, date = '2026-01-05', owner: UserName = 'Victor') {
   await saveScheduledDoses([{
     id,
     protocolId: 'p1',
@@ -50,7 +51,7 @@ async function seedDose(id: string, time: string, date = '2026-01-05') {
     route: 'subq',
     status: 'upcoming',
     weekNumber: 1,
-  }], 'Victor');
+  }], owner);
 }
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -542,6 +543,38 @@ describe('P3 empty fired set', () => {
 // ---------------------------------------------------------------------------
 // P3 — unmarkFired idempotency (exercised through cancelStaleTriggers)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Cross-profile isolation — reminders must respect the active profile filter
+// ---------------------------------------------------------------------------
+
+describe('cross-profile reminder isolation', () => {
+  it('does not notify Victor\'s dose while Nadia is the active profile', async () => {
+    const store = makeStore();
+    stubBrowser('America/New_York', { store });
+    store.set('pepdose-view-filter', 'Nadia');
+    await seedDose('victor-dose', '08:00', '2026-01-05', 'Victor');
+    await seedDose('nadia-dose', '08:00', '2026-01-05', 'Nadia');
+
+    await scheduleReminders();
+    await flush();
+
+    expect(showNotification.mock.calls.map(c => c[1]?.tag)).toEqual(['nadia-dose']);
+  });
+
+  it('notifies both profiles\' doses when the filter is "all"', async () => {
+    const store = makeStore();
+    stubBrowser('America/New_York', { store });
+    store.set('pepdose-view-filter', 'all');
+    await seedDose('victor-dose', '08:00', '2026-01-05', 'Victor');
+    await seedDose('nadia-dose', '08:00', '2026-01-05', 'Nadia');
+
+    await scheduleReminders();
+    await flush();
+
+    expect(showNotification.mock.calls.map(c => c[1]?.tag).sort()).toEqual(['nadia-dose', 'victor-dose']);
+  });
+});
 
 describe('P3 unmarkFired idempotency', () => {
   it('ignores close on armed trigger whose tag is missing from firedSet', async () => {
