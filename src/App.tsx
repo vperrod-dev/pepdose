@@ -1,26 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { BottomNav } from './components/BottomNav';
-import { Dashboard } from './pages/Dashboard';
-import { Calendar } from './pages/Calendar';
-import { Protocols } from './pages/Protocols';
-import { NewProtocol } from './pages/NewProtocol';
-import { Insights } from './pages/Insights';
-import { More } from './pages/More';
-import { QuickLog } from './pages/QuickLog';
-import { PeptideLibrary } from './pages/PeptideLibrary';
-import { ReconCalculator } from './pages/ReconCalculator';
-import { HalfLife } from './pages/HalfLife';
-import { HealthMarkers } from './pages/HealthMarkers';
-import { ExperienceGuide } from './pages/ExperienceGuide';
-import { VialInventory } from './pages/VialInventory';
-import { ExportImport } from './pages/ExportImport';
-import { Settings } from './pages/Settings';
-import { DoseHistory } from './pages/DoseHistory';
 import { Onboarding } from './pages/Onboarding';
-import { InjectionMap } from './pages/InjectionMap';
-import { Symptoms } from './pages/Symptoms';
-import { GoalPicker } from './pages/GoalPicker';
+// Every route is a separate chunk: this is a mobile PWA whose pages are large
+// (Protocols alone is ~50KB of source) and a session opens two or three of them,
+// so shipping all twenty in the entry bundle costs every load. Onboarding stays
+// eager — it renders before the router on a first-ever launch.
+const Dashboard = lazy(async () => ({ default: (await import('./pages/Dashboard')).Dashboard }));
+const Calendar = lazy(async () => ({ default: (await import('./pages/Calendar')).Calendar }));
+const Protocols = lazy(async () => ({ default: (await import('./pages/Protocols')).Protocols }));
+const NewProtocol = lazy(async () => ({ default: (await import('./pages/NewProtocol')).NewProtocol }));
+const Insights = lazy(async () => ({ default: (await import('./pages/Insights')).Insights }));
+const More = lazy(async () => ({ default: (await import('./pages/More')).More }));
+const QuickLog = lazy(async () => ({ default: (await import('./pages/QuickLog')).QuickLog }));
+const PeptideLibrary = lazy(async () => ({ default: (await import('./pages/PeptideLibrary')).PeptideLibrary }));
+const ReconCalculator = lazy(async () => ({ default: (await import('./pages/ReconCalculator')).ReconCalculator }));
+const HalfLife = lazy(async () => ({ default: (await import('./pages/HalfLife')).HalfLife }));
+const HealthMarkers = lazy(async () => ({ default: (await import('./pages/HealthMarkers')).HealthMarkers }));
+const ExperienceGuide = lazy(async () => ({ default: (await import('./pages/ExperienceGuide')).ExperienceGuide }));
+const VialInventory = lazy(async () => ({ default: (await import('./pages/VialInventory')).VialInventory }));
+const ExportImport = lazy(async () => ({ default: (await import('./pages/ExportImport')).ExportImport }));
+const Settings = lazy(async () => ({ default: (await import('./pages/Settings')).Settings }));
+const DoseHistory = lazy(async () => ({ default: (await import('./pages/DoseHistory')).DoseHistory }));
+const InjectionMap = lazy(async () => ({ default: (await import('./pages/InjectionMap')).InjectionMap }));
+const Symptoms = lazy(async () => ({ default: (await import('./pages/Symptoms')).Symptoms }));
+const GoalPicker = lazy(async () => ({ default: (await import('./pages/GoalPicker')).GoalPicker }));
 import { ViewFilterProvider } from './context/ViewFilterContext';
 import { UserFilterChip } from './components/UserFilterChip';
 import { AuthGate } from './components/AuthGate';
@@ -60,6 +64,7 @@ function AppInner({ onboarded, setOnboarded }: { onboarded: boolean; setOnboarde
           <UserFilterChip />
         </header>
         <main className="flex-1 pb-24 overflow-y-auto relative">
+          <Suspense fallback={<div className="p-8" aria-busy="true" />}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
@@ -82,6 +87,7 @@ function AppInner({ onboarded, setOnboarded }: { onboarded: boolean; setOnboarde
             <Route path="/find" element={<GoalPicker />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </main>
         <BottomNav />
       </div>

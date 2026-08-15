@@ -164,6 +164,10 @@ export async function syncNow(): Promise<{ pushed: number; pulled: number; error
     let pushed = 0;
     let pulled = 0;
     const errors: string[] = [];
+    // Read in full on every pass, delta cursor or not: an entry is removed only
+    // once its tombstone has actually been pushed, so a pass that errored leaves
+    // entries stamped older than the cursor which still have to be retried.
+    // Filtering this by the cursor would strand them forever.
     const allDeletions: DeletionRecord[] = await db.getAll('deletions');
     const started = Date.now();
     const delta =
