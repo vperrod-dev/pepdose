@@ -59,6 +59,14 @@ describe('owner filtering', () => {
     expect(unfiltered).toEqual([]);
   });
 
+  it('is applied by the home-screen widget, which this scan cannot reach', () => {
+    // public/widgets/next-dose.html is plain HTML outside src/, so it never
+    // shows up in sourceFiles() — it reads scheduledDoses straight from
+    // IndexedDB and leaked the other profile's next dose.
+    const widget = readFileSync('public/widgets/next-dose.html', 'utf8');
+    expect(widget).toContain('pepdose-view-filter');
+  });
+
   it('covers at least the screens known to read profile-scoped rows', () => {
     // Guards the guard: a rename in db/operations must not quietly turn this
     // into a test that checks nothing.

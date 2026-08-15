@@ -26,7 +26,16 @@
   </div>
   <script>
     // Self-contained widget: reads the same IndexedDB the app uses (no bundler).
-    const DB = 'pepdose', STORE = 'scheduledDoses';
+    const DB = 'pepdose', STORE = 'scheduledDoses', VIEW_FILTER_KEY = 'pepdose-view-filter';
+    // Mirrors ViewFilterContext / notifications.ts: Victor and Nadia share the
+    // device, so the widget must honour the active profile filter or it shows
+    // the other profile's dose on the home screen.
+    function activeOwnerFilter() {
+      try {
+        const raw = localStorage.getItem(VIEW_FILTER_KEY);
+        return raw === 'Victor' || raw === 'Nadia' ? raw : 'all';
+      } catch { return 'all'; }
+    }
     function openDB() {
       return new Promise((res, rej) => {
         const r = indexedDB.open(DB);
@@ -42,7 +51,9 @@
         req.onsuccess = () => {
           const today = new Date().toISOString().slice(0, 10);
           const now = new Date();
+          const owner = activeOwnerFilter();
           const upcoming = req.result
+            .filter(d => owner === 'all' || d.owner === owner)
             .filter(d => d.status === 'upcoming' && (d.date > today || (d.date === today && d.time >= '00:00')))
             .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
           res(upcoming[0] || null);
