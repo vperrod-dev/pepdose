@@ -91,7 +91,7 @@ export function Calendar() {
   // so the month grid can show a visual "off" indicator on those days.
   const breakByDate = useMemo(() => {
     const map = new Map<string, string>(); // dateKey -> break reason
-    for (const proto of protocolsById.values()) {
+    for (const proto of filterByOwner([...protocolsById.values()], filter)) {
       // The map now holds every protocol so rows can be named; only a running
       // protocol's break weeks should hatch the grid.
       if (proto.status !== 'active') continue;
@@ -109,7 +109,7 @@ export function Calendar() {
       }
     }
     return map;
-  }, [protocolsById]);
+  }, [protocolsById, filter]);
 
   const adhocByDate = useMemo(() => {
     const map = new Map<string, DoseLog[]>();
