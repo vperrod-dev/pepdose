@@ -41,7 +41,6 @@ export function Dashboard() {
   const [adhocLogs, setAdhocLogs] = useState<DoseLog[]>([]);
   const [viewAdhocLog, setViewAdhocLog] = useState<DoseLog | null>(null);
   const [loading, setLoading] = useState(true);
-  const [coach, setCoach] = useState<NextStep | null>(null);
   const [allScheduled, setAllScheduled] = useState<ScheduledDose[]>([]);
   const [activeDose, setActiveDose] = useState<DashboardDose | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -89,14 +88,6 @@ export function Dashboard() {
     (async () => {
       const active = await getProtocols('active');
       const allDoses = (await Promise.all(active.map(p => getScheduledDosesForProtocol(p.id)))).flat();
-      // Titration alerts are opt-in per protocol (UserProtocol.titrationAlerts).
-      // Only doses from a protocol that asked for them can raise the coach card.
-      const alerting = new Set(active.filter(p => p.titrationAlerts).map(p => p.id));
-      setCoach(
-        alerting.size
-          ? nextTitrationStep(allDoses.filter(d => alerting.has(d.protocolId)), new Date())
-          : null,
-      );
       setAllScheduled(allDoses);
     })();
   }, [reloadKey]);
@@ -106,6 +97,18 @@ export function Dashboard() {
     () => adherenceStats(applyOwnerFilter(allScheduled)),
     [applyOwnerFilter, allScheduled],
   );
+  // Titration alerts are opt-in per protocol (UserProtocol.titrationAlerts).
+  // Only owner-visible doses from a protocol that asked for them can raise the coach card.
+  const coach = useMemo<NextStep | null>(() => {
+    const alerting = new Set(
+      applyOwnerFilter(protocols).filter(p => p.titrationAlerts).map(p => p.id),
+    );
+    if (!alerting.size) return null;
+    return nextTitrationStep(
+      applyOwnerFilter(allScheduled).filter(d => alerting.has(d.protocolId)),
+      new Date(),
+    );
+  }, [applyOwnerFilter, protocols, allScheduled]);
   const visibleDoses = applyOwnerFilter(todayDoses);
   const visibleProtocols = applyOwnerFilter(protocols);
   // Protocols that opted into titration alerts — nothing announces a step-up
