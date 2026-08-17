@@ -53,11 +53,16 @@ export function VialInventory() {
   const load = useCallback(async () => {
     const list = await getVials();
     setVials(list);
+    const entries = await Promise.all(
+      list.filter(v => v.status === 'active').map(async (v) => {
+        const plogs = await getDoseLogsForPeptide(v.peptideId);
+        const d = predictEmptyDate(v.dosesRemaining, plogs.map(l => l.date), new Date());
+        return [v.id, d] as const;
+      })
+    );
     const map: Record<string, string> = {};
-    for (const v of list.filter(v => v.status === 'active')) {
-      const plogs = await getDoseLogsForPeptide(v.peptideId);
-      const d = predictEmptyDate(v.dosesRemaining, plogs.map(l => l.date), new Date());
-      if (d) map[v.id] = d;
+    for (const [id, d] of entries) {
+      if (d) map[id] = d;
     }
     setEmptyDates(map);
   }, []);
