@@ -1,0 +1,133 @@
+// @vitest-environment jsdom
+// Two-owner render tests: each screen gets rows for both profiles and is
+// rendered as Victor; nothing of Nadia's may reach the DOM.
+//
+// db/ownerFilterWiring.test.ts only checks that a file uses the owner filter
+// somewhere. All three shipped leaks (titration coach, calendar break hatch,
+// journey health markers) lived in files that already filtered a sibling read,
+// so that guard passed while the leak shipped. These tests catch that class:
+// a new unfiltered read on one of these screens fails here regardless of what
+// the rest of the file does.
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
+import { format, startOfWeek } from 'date-fns';
+import { ViewFilterProvider } from '../context/ViewFilterContext';
+import { Dashboard } from './Dashboard';
+import { Calendar } from './Calendar';
+import { Protocols } from './Protocols';
+import type { UserProtocol, ScheduledDose, HealthMarker } from '../db/schema';
+
+const ops = vi.hoisted(() => ({
+  getProtocols: vi.fn(async () => [] as UserProtocol[]),
+  getProtocol: vi.fn(async () => undefined as UserProtocol | undefined),
+  getScheduledDosesForProtocol: vi.fn(async () => [] as ScheduledDose[]),
+  getScheduledDosesForDate: vi.fn(async () => [] as ScheduledDose[]),
+  getScheduledDosesInRange: vi.fn(async () => [] as ScheduledDose[]),
+  getDoseLogsForDate: vi.fn(async () => []),
+  getDoseLogsInRange: vi.fn(async () => []),
+  getDoseLogsForProtocol: vi.fn(async () => []),
+  getDoseLogsForPeptide: vi.fn(async () => []),
+  getHealthMarkers: vi.fn(async () => [] as HealthMarker[]),
+  getAllDoseLogs: vi.fn(async () => []),
+  updateProtocol: vi.fn(async () => {}),
+  deleteProtocol: vi.fn(async () => {}),
+  deleteUpcomingDosesFrom: vi.fn(async () => {}),
+  saveScheduledDoses: vi.fn(async () => {}),
+  logDose: vi.fn(async () => ({})),
+}));
+
+vi.mock('../db/operations', () => ops);
+vi.mock('../utils/notifications', () => ({ scheduleReminders: async () => {} }));
+vi.mock('react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useLocation: () => ({ state: null }),
+}));
+
+const TODAY = format(new Date(), 'yyyy-MM-dd');
+const WEEK_START = format(startOfWeek(new Date()), 'yyyy-MM-dd');
+
+const protocol = (over: Partial<UserProtocol>): UserProtocol => ({
+  id: 'p1',
+  name: 'Healing',
+  peptideIds: ['bpc-157'],
+  doses: [{
+    peptideId: 'bpc-157', dose: 250, unit: 'mcg', frequency: 'daily',
+    timesPerDay: 1, timeOfDay: 'morning', durationWeeks: 4,
+  }],
+  startDate: WEEK_START,
+  durationWeeks: 4,
+  status: 'active',
+  owner: 'Victor',
+  createdAt: `${TODAY}T00:00:00.000Z`,
+  ...over,
+} as UserProtocol);
+
+const stepUp = (protocolId: string, owner: 'Victor' | 'Nadia'): ScheduledDose => ({
+  id: `d-${protocolId}`, protocolId, peptideId: 'bpc-157', date: TODAY, time: '08:00',
+  dose: 500, unit: 'mcg', status: 'upcoming', weekNumber: 2, isTitrationStepUp: true,
+  owner, createdAt: `${TODAY}T00:00:00.000Z`,
+} as ScheduledDose);
+
+async function renderAsVictor(ui: React.ReactElement) {
+  let result!: ReturnType<typeof render>;
+  await act(async () => { result = render(<ViewFilterProvider>{ui}</ViewFilterProvider>); });
+  return result;
+}
+
+beforeEach(() => {
+  Object.values(ops).forEach(fn => fn.mockClear());
+  localStorage.setItem('pepdose-view-filter', 'Victor');
+});
+afterEach(cleanup);
+
+describe('viewing as Victor never shows Nadia data', () => {
+  it('Dashboard: titration coach ignores the other profile\'s step-up', async () => {
+    const nadia = protocol({ id: 'pn', owner: 'Nadia', titrationAlerts: true });
+    ops.getProtocols.mockResolvedValue([nadia]);
+    ops.getScheduledDosesForProtocol.mockResolvedValue([stepUp('pn', 'Nadia')]);
+    await renderAsVictor(<Dashboard />);
+    expect(screen.queryByText('Titration coach')).toBeNull();
+  });
+
+  it('Dashboard: titration coach still shows the active profile\'s step-up', async () => {
+    const victor = protocol({ id: 'pv', owner: 'Victor', titrationAlerts: true });
+    ops.getProtocols.mockResolvedValue([victor]);
+    ops.getScheduledDosesForProtocol.mockResolvedValue([stepUp('pv', 'Victor')]);
+    await renderAsVictor(<Dashboard />);
+    expect(screen.getByText('Titration coach')).toBeTruthy();
+  });
+
+  it('Calendar: break-week hatch ignores the other profile\'s break', async () => {
+    const nadia = protocol({ id: 'pn', owner: 'Nadia', breaks: [{ weekStart: 1, weekEnd: 1, reason: 'NADIA-BREAK' }] });
+    ops.getProtocols.mockResolvedValue([nadia]);
+    const { container } = await renderAsVictor(<Calendar />);
+    expect(container.querySelector('[title="NADIA-BREAK"]')).toBeNull();
+  });
+
+  it('Calendar: break-week hatch still shows the active profile\'s break', async () => {
+    const victor = protocol({ id: 'pv', owner: 'Victor', breaks: [{ weekStart: 1, weekEnd: 1, reason: 'VICTOR-BREAK' }] });
+    ops.getProtocols.mockResolvedValue([victor]);
+    const { container } = await renderAsVictor(<Calendar />);
+    expect(container.querySelector('[title="VICTOR-BREAK"]')).not.toBeNull();
+  });
+
+  it('Protocols: journey sheet ignores the other profile\'s health markers', async () => {
+    const victor = protocol({ id: 'pv', owner: 'Victor' });
+    ops.getProtocols.mockResolvedValue([victor]);
+    ops.getProtocol.mockResolvedValue(victor);
+    ops.getHealthMarkers.mockResolvedValue([{ id: 'm1', date: TODAY, weight: 70, owner: 'Nadia' } as HealthMarker]);
+    await renderAsVictor(<Protocols />);
+    await act(async () => { fireEvent.click(screen.getByText('Healing')); });
+    expect(screen.queryByText('Weight')).toBeNull();
+  });
+
+  it('Protocols: journey sheet still charts the active profile\'s health markers', async () => {
+    const victor = protocol({ id: 'pv', owner: 'Victor' });
+    ops.getProtocols.mockResolvedValue([victor]);
+    ops.getProtocol.mockResolvedValue(victor);
+    ops.getHealthMarkers.mockResolvedValue([{ id: 'm1', date: TODAY, weight: 70, owner: 'Victor' } as HealthMarker]);
+    await renderAsVictor(<Protocols />);
+    await act(async () => { fireEvent.click(screen.getByText('Healing')); });
+    expect(screen.getByText('Weight')).toBeTruthy();
+  });
+});

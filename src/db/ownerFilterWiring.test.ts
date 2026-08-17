@@ -10,6 +10,11 @@
 // So the guard lives here: if a screen reads a collection whose rows carry an
 // `owner`, it has to filter by owner (or say why not). Reads the sources as
 // text on purpose — importing the pages would drag in IndexedDB and the router.
+//
+// This is a whole-file check: it cannot tell which read the filter is applied
+// to, and three leaks shipped from files that filtered a sibling read. The
+// per-screen behaviour check is src/pages/ownerIsolation.test.tsx, which
+// renders Dashboard, Calendar and Protocols with rows for both profiles.
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
