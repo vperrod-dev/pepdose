@@ -45,10 +45,22 @@ grep -q "base: '/pepdose/'" vite.config.ts || {
   echo "WARNING: vite base is no longer '/pepdose/' — assets will 404 behind Caddy" >&2
 }
 
+# A changed sw.js only reaches installed clients if CACHE_NAME also changed
+# (commit 079c697: a fix shipped but never replaced the cached shell). Compare
+# against the copy currently deployed, since deploys are not 1:1 with commits.
+SW_WARN=""
+if [[ -r "$TARGET/sw.js" ]] && ! cmp -s "$TARGET/sw.js" dist/sw.js; then
+  old_cache=$(grep -m1 '^const CACHE_NAME' "$TARGET/sw.js" || true)
+  new_cache=$(grep -m1 '^const CACHE_NAME' dist/sw.js || true)
+  [[ "$old_cache" == "$new_cache" ]] && SW_WARN=1
+fi
+
 echo "==> deploy to $TARGET"
 sudo /usr/bin/rsync -a --delete --chown=caddy:caddy dist/ "$TARGET/"
 
 echo
 echo "Deployed: https://claude-dev-vperrod.westeurope.cloudapp.azure.com/pepdose/"
-echo "Note: sw.js CACHE_NAME is unchanged, so returning clients may serve cached"
-echo "      shell until the service worker updates. Hard-reload to verify."
+if [[ -n "$SW_WARN" ]]; then
+  echo "WARNING: public/sw.js changed but CACHE_NAME did not — installed clients" >&2
+  echo "         will keep the old service worker/shell. Bump CACHE_NAME and redeploy." >&2
+fi
