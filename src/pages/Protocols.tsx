@@ -150,7 +150,7 @@ export function Protocols() {
         l.date >= proto.startDate,
       ));
       const markers = await getHealthMarkers(proto.startDate, format(new Date(), 'yyyy-MM-dd'));
-      setJourneyMarkers(markers);
+      setJourneyMarkers(markers.filter(m => m.owner === proto.owner));
     }
   }
 
