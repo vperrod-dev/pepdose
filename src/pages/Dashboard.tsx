@@ -249,7 +249,7 @@ export function Dashboard() {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-text-muted uppercase tracking-wider font-medium">Titration coach</p>
               <p className="text-sm font-medium">
-                Week {coach.weekNumber} — {getPeptideById(coach.peptideId)?.name ?? coach.peptideId}: step up to {coach.dose} {coach.unit}
+                Week {coach.weekNumber} — {getPeptideById(coach.peptideId)?.name ?? coach.peptideId}: your plan shows {coach.dose} {coach.unit}
               </p>
             </div>
             <p className="text-xs text-text-muted shrink-0">{format(parseISO(coach.date), 'EEE MMM d')}</p>
