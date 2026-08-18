@@ -22,6 +22,7 @@ import { join } from 'node:path';
 // db/operations helpers that return rows carrying an `owner` field.
 const OWNER_BEARING_READS = [
   'getAllDoseLogs',
+  'getDoseLogsSince',
   'getProtocols',
   'getScheduledDosesForDate',
   'getScheduledDosesInRange',

@@ -257,6 +257,12 @@ export async function getDoseLogsInRange(startDate: string, endDate: string): Pr
   return db.getAllFromIndex('doseLogs', 'by-date', IDBKeyRange.bound(startDate, endDate));
 }
 
+export async function getDoseLogsSince(days: number): Promise<DoseLog[]> {
+  const db = await getDB();
+  const startDate = format(new Date(Date.now() - days * 86_400_000), 'yyyy-MM-dd');
+  return db.getAllFromIndex('doseLogs', 'by-date', IDBKeyRange.lowerBound(startDate));
+}
+
 export async function deleteDoseLog(id: string): Promise<void> {
   const db = await getDB();
   const log = await db.get('doseLogs', id);

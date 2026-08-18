@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceDot,
 } from 'recharts';
-import { getAllDoseLogs, getScheduledDosesInRange } from '../db/operations';
+import { getDoseLogsSince, getScheduledDosesInRange } from '../db/operations';
 import { getPeptideById } from '../data/peptides';
 import type { DoseLog, ScheduledDose } from '../db/schema';
 import {
@@ -30,6 +30,8 @@ const WINDOWS = [
 
 const CHART_POINTS = 220;
 const PROJECT_MAX_HOURS = 10 * 24; // cap the forward projection
+// 30d max window + 10 half-lives of the longest-acting peptide (216h) ≈ 120d
+const DOSE_LOG_LOOKBACK_DAYS = 120;
 
 function eventTs(date: string, time: string): number {
   return new Date(`${date}T${time || '08:00'}`).getTime();
@@ -52,7 +54,7 @@ export function HalfLife() {
   useEffect(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const end = format(new Date(Date.now() + PROJECT_MAX_HOURS * 3_600_000), 'yyyy-MM-dd');
-    Promise.all([getAllDoseLogs(), getScheduledDosesInRange(today, end)]).then(([l, s]) => {
+    Promise.all([getDoseLogsSince(DOSE_LOG_LOOKBACK_DAYS), getScheduledDosesInRange(today, end)]).then(([l, s]) => {
       setLogs(l);
       setScheduled(s.filter(d => d.status === 'upcoming'));
       setLoading(false);
