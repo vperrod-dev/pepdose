@@ -12,6 +12,7 @@ import { generateSchedule, summarizePhases, phasesTotalWeeks } from '../utils/sc
 import { saveProtocol, saveScheduledDoses } from '../db/operations';
 import { UserPicker } from '../components/UserPicker';
 import { DecimalInput } from '../components/DecimalInput';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import { ReconMixFields } from '../components/ReconMixFields';
 import { PenColorField } from '../components/PenColorField';
 import { WeekdayPicker } from '../components/WeekdayPicker';
@@ -781,6 +782,7 @@ export function NewProtocol() {
           </p>
         </div>
       )}
+      <DisclaimerFooter />
     </div>
   );
 }

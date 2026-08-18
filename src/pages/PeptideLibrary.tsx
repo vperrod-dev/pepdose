@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronUp, Clock, Syringe } from 'lucide-react';
 import { PEPTIDES, CATEGORY_LABELS } from '../data/peptides';
 import type { Peptide, PeptideCategory } from '../data/peptides';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -233,6 +234,7 @@ export function PeptideLibrary() {
           </div>
         ))
       )}
+      <DisclaimerFooter />
     </div>
   );
 }

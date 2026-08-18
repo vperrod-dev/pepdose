@@ -11,6 +11,7 @@ import {
   sampleLevels, currentStatus, type PeptideSeries, type DoseEvent,
 } from '../utils/activeLevels';
 import { useOwnerFilter } from '../context/ViewFilterContext';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -299,6 +300,7 @@ export function HalfLife() {
           </div>
         ))}
       </div>
+      <DisclaimerFooter />
     </div>
   );
 }

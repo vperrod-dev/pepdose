@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { Calculator, Droplets, ChevronDown } from 'lucide-react';
 import { PEPTIDES } from '../data/peptides';
 import { mgToIu } from '../utils/iuConvert';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 import {
   blendBreakdown,
   computeRecon,
@@ -364,6 +365,7 @@ export function ReconCalculator() {
         </div>
         <p className="text-sm mt-3 font-mono text-primary">= {iuResult.toFixed(2)} IU</p>
       </div>
+      <DisclaimerFooter />
     </div>
   );
 }

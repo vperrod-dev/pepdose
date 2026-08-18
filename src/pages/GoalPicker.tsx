@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { ChevronLeft, Sparkles, ArrowRight } from 'lucide-react';
 import { CATEGORY_LABELS, getPeptideById, type PeptideCategory } from '../data/peptides';
 import { peptidesForGoal, synergyStacksFor } from '../utils/goalPicker';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 const GOALS = Object.entries(CATEGORY_LABELS) as [PeptideCategory, string][];
 
@@ -71,6 +72,7 @@ export function GoalPicker() {
           )}
         </div>
       )}
+      <DisclaimerFooter />
     </div>
   );
 }

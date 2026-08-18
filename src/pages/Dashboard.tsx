@@ -14,6 +14,7 @@ import { clicksForDose, formatClicks, penMlPerClick } from '../utils/penClicks';
 import { withoutInactiveUpcoming } from '../utils/doseVisibility';
 import { UserBadge } from '../components/UserBadge';
 import { useOwnerFilter } from '../context/ViewFilterContext';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 interface DashboardDose extends ScheduledDose {
   peptideName: string;
@@ -380,6 +381,8 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {coach && <DisclaimerFooter />}
 
       {viewAdhocLog && (
         <AdhocLogSheet

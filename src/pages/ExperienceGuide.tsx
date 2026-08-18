@@ -7,6 +7,7 @@ import { getExperienceForPeptide, EXPERIENCE_DATA, type PeptideExperience, type 
 import { getPeptideById, PEPTIDES } from '../data/peptides';
 import type { UserProtocol } from '../db/schema';
 import { useOwnerFilter } from '../context/ViewFilterContext';
+import { DisclaimerFooter } from '../components/DisclaimerFooter';
 
 const CATEGORY_COLORS: Record<string, string> = {
   healing: '#22c55e',
@@ -377,6 +378,7 @@ export function ExperienceGuide() {
           )}
         </div>
       )}
+      <DisclaimerFooter />
     </div>
   );
 }

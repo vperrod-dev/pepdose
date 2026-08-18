@@ -21,7 +21,8 @@ const today = format(new Date(), 'yyyy-MM-dd');
 
 const activeProtocol: UserProtocol = {
   id: 'p1', name: 'Healing', peptideIds: ['bpc-157'], doses: [], startDate: today,
-  durationWeeks: 4, status: 'active', owner: 'Victor', createdAt: `${today}T00:00:00.000Z`,
+  durationWeeks: 4, status: 'active', owner: 'Victor',
+  createdAt: `${today}T00:00:00.000Z`, updatedAt: `${today}T00:00:00.000Z`,
 } as UserProtocol;
 
 const dose = (over: Partial<ScheduledDose>): ScheduledDose => ({
