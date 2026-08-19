@@ -15,7 +15,9 @@ import { ViewFilterProvider } from '../context/ViewFilterContext';
 import { Dashboard } from './Dashboard';
 import { Calendar } from './Calendar';
 import { Protocols } from './Protocols';
-import type { UserProtocol, ScheduledDose, HealthMarker } from '../db/schema';
+import { HalfLife } from './HalfLife';
+import { InjectionMap } from './InjectionMap';
+import type { UserProtocol, ScheduledDose, HealthMarker, DoseLog } from '../db/schema';
 
 const ops = vi.hoisted(() => ({
   getProtocols: vi.fn(async () => [] as UserProtocol[]),
@@ -29,6 +31,7 @@ const ops = vi.hoisted(() => ({
   getDoseLogsForPeptide: vi.fn(async () => []),
   getHealthMarkers: vi.fn(async () => [] as HealthMarker[]),
   getAllDoseLogs: vi.fn(async () => []),
+  getDoseLogsSince: vi.fn(async () => [] as DoseLog[]),
   updateProtocol: vi.fn(async () => {}),
   deleteProtocol: vi.fn(async () => {}),
   deleteUpcomingDosesFrom: vi.fn(async () => {}),
@@ -67,6 +70,11 @@ const stepUp = (protocolId: string, owner: 'Victor' | 'Nadia'): ScheduledDose =>
   dose: 500, unit: 'mcg', status: 'upcoming', weekNumber: 2, isTitrationStepUp: true,
   owner, createdAt: `${TODAY}T00:00:00.000Z`,
 } as ScheduledDose);
+
+const doseLog = (owner: 'Victor' | 'Nadia'): DoseLog => ({
+  id: `l-${owner}`, protocolId: `p-${owner}`, peptideId: 'bpc-157', date: TODAY, time: '08:00',
+  dose: 250, unit: 'mcg', injectionSite: 'Left abdomen', owner, createdAt: `${TODAY}T08:00:00.000Z`,
+} as DoseLog);
 
 async function renderAsVictor(ui: React.ReactElement) {
   let result!: ReturnType<typeof render>;
@@ -129,5 +137,29 @@ describe('viewing as Victor never shows Nadia data', () => {
     await renderAsVictor(<Protocols />);
     await act(async () => { fireEvent.click(screen.getByText('Healing')); });
     expect(screen.getByText('Weight')).toBeTruthy();
+  });
+
+  it('HalfLife: active-levels chart ignores the other profile\'s logged doses', async () => {
+    ops.getDoseLogsSince.mockResolvedValue([doseLog('Nadia')]);
+    await renderAsVictor(<HalfLife />);
+    expect(screen.queryByText('BPC-157')).toBeNull();
+  });
+
+  it('HalfLife: active-levels chart still shows the active profile\'s logged doses', async () => {
+    ops.getDoseLogsSince.mockResolvedValue([doseLog('Victor')]);
+    await renderAsVictor(<HalfLife />);
+    expect(screen.getAllByText('BPC-157').length).toBeGreaterThan(0);
+  });
+
+  it('InjectionMap: site stats ignore the other profile\'s injections', async () => {
+    ops.getDoseLogsSince.mockResolvedValue([doseLog('Nadia')]);
+    await renderAsVictor(<InjectionMap />);
+    expect(screen.queryByText('Left abdomen')).toBeNull();
+  });
+
+  it('InjectionMap: site stats still count the active profile\'s injections', async () => {
+    ops.getDoseLogsSince.mockResolvedValue([doseLog('Victor')]);
+    await renderAsVictor(<InjectionMap />);
+    expect(screen.getByText('Left abdomen')).toBeTruthy();
   });
 });
