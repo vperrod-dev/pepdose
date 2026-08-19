@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
-import { getAllDoseLogs } from '../db/operations';
+import { getDoseLogsSince } from '../db/operations';
 import { zoneStats, daysSinceByLabel, type ZoneStat } from '../utils/injectionStats';
 import { INJECTION_SITES } from '../data/injectionSites';
 import { BodyMapSVG } from '../components/BodyMapSVG';
@@ -16,7 +16,8 @@ export function InjectionMap() {
   const [windowDays, setWindowDays] = useState(90);
   const applyOwnerFilter = useOwnerFilter();
 
-  useEffect(() => { getAllDoseLogs().then(setAllLogs); }, []);
+  // Widest window offered is 90d; a site unused for longer just reads as fully rested.
+  useEffect(() => { getDoseLogsSince(90).then(setAllLogs); }, []);
 
   const logs = applyOwnerFilter(allLogs);
   const today = new Date();
